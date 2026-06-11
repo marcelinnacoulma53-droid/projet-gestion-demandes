@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>EduRequest — Détail demande</title>
+  <link rel="stylesheet" href="../../assets/css/main.css"/>
+  <link rel="stylesheet" href="../../assets/css/components.css"/>
+</head>
+<body class="dashboard-body">
+  <nav class="navbar">
+    <div class="navbar-brand">🎓 EduRequest</div>
+    <div class="navbar-user">
+      <span>👤 Étudiant</span>
+      <a href="../auth/login.html" class="btn-logout">Déconnexion</a>
+    </div>
+  </nav>
+  <div class="dashboard-layout">
+    <aside class="sidebar">
+      <ul>
+        <li onclick="location.href='../dashboard/etudiant.html'">🏠 Tableau de bord</li>
+        <li class="active">📋 Mes demandes</li>
+        <li onclick="location.href='nouvelle.html'">➕ Nouvelle demande</li>
+      </ul>
+    </aside>
+    <main class="main-content">
+      <div class="section-card" style="max-width:680px; margin:0 auto;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px;">
+          <h2>📋 Détail de la demande</h2>
+          <span class="badge yellow" style="font-size:14px; padding:6px 16px;">🟡 En attente</span>
+        </div>
+
+        <!-- INFOS -->
+        <div class="fiche-section">
+          <label class="section-label">Informations générales</label>
+          <div class="detail-row"><span>N° demande :</span><strong>#001</strong></div>
+          <div class="detail-row"><span>Type :</span><strong>Réclamation de note</strong></div>
+          <div class="detail-row"><span>Date soumission :</span><strong>10/06/2026</strong></div>
+          <div class="detail-row"><span>Étudiant :</span><strong>Koné Mamadou</strong></div>
+          <div class="detail-row"><span>Matricule :</span><strong>2024INF001</strong></div>
+          <div class="detail-row"><span>Filière :</span><strong>Informatique — L2 — S3</strong></div>
+        </div>
+
+        <!-- CONTENU -->
+        <div class="fiche-section">
+          <label class="section-label">Contenu de la demande</label>
+          <div class="detail-row"><span>Matière :</span><strong>Mathématiques</strong></div>
+          <div class="detail-row"><span>Enseignant :</span><strong>M. Traoré</strong></div>
+          <div class="detail-row"><span>Note obtenue :</span><strong>08/20</strong></div>
+          <div class="detail-row"><span>Motif :</span><strong>Comptabilité des notes sur la copie</strong></div>
+          <div class="detail-row" style="flex-direction:column; align-items:flex-start;">
+            <span>Description :</span>
+            <p style="margin-top:6px; color:#444; font-size:13px; line-height:1.6;">
+              J'ai remarqué une erreur dans le calcul de ma note finale. La somme des points sur ma copie donne 12/20 mais la note reportée est 08/20. Je demande une vérification.
+            </p>
+          </div>
+          <div class="detail-row">
+            <span>Copie jointe :</span>
+            <a href="#" style="color:#1a237e; font-weight:600; font-size:13px;">📄 copie_maths.pdf</a>
+          </div>
+        </div>
+
+        <!-- HISTORIQUE WORKFLOW -->
+        <div class="fiche-section">
+          <label class="section-label">📌 Suivi du traitement</label>
+          <div class="timeline">
+            <div class="timeline-item done">
+              <div class="timeline-dot green"></div>
+              <div class="timeline-content">
+                <strong>Demande soumise</strong>
+                <span>10/06/2026 — par l'étudiant</span>
+              </div>
+            </div>
+            <div class="timeline-item done">
+              <div class="timeline-dot green"></div>
+              <div class="timeline-content">
+                <strong>Reçue par la Secrétaire</strong>
+                <span>10/06/2026 — En cours d'examen</span>
+              </div>
+            </div>
+            <div class="timeline-item current">
+              <div class="timeline-dot yellow"></div>
+              <div class="timeline-content">
+                <strong>Examen par le SP</strong>
+                <span>En attente de traitement</span>
+              </div>
+            </div>
+            <div class="timeline-item pending">
+              <div class="timeline-dot grey"></div>
+              <div class="timeline-content">
+                <strong>Décision DA</strong>
+                <span>En attente</span>
+              </div>
+            </div>
+            <div class="timeline-item pending">
+              <div class="timeline-dot grey"></div>
+              <div class="timeline-content">
+                <strong>Validation finale</strong>
+                <span>En attente</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-top:16px;">
+          <button class="btn-retour" onclick="location.href='../dashboard/etudiant.html'">← Retour au tableau de bord</button>
+        </div>
+      </div>
+    </main>
+  </div>
+</body>
+</html>
