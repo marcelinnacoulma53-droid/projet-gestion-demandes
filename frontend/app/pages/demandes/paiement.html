@@ -35,7 +35,8 @@
           <div class="frais-recap">
             <div class="frais-recap-row"><span>Type</span><strong>Documents académiques</strong></div>
             <div class="frais-recap-row"><span>Étudiant</span><strong>Koné Mamadou</strong></div>
-            <div class="frais-recap-row total"><span>Montant</span><strong>10 000 FCFA</strong></div>
+            <div class="frais-recap-row"><span>Documents</span><strong><span id="nb-docs-display">1 document(s) x 10 000 FCFA</span></strong></div>
+            <div class="frais-recap-row total"><span>Montant</span><strong><span class="montant-display">10 000 FCFA</span></strong></div>
           </div>
           <p style="font-size:13px; color:#555; margin-bottom:14px;">Choisissez votre mode de paiement :</p>
           <div style="display:flex; flex-direction:column; gap:12px;">
@@ -63,7 +64,7 @@
           <div class="om-header">
             <img src="../../assets/images/logo-om.png" alt="Orange Money" style="width:80px; object-fit:contain; margin-bottom:8px;"/>
             <h2 style="color:#e65100;">Orange Money</h2>
-            <p style="color:#888; font-size:13px;">Paiement sécurisé — 10 000 FCFA</p>
+            <p style="color:#888; font-size:13px;">Paiement sécurisé — <span class="montant-display">10 000 FCFA</span></p>
           </div>
 
           <!-- ETAPE A : COMPOSER LE CODE -->
@@ -72,7 +73,7 @@
             <div>
               <p class="etape-label">Composez ce code sur votre téléphone Orange :</p>
               <div class="ussd-code" onclick="copierCode()">
-                *144*4*6*10100#
+                <span class="ussd-display">*144*4*6*10100#</span>
                 <span class="copier-btn" id="copierTxt">📋 Copier</span>
               </div>
               <p style="font-size:11px; color:#888; margin-top:6px;">Cliquez sur le code pour copier</p>
@@ -134,13 +135,13 @@
           <div style="font-size:64px;">✅</div>
           <h3 style="color:#2e7d32; margin:16px 0 8px;">Paiement confirmé !</h3>
           <p style="color:#666; font-size:13px; margin-bottom:20px;">
-            Votre paiement de <strong>10 000 FCFA</strong> a été effectué avec succès.
+            Votre paiement de <strong><span class="montant-display">10 000 FCFA</span></strong> a été effectué avec succès.
           </p>
           <div class="recu-box">
             <p>🧾 Reçu de paiement</p>
             <div class="frais-recap-row"><span>Référence</span><strong id="refPaiement">#OM20260612001</strong></div>
             <div class="frais-recap-row"><span>Date</span><strong>12/06/2026</strong></div>
-            <div class="frais-recap-row"><span>Montant</span><strong>10 000 FCFA</strong></div>
+            <div class="frais-recap-row"><span>Montant</span><strong><span class="montant-display">10 000 FCFA</span></strong></div>
             <div class="frais-recap-row"><span>Statut</span><strong style="color:#2e7d32;">✅ Payé</strong></div>
           </div>
           <a href="../dashboard/etudiant.html" class="btn-envoyer"
@@ -154,13 +155,13 @@
           <div style="font-size:48px;">🏫</div>
           <h3 style="color:#1a237e; margin:16px 0 8px;">Paiement à la scolarité</h3>
           <p style="color:#666; font-size:13px; margin-bottom:20px; line-height:1.6;">
-            Présentez-vous au bureau de la <strong>scolarité de l'ESI</strong> avec ce bon pour effectuer votre paiement de <strong>10 000 FCFA</strong>.
+            Présentez-vous au bureau de la <strong>scolarité de l'ESI</strong> avec ce bon pour effectuer votre paiement de <strong><span class="montant-display">10 000 FCFA</span></strong>.
           </p>
           <div class="recu-box">
             <p>📋 Bon de demande</p>
             <div class="frais-recap-row"><span>Référence</span><strong>#ESI20260612001</strong></div>
             <div class="frais-recap-row"><span>Date limite</span><strong>19/06/2026</strong></div>
-            <div class="frais-recap-row"><span>Montant</span><strong>10 000 FCFA</strong></div>
+            <div class="frais-recap-row"><span>Montant</span><strong><span class="montant-display">10 000 FCFA</span></strong></div>
           </div>
           <a href="../dashboard/etudiant.html" class="btn-envoyer"
             style="text-decoration:none; display:inline-block; margin-top:20px;">
@@ -173,6 +174,26 @@
   </div>
 
   <script>
+    // Lire montant et docs depuis URL
+    const urlP = new URLSearchParams(window.location.search);
+    const montant = parseInt(urlP.get('montant')) || 10000;
+    const docs = parseInt(urlP.get('docs')) || 1;
+    const ussdCode = '*144*4*6*' + montant + '#';
+
+    window.addEventListener('DOMContentLoaded', () => {
+      // Mettre à jour tous les montants
+      document.querySelectorAll('.montant-display').forEach(el => {
+        el.textContent = montant.toLocaleString('fr-FR') + ' FCFA';
+      });
+      // Mettre à jour le code USSD
+      document.querySelectorAll('.ussd-display').forEach(el => {
+        el.textContent = ussdCode;
+      });
+      // Mettre à jour nb docs
+      const docsEl = document.getElementById('nb-docs-display');
+      if (docsEl) docsEl.textContent = docs + ' document(s) x <span class="montant-display">10 000 FCFA</span>';
+    });
+
     function afficherOM() {
       document.getElementById('etape-choix').style.display = 'none';
       document.getElementById('etape-ussd').style.display = 'block';
@@ -186,7 +207,7 @@
       document.getElementById('etape-choix').style.display = 'block';
     }
     function copierCode() {
-      navigator.clipboard.writeText('*144*4*6*10100#');
+      navigator.clipboard.writeText(ussdCode);
       document.getElementById('copierTxt').textContent = '✅ Copié !';
       setTimeout(() => document.getElementById('copierTxt').textContent = '📋 Copier', 2000);
     }
@@ -204,8 +225,8 @@
       setTimeout(() => {
         document.getElementById('etape-loading').style.display = 'none';
         document.getElementById('etape-succes').style.display = 'block';
-        document.getElementById('refPaiement').textContent =
-          '#OM' + Date.now().toString().slice(-8);
+        document.getElementById('refPaiement').textContent = '#OM' + Date.now().toString().slice(-8);
+        document.getElementById('montant-recu').textContent = montant.toLocaleString('fr-FR') + ' FCFA';
       }, 3000);
     }
   </script>

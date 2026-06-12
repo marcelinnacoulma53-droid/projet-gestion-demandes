@@ -316,18 +316,22 @@
           </div>
 
           <div class="fiche-section">
-            <label class="section-label">Documents demandés</label>
+            <label class="section-label">Document demandé</label>
             <div class="checkbox-group">
-              <label><input type="checkbox"/> Relevés de notes</label>
-              <label><input type="checkbox"/> Certificat de scolarité</label>
-              <label><input type="checkbox"/> Attestation provisoire</label>
-              <label><input type="checkbox"/> Attestation de niveau</label>
-              <label><input type="checkbox"/> Correction (préciser la correction)</label>
-              <label><input type="checkbox"/> Autres (à préciser)</label>
+              <label><input type="radio" name="doc-duplicata"/> Relevés de notes</label>
+              <label><input type="radio" name="doc-duplicata"/> Certificat de scolarité</label>
+              <label><input type="radio" name="doc-duplicata"/> Attestation provisoire</label>
+              <label><input type="radio" name="doc-duplicata"/> Attestation de niveau</label>
+              <label><input type="radio" name="doc-duplicata"/> Correction (préciser la correction)</label>
+              <label><input type="radio" name="doc-duplicata"/> Autres (à préciser)</label>
             </div>
             <div class="form-group" style="margin-top:10px;">
               <input type="text" placeholder="Précisez si autre document..."/>
             </div>
+          </div>
+
+          <div class="frais-banner">
+            💰 Frais de traitement : <strong>10 000 FCFA</strong>
           </div>
 
           <div class="fiche-section">
@@ -355,6 +359,20 @@
               <option>Attestation de réussite</option>
             </select>
           </div>
+          <div class="form-group">
+            <label>Nombre d'exemplaires <span style="color:#888; font-size:12px;">(3 maximum)</span></label>
+            <div style="display:flex; gap:12px;">
+              <label style="display:flex; align-items:center; gap:6px; cursor:pointer;">
+                <input type="radio" name="exemplaires" value="1" checked/> 1 exemplaire
+              </label>
+              <label style="display:flex; align-items:center; gap:6px; cursor:pointer;">
+                <input type="radio" name="exemplaires" value="2"/> 2 exemplaires
+              </label>
+              <label style="display:flex; align-items:center; gap:6px; cursor:pointer;">
+                <input type="radio" name="exemplaires" value="3"/> 3 exemplaires
+              </label>
+            </div>
+          </div>
           <div class="form-actions">
             <button class="btn-retour" onclick="retour()">← Retour</button>
             <button class="btn-envoyer" onclick="envoyer()">Envoyer la demande</button>
@@ -376,6 +394,12 @@
   </div>
 
   <script>
+    function payerDuplicata() {
+      const checked = document.querySelector('input[name="doc-duplicata"]:checked');
+      if (!checked) { alert('Veuillez sélectionner un document.'); return; }
+      window.location.href = 'paiement.html?montant=10000&docs=1';
+    }
+
     function afficherFormulaire(type) {
       document.getElementById('choix-type').style.display = 'none';
       document.getElementById('form-' + type).style.display = 'block';
