@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>EduRequest — Paiement Orange Money</title>
+  <title>EduRequest — Paiement</title>
   <link rel="stylesheet" href="../../assets/css/main.css"/>
   <link rel="stylesheet" href="../../assets/css/components.css"/>
 </head>
@@ -35,8 +35,8 @@
           <div class="frais-recap">
             <div class="frais-recap-row"><span>Type</span><strong>Documents académiques</strong></div>
             <div class="frais-recap-row"><span>Étudiant</span><strong>Koné Mamadou</strong></div>
-            <div class="frais-recap-row"><span>Documents</span><strong><span id="nb-docs-display">1 document(s) x 10 000 FCFA</span></strong></div>
-            <div class="frais-recap-row total"><span>Montant</span><strong><span class="montant-display">10 000 FCFA</span></strong></div>
+            <div class="frais-recap-row"><span>Document</span><strong id="doc-label">1 document</strong></div>
+            <div class="frais-recap-row total"><span>Montant</span><strong id="montant-label" style="color:#e65100;">10 000 FCFA</strong></div>
           </div>
           <p style="font-size:13px; color:#555; margin-bottom:14px;">Choisissez votre mode de paiement :</p>
           <div style="display:flex; flex-direction:column; gap:12px;">
@@ -59,42 +59,38 @@
           </div>
         </div>
 
-        <!-- ETAPE 2 : INSTRUCTION USSD -->
+        <!-- ETAPE 2 : ORANGE MONEY -->
         <div id="etape-ussd" class="section-card" style="display:none;">
           <div class="om-header">
             <img src="../../assets/images/logo-om.png" alt="Orange Money" style="width:80px; object-fit:contain; margin-bottom:8px;"/>
             <h2 style="color:#e65100;">Orange Money</h2>
-            <p style="color:#888; font-size:13px;">Paiement sécurisé — <span class="montant-display">10 000 FCFA</span></p>
+            <p style="color:#888; font-size:13px;">Paiement sécurisé — <span id="montant-om">10 000 FCFA</span></p>
           </div>
 
-          <!-- ETAPE A : COMPOSER LE CODE -->
           <div class="etape-block">
             <div class="etape-num">1</div>
             <div>
               <p class="etape-label">Composez ce code sur votre téléphone Orange :</p>
               <div class="ussd-code" onclick="copierCode()">
-                <span class="ussd-display">*144*4*6*10100#</span>
+                <span id="ussd-display">*144*4*6*10000#</span>
                 <span class="copier-btn" id="copierTxt">📋 Copier</span>
               </div>
               <p style="font-size:11px; color:#888; margin-top:6px;">Cliquez sur le code pour copier</p>
             </div>
           </div>
 
-          <!-- ETAPE B : ENTRER NUMERO -->
           <div class="etape-block">
             <div class="etape-num">2</div>
             <div style="flex:1;">
               <p class="etape-label">Entrez votre numéro Orange Money :</p>
               <div style="display:flex; align-items:center; gap:8px;">
-                <span style="background:#f5f5f5; padding:10px 12px; border-radius:7px; border:2px solid #e0e0e0; font-weight:600; color:#333; white-space:nowrap;">+226</span>
-                <input type="tel" id="numOM" placeholder="XX XX XX XX" maxlength="8"
-                  style="flex:1;"
+                <span style="background:#f5f5f5; padding:10px 12px; border-radius:7px; border:2px solid #e0e0e0; font-weight:600; color:#333;">+226</span>
+                <input type="tel" id="numOM" placeholder="XX XX XX XX" maxlength="8" style="flex:1;"
                   oninput="this.value=this.value.replace(/[^0-9]/g,'')"/>
               </div>
             </div>
           </div>
 
-          <!-- ETAPE C : CODE OTP -->
           <div class="etape-block">
             <div class="etape-num">3</div>
             <div style="flex:1;">
@@ -118,7 +114,7 @@
           <div class="form-actions">
             <button class="btn-retour" onclick="retourChoix()">← Retour</button>
             <button class="btn-om-payer" onclick="confirmerPaiement()">
-              Confirmer le paiement
+              Confirmer — <span id="montant-btn">10 000 FCFA</span>
             </button>
           </div>
         </div>
@@ -135,13 +131,13 @@
           <div style="font-size:64px;">✅</div>
           <h3 style="color:#2e7d32; margin:16px 0 8px;">Paiement confirmé !</h3>
           <p style="color:#666; font-size:13px; margin-bottom:20px;">
-            Votre paiement de <strong><span class="montant-display">10 000 FCFA</span></strong> a été effectué avec succès.
+            Votre paiement de <strong id="montant-recu">10 000 FCFA</strong> a été effectué avec succès.
           </p>
           <div class="recu-box">
             <p>🧾 Reçu de paiement</p>
-            <div class="frais-recap-row"><span>Référence</span><strong id="refPaiement">#OM20260612001</strong></div>
-            <div class="frais-recap-row"><span>Date</span><strong>12/06/2026</strong></div>
-            <div class="frais-recap-row"><span>Montant</span><strong><span class="montant-display">10 000 FCFA</span></strong></div>
+            <div class="frais-recap-row"><span>Référence</span><strong id="refPaiement">#OM001</strong></div>
+            <div class="frais-recap-row"><span>Date</span><strong id="date-recu"></strong></div>
+            <div class="frais-recap-row"><span>Montant</span><strong id="montant-recu2">10 000 FCFA</strong></div>
             <div class="frais-recap-row"><span>Statut</span><strong style="color:#2e7d32;">✅ Payé</strong></div>
           </div>
           <a href="../dashboard/etudiant.html" class="btn-envoyer"
@@ -155,13 +151,13 @@
           <div style="font-size:48px;">🏫</div>
           <h3 style="color:#1a237e; margin:16px 0 8px;">Paiement à la scolarité</h3>
           <p style="color:#666; font-size:13px; margin-bottom:20px; line-height:1.6;">
-            Présentez-vous au bureau de la <strong>scolarité de l'ESI</strong> avec ce bon pour effectuer votre paiement de <strong><span class="montant-display">10 000 FCFA</span></strong>.
+            Présentez-vous au bureau de la <strong>scolarité</strong> avec ce bon pour effectuer votre paiement.
           </p>
           <div class="recu-box">
             <p>📋 Bon de demande</p>
-            <div class="frais-recap-row"><span>Référence</span><strong>#ESI20260612001</strong></div>
-            <div class="frais-recap-row"><span>Date limite</span><strong>19/06/2026</strong></div>
-            <div class="frais-recap-row"><span>Montant</span><strong><span class="montant-display">10 000 FCFA</span></strong></div>
+            <div class="frais-recap-row"><span>Référence</span><strong id="ref-scolarite">#ESI001</strong></div>
+            <div class="frais-recap-row"><span>Montant</span><strong id="montant-scolarite">10 000 FCFA</strong></div>
+            <div class="frais-recap-row"><span>Date limite</span><strong id="date-limite"></strong></div>
           </div>
           <a href="../dashboard/etudiant.html" class="btn-envoyer"
             style="text-decoration:none; display:inline-block; margin-top:20px;">
@@ -174,24 +170,30 @@
   </div>
 
   <script>
-    // Lire montant et docs depuis URL
+    // Lire montant depuis URL
     const urlP = new URLSearchParams(window.location.search);
     const montant = parseInt(urlP.get('montant')) || 10000;
-    const docs = parseInt(urlP.get('docs')) || 1;
     const ussdCode = '*144*4*6*' + montant + '#';
 
+    // Date du jour
+    const today = new Date();
+    const dateStr = today.toLocaleDateString('fr-FR');
+    const dateLimite = new Date(today.setDate(today.getDate() + 7)).toLocaleDateString('fr-FR');
+    const montantStr = montant.toLocaleString('fr-FR') + ' FCFA';
+
+    // Mettre à jour tous les affichages au chargement
     window.addEventListener('DOMContentLoaded', () => {
-      // Mettre à jour tous les montants
-      document.querySelectorAll('.montant-display').forEach(el => {
-        el.textContent = montant.toLocaleString('fr-FR') + ' FCFA';
-      });
-      // Mettre à jour le code USSD
-      document.querySelectorAll('.ussd-display').forEach(el => {
-        el.textContent = ussdCode;
-      });
-      // Mettre à jour nb docs
-      const docsEl = document.getElementById('nb-docs-display');
-      if (docsEl) docsEl.textContent = docs + ' document(s) x <span class="montant-display">10 000 FCFA</span>';
+      document.getElementById('montant-label').textContent = montantStr;
+      document.getElementById('montant-om').textContent = montantStr;
+      document.getElementById('montant-btn').textContent = montantStr;
+      document.getElementById('montant-recu').textContent = montantStr;
+      document.getElementById('montant-recu2').textContent = montantStr;
+      document.getElementById('montant-scolarite').textContent = montantStr;
+      document.getElementById('ussd-display').textContent = ussdCode;
+      document.getElementById('date-recu').textContent = dateStr;
+      document.getElementById('date-limite').textContent = dateLimite;
+      document.getElementById('refPaiement').textContent = '#OM' + Date.now().toString().slice(-8);
+      document.getElementById('ref-scolarite').textContent = '#ESI' + Date.now().toString().slice(-8);
     });
 
     function afficherOM() {
@@ -225,8 +227,6 @@
       setTimeout(() => {
         document.getElementById('etape-loading').style.display = 'none';
         document.getElementById('etape-succes').style.display = 'block';
-        document.getElementById('refPaiement').textContent = '#OM' + Date.now().toString().slice(-8);
-        document.getElementById('montant-recu').textContent = montant.toLocaleString('fr-FR') + ' FCFA';
       }, 3000);
     }
   </script>
