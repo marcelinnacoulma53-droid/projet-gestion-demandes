@@ -185,6 +185,15 @@
   </div>
 
   <script>
+    // Cacher les actions si c'est un étudiant
+    window.addEventListener('DOMContentLoaded', () => {
+      const urlP = new URLSearchParams(window.location.search);
+      const role = urlP.get('role') || 'etudiant';
+      if (role === 'etudiant') {
+        document.getElementById('actions-staff').style.display = 'none';
+      }
+    });
+
     function changerStatut(statut) {
       const badge = document.querySelector('.badge');
       if (statut === 'validee') {
