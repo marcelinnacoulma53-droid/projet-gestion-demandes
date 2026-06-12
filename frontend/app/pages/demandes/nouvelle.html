@@ -53,7 +53,7 @@
               <p><strong>UNIVERSITÉ NAZI BONI</strong></p>
               <p>ÉCOLE SUPÉRIEURE D'INFORMATIQUE</p>
             </div>
-            <div class="fiche-header-center"><img src="../../assets/images/logo-esi.png" alt="Logo ESI" style="width:70px; height:70px; object-fit:contain;"/></div>
+            <div class="fiche-header-center" style="font-size:36px;">🎓</div>
             <div class="fiche-header-right">
               <p>BURKINA FASO</p>
               <p><em>La Patrie ou la Mort, nous Vaincrons</em></p>
@@ -225,22 +225,118 @@
           </div>
         </div>
 
-        <!-- FORMULAIRE DUPLICATA -->
+        <!-- FORMULAIRE DUPLICATA (Fiche officielle ESI) -->
         <div id="form-duplicata" class="formulaire" style="display:none;">
-          <h3 style="margin-bottom:18px; color:#1a237e;">📑 Demande de duplicata</h3>
-          <div class="form-group">
-            <label>Type de document</label>
-            <select>
-              <option value="">-- Choisir --</option>
-              <option>Carte étudiante</option>
-              <option>Relevé de notes</option>
-              <option>Diplôme</option>
-            </select>
+
+          <div class="fiche-header">
+            <div class="fiche-header-left">
+              <p>MINISTÈRE DE L'ENSEIGNEMENT SUPÉRIEUR</p>
+              <p>DE LA RECHERCHE ET DE L'INNOVATION</p>
+              <p>SECRÉTARIAT GÉNÉRAL</p>
+              <p><strong>UNIVERSITÉ NAZI BONI</strong></p>
+              <p>ÉCOLE SUPÉRIEURE D'INFORMATIQUE</p>
+            </div>
+            <div class="fiche-header-center" style="font-size:36px;">🎓</div>
+            <div class="fiche-header-right">
+              <p>BURKINA FASO</p>
+              <p><em>La Patrie ou la Mort, nous Vaincrons</em></p>
+            </div>
           </div>
-          <div class="form-group">
-            <label>Justification</label>
-            <textarea placeholder="Pourquoi avez-vous besoin d'un duplicata ?"></textarea>
+
+          <h3 class="fiche-titre">FICHE DE DEMANDE DE DOCUMENTS ACADÉMIQUES</h3>
+
+          <div class="frais-banner">
+            💰 Frais de traitement : <strong>10 000 FCFA</strong>
           </div>
+
+          <div class="fiche-row">
+            <div class="form-group flex-2">
+              <label>Année universitaire concernée</label>
+              <input type="text" placeholder="Ex: 2025-2026"/>
+            </div>
+            <div class="form-group flex-1">
+              <label>INE</label>
+              <input type="text" placeholder="Numéro INE"/>
+            </div>
+          </div>
+
+          <div class="fiche-row">
+            <div class="form-group flex-2">
+              <label>Nom et prénom(s)</label>
+              <input type="text" placeholder="Votre nom complet"/>
+            </div>
+            <div class="form-group flex-1">
+              <label>Tél</label>
+              <input type="tel" placeholder="+226 XX XX XX XX"/>
+            </div>
+          </div>
+
+          <div class="fiche-row">
+            <div class="form-group flex-1">
+              <label>Niveau</label>
+              <select>
+                <option>L1</option><option>L2</option><option>L3</option>
+                <option>M1</option><option>M2</option>
+              </select>
+            </div>
+            <div class="form-group flex-1">
+              <label>Semestre</label>
+              <select>
+                <option>S1</option><option>S2</option>
+                <option>S3</option><option>S4</option>
+              </select>
+            </div>
+            <div class="form-group flex-1">
+              <label>Session</label>
+              <select>
+                <option>Normale</option>
+                <option>Rattrapage</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="fiche-section">
+            <label class="section-label">Pièces justificatives jointes</label>
+            <div class="checkbox-group flex-wrap">
+              <label><input type="checkbox"/> Relevés de notes</label>
+              <label><input type="checkbox"/> Attestation d'inscription</label>
+              <label><input type="checkbox"/> Autres</label>
+            </div>
+          </div>
+
+          <div class="fiche-section">
+            <label class="section-label">Correspondant</label>
+            <div class="checkbox-group flex-wrap">
+              <label><input type="checkbox"/> Directeur</label>
+              <label><input type="checkbox"/> Directrice adjointe</label>
+              <label><input type="checkbox"/> Coordonnateur</label>
+              <label><input type="checkbox"/> Responsable des stages</label>
+              <label><input type="checkbox"/> Chef Scolarité</label>
+            </div>
+          </div>
+
+          <div class="fiche-section">
+            <label class="section-label">Documents demandés</label>
+            <div class="checkbox-group">
+              <label><input type="checkbox"/> Relevés de notes</label>
+              <label><input type="checkbox"/> Certificat de scolarité</label>
+              <label><input type="checkbox"/> Attestation provisoire</label>
+              <label><input type="checkbox"/> Attestation de niveau</label>
+              <label><input type="checkbox"/> Correction (préciser la correction)</label>
+              <label><input type="checkbox"/> Autres (à préciser)</label>
+            </div>
+            <div class="form-group" style="margin-top:10px;">
+              <input type="text" placeholder="Précisez si autre document..."/>
+            </div>
+          </div>
+
+          <div class="fiche-section">
+            <div class="form-group">
+              <label class="section-label">Description de la demande <em>(Si nécessaire)</em></label>
+              <textarea placeholder="Décrivez votre demande..."></textarea>
+            </div>
+          </div>
+
           <div class="form-actions">
             <button class="btn-retour" onclick="retour()">← Retour</button>
             <button class="btn-envoyer" onclick="envoyer()">Envoyer la demande</button>
@@ -285,12 +381,22 @@
       document.getElementById('form-' + type).style.display = 'block';
       document.getElementById('form-title').textContent = '';
     }
+
+    // Ouvrir automatiquement si type dans URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const typeURL = urlParams.get('type');
+    if (typeURL) afficherFormulaire(typeURL);
     function retour() {
       document.querySelectorAll('.formulaire').forEach(f => f.style.display = 'none');
       document.getElementById('choix-type').style.display = 'block';
       document.getElementById('form-title').textContent = '➕ Nouvelle demande';
     }
     function envoyer() {
+      const typeActif = document.querySelector('.formulaire[style*="block"]')?.id;
+      if (typeActif === 'form-duplicata') {
+        window.location.href = 'paiement.html';
+        return;
+      }
       document.querySelectorAll('.formulaire').forEach(f => f.style.display = 'none');
       document.getElementById('confirmation').style.display = 'block';
     }
