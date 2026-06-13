@@ -3,152 +3,115 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>EduRequest — Démonstration</title>
+  <title>EduRequest — Bienvenue</title>
   <link rel="stylesheet" href="assets/css/main.css"/>
   <style>
-    body { font-family: 'Segoe UI', sans-serif; background: #f4f6fb; margin: 0; padding: 30px; }
-    .demo-container { max-width: 800px; margin: 0 auto; }
-    .demo-header {
-      background: linear-gradient(135deg, #1a237e, #1565c0);
-      color: white; border-radius: 16px;
-      padding: 30px; text-align: center; margin-bottom: 30px;
+    body { font-family: 'Segoe UI', sans-serif; background: linear-gradient(135deg, #1a237e 0%, #1565c0 100%); margin: 0; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+
+    .hero {
+      color: white; text-align: center;
+      padding: 40px 20px 20px;
     }
-    .demo-header h1 { font-size: 28px; margin: 0 0 8px; }
-    .demo-header p { margin: 0; opacity: 0.85; font-size: 14px; }
-    .section { background: white; border-radius: 14px; padding: 20px; margin-bottom: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.07); }
-    .section h2 { color: #1a237e; font-size: 16px; margin: 0 0 16px; padding-bottom: 10px; border-bottom: 2px solid #e8eaf6; }
-    .btn-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
-    .btn-demo {
-      display: block; padding: 14px 16px;
-      background: #e8eaf6; color: #1a237e;
-      border-radius: 10px; text-decoration: none;
-      font-weight: 600; font-size: 14px;
-      border: 2px solid transparent;
+    .hero h1 { font-size: 36px; margin: 0 0 12px; font-weight: 800; }
+    .hero p { font-size: 16px; opacity: 0.85; margin: 0 0 8px; }
+    .hero .sub { font-size: 13px; opacity: 0.65; }
+
+    .main-card {
+      max-width: 420px; margin: 0 auto;
+      background: white; border-radius: 20px;
+      padding: 32px; box-shadow: 0 10px 40px rgba(0,0,0,0.12);
+    }
+
+    .btn-primary {
+      display: block; width: 100%;
+      padding: 15px; margin-bottom: 14px;
+      background: linear-gradient(135deg, #1a237e, #1565c0);
+      color: white; border: none; border-radius: 12px;
+      font-size: 16px; font-weight: 700; cursor: pointer;
+      text-decoration: none; text-align: center;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(26,35,126,0.3); }
+
+    .btn-secondary {
+      display: block; width: 100%;
+      padding: 15px; margin-bottom: 14px;
+      background: white; color: #1a237e;
+      border: 2px solid #1a237e; border-radius: 12px;
+      font-size: 16px; font-weight: 700; cursor: pointer;
+      text-decoration: none; text-align: center;
       transition: all 0.2s;
     }
-    .btn-demo:hover { background: #1a237e; color: white; transform: translateY(-2px); }
-    .btn-demo span { display: block; font-size: 11px; font-weight: 400; color: #888; margin-top: 3px; }
+    .btn-secondary:hover { background: #e8eaf6; }
+
+    .divider { text-align: center; color: #aaa; font-size: 13px; margin: 8px 0 16px; position: relative; }
+    .divider::before, .divider::after {
+      content: ''; position: absolute; top: 50%;
+      width: 40%; height: 1px; background: #e0e0e0;
+    }
+    .divider::before { left: 0; }
+    .divider::after { right: 0; }
+
+    /* DEMO SECTION - juste pour la présentation */
+    .demo-section {
+      max-width: 800px; margin: 30px auto;
+      padding: 0 20px 40px;
+    }
+    .demo-title {
+      text-align: center; color: #1a237e;
+      font-size: 14px; font-weight: 600;
+      margin-bottom: 16px; opacity: 0.7;
+    }
+    .demo-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+    .btn-demo {
+      display: block; padding: 12px 14px;
+      background: white; color: #1a237e;
+      border-radius: 10px; text-decoration: none;
+      font-weight: 600; font-size: 13px;
+      border: 2px solid #e8eaf6;
+      transition: all 0.2s; text-align: center;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    }
+    .btn-demo:hover { background: #1a237e; color: white; border-color: #1a237e; }
+    .btn-demo span { display: block; font-size: 10px; font-weight: 400; color: #888; margin-top: 2px; }
     .btn-demo:hover span { color: rgba(255,255,255,0.7); }
-    .badge-new {
-      display: inline-block; background: #e65100; color: white;
-      font-size: 10px; padding: 2px 6px; border-radius: 4px;
-      margin-left: 6px; vertical-align: middle;
+    .section-label-demo {
+      font-size: 12px; font-weight: 700; color: #888;
+      text-transform: uppercase; letter-spacing: 1px;
+      margin: 16px 0 8px;
     }
   </style>
 </head>
 <body>
-  <div class="demo-container">
 
-    <div class="demo-header">
-      <h1>🎓 EduRequest</h1>
-      <p>Application de gestion des demandes étudiantes — ESI / Université Nazi Boni</p>
-      <p style="margin-top:8px; font-size:12px; opacity:0.7;">Menu de démonstration — Présentation groupe</p>
+  <!-- HERO -->
+  <div class="hero">
+    <div style="font-size:52px; margin-bottom:16px;">🎓</div>
+    <h1>EduRequest</h1>
+    <p>Gestion des demandes étudiantes</p>
+    <p class="sub">Université Nazi Boni</p>
+  </div>
+
+  <!-- CARTE PRINCIPALE -->
+  <div class="main-card">
+    <a href="pages/auth/login.html" class="btn-primary">🔑 Se connecter</a>
+    <div class="divider">ou</div>
+    <a href="pages/auth/register.html" class="btn-secondary">📝 Créer un compte étudiant</a>
+    <p style="text-align:center; font-size:12px; color:#aaa; margin:0;">
+      Application sécurisée
+    </p>
+  </div>
+
+  
+  <!-- SECTION DEMO cachée - juste pour présentation -->
+  <div style="max-width:700px; margin:20px auto 40px; padding:0 20px;">
+    <p style="text-align:center; color:rgba(255,255,255,0.5); font-size:12px; margin-bottom:12px;">— Accès rapide démonstration —</p>
+    <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:8px;">
+      <a href="pages/dashboard/sp.html" style="background:rgba(255,255,255,0.1); color:white; padding:10px; border-radius:8px; text-decoration:none; text-align:center; font-size:12px;">👤 SP</a>
+      <a href="pages/dashboard/staff.html?role=da" style="background:rgba(255,255,255,0.1); color:white; padding:10px; border-radius:8px; text-decoration:none; text-align:center; font-size:12px;">👤 DA</a>
+      <a href="pages/dashboard/enseignant.html" style="background:rgba(255,255,255,0.1); color:white; padding:10px; border-radius:8px; text-decoration:none; text-align:center; font-size:12px;">👨‍🏫 Enseignant</a>
+      <a href="pages/dashboard/staff.html?role=directrice" style="background:rgba(255,255,255,0.1); color:white; padding:10px; border-radius:8px; text-decoration:none; text-align:center; font-size:12px;">👤 Directrice</a>
     </div>
-
-    <!-- AUTHENTIFICATION -->
-    <div class="section">
-      <h2>🔐 1. Authentification</h2>
-      <div class="btn-grid">
-        <a href="pages/auth/register.html" class="btn-demo">
-          📝 Créer un compte
-          <span>Inscription d'un nouvel étudiant</span>
-        </a>
-        <a href="pages/auth/login.html" class="btn-demo">
-          🔑 Se connecter
-          <span>Connexion avec INE + mot de passe</span>
-        </a>
-      </div>
-    </div>
-
-    <!-- ESPACE ÉTUDIANT -->
-    <div class="section">
-      <h2>👤 2. Espace Étudiant</h2>
-      <div class="btn-grid">
-        <a href="pages/dashboard/etudiant.html" class="btn-demo">
-          🏠 Dashboard étudiant
-          <span>Vue d'ensemble + statistiques</span>
-        </a>
-        <a href="pages/demandes/suivi.html" class="btn-demo">
-          📋 Suivi des demandes
-          <span>Liste et filtres par statut</span>
-        </a>
-        <a href="pages/demandes/nouvelle.html?type=reclamation" class="btn-demo">
-          📝 Fiche Réclamation <span class="badge-new">ESI</span>
-          <span>Fiche officielle de réclamation de note</span>
-        </a>
-        <a href="pages/demandes/nouvelle.html?type=derogation" class="btn-demo">
-          📄 Demande Dérogation
-          <span>Formulaire de dérogation</span>
-        </a>
-        <a href="pages/demandes/nouvelle.html?type=duplicata" class="btn-demo">
-          📑 Demande Duplicata <span class="badge-new">ESI</span>
-          <span>Fiche officielle + paiement</span>
-        </a>
-        <a href="pages/demandes/nouvelle.html?type=attestation" class="btn-demo">
-          🎓 Demande Attestation
-          <span>Choix type + nombre d'exemplaires</span>
-        </a>
-      </div>
-    </div>
-
-    <!-- PAIEMENT -->
-    <div class="section">
-      <h2>💳 3. Paiement</h2>
-      <div class="btn-grid">
-        <a href="pages/demandes/paiement.html?montant=10000" class="btn-demo">
-          🟠 Orange Money — 10 000 FCFA
-          <span>Code USSD + OTP sécurisé</span>
-        </a>
-
-      </div>
-    </div>
-
-    <!-- WORKFLOW ADMINISTRATION -->
-    <div class="section">
-      <h2>⚙️ 4. Circuit de traitement</h2>
-      <div class="btn-grid">
-        <a href="pages/dashboard/staff.html?role=secretaire" class="btn-demo">
-          👤 Secrétaire
-          <span>Réception + transmission au DA</span>
-        </a>
-        <a href="pages/dashboard/staff.html?role=da" class="btn-demo">
-          👤 Directeur Adjoint (DA)
-          <span>Examen + transmission enseignant</span>
-        </a>
-        <a href="pages/dashboard/enseignant.html" class="btn-demo">
-          👨‍🏫 Enseignant
-          <span>Modification de note + commentaire</span>
-        </a>
-        <a href="pages/dashboard/staff.html?role=directrice" class="btn-demo">
-          👤 Directrice
-          <span>Validation finale</span>
-        </a>
-        <a href="pages/dashboard/staff.html?role=scolarite" class="btn-demo">
-          👤 Scolarité
-          <span>Exécution de la décision</span>
-        </a>
-        <a href="pages/dashboard/admin.html" class="btn-demo">
-          🛡️ Administration
-          <span>Vue globale du système</span>
-        </a>
-      </div>
-    </div>
-
-    <!-- DÉTAIL -->
-    <div class="section">
-      <h2>📋 5. Détail & Suivi</h2>
-      <div class="btn-grid">
-        <a href="pages/demandes/detail.html" class="btn-demo">
-          📋 Détail d'une demande
-          <span>Fiche complète + timeline workflow</span>
-        </a>
-        <a href="pages/demandes/suivi.html" class="btn-demo">
-          🔍 Suivi étudiant
-          <span>Filtres par statut</span>
-        </a>
-      </div>
-    </div>
-
   </div>
 </body>
 </html>

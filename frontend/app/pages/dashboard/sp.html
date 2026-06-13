@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>EduRequest — Secrétaire Permanent</title>
+  <link rel="stylesheet" href="../../assets/css/main.css"/>
+  <link rel="stylesheet" href="../../assets/css/components.css"/>
+</head>
+<body class="dashboard-body">
+  <nav class="navbar">
+    <div class="navbar-brand">🎓 EduRequest</div>
+    <div class="navbar-user">
+      <span>👤 Secrétaire Permanent (SP)</span>
+      <a href="../auth/login.html" class="btn-logout">Déconnexion</a>
+    </div>
+  </nav>
+
+  <div class="dashboard-layout">
+    <aside class="sidebar">
+      <ul>
+        <li class="active">🏠 Tableau de bord</li>
+        <li onclick="filterDemandes('all')">📋 Toutes</li>
+        <li onclick="filterDemandes('en_attente')">🟡 En attente</li>
+        <li onclick="filterDemandes('validee')">🟢 Validées</li>
+        <li onclick="filterDemandes('rejetee')">🔴 Rejetées</li>
+      </ul>
+    </aside>
+
+    <main class="main-content">
+
+      <div class="stats-grid">
+        <div class="stat-card">
+          <h3>Total reçues</h3>
+          <p class="stat-number">4</p>
+        </div>
+        <div class="stat-card yellow">
+          <h3>En attente</h3>
+          <p class="stat-number">2</p>
+        </div>
+        <div class="stat-card green">
+          <h3>Transmises</h3>
+          <p class="stat-number">2</p>
+        </div>
+      </div>
+
+      <section class="section-card">
+        <h2>📋 Demandes Attestation & Duplicata</h2>
+        <p style="font-size:13px; color:#888; margin-bottom:16px;">
+          Le SP examine les demandes d'attestation et de duplicata transmises par la secrétaire.
+        </p>
+        <table class="demandes-table" id="demandesTable">
+          <thead>
+            <tr>
+              <th>N°</th>
+              <th>Étudiant</th>
+              <th>Type</th>
+              <th>Date</th>
+              <th>Statut</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr data-statut="en_attente">
+              <td>001</td>
+              <td>Koné Mamadou</td>
+              <td>Attestation</td>
+              <td>10/06/2026</td>
+              <td><span class="badge yellow">🟡 En attente</span></td>
+              <td class="actions-cell">
+                <button class="btn-voir" onclick="voirDetail(this)">👁 Voir</button>
+                <button class="btn-valider" onclick="changerStatut(this,'validee')">✅ Transmettre au DA</button>
+                <button class="btn-rejeter" onclick="changerStatut(this,'rejetee')">❌ Rejeter</button>
+                <button class="btn-complement" onclick="demanderComplement(this)">📝 Complément</button>
+              </td>
+            </tr>
+            <tr data-statut="en_attente">
+              <td>002</td>
+              <td>Traoré Fatoumata</td>
+              <td>Duplicata</td>
+              <td>09/06/2026</td>
+              <td><span class="badge yellow">🟡 En attente</span></td>
+              <td class="actions-cell">
+                <button class="btn-voir" onclick="voirDetail(this)">👁 Voir</button>
+                <button class="btn-valider" onclick="changerStatut(this,'validee')">✅ Transmettre au DA</button>
+                <button class="btn-rejeter" onclick="changerStatut(this,'rejetee')">❌ Rejeter</button>
+                <button class="btn-complement" onclick="demanderComplement(this)">📝 Complément</button>
+              </td>
+            </tr>
+            <tr data-statut="validee">
+              <td>003</td>
+              <td>Sawadogo Issouf</td>
+              <td>Attestation</td>
+              <td>08/06/2026</td>
+              <td><span class="badge green">🟢 Transmise au DA</span></td>
+              <td class="actions-cell">
+                <button class="btn-voir" onclick="voirDetail(this)">👁 Voir</button>
+              </td>
+            </tr>
+            <tr data-statut="rejetee">
+              <td>004</td>
+              <td>Coulibaly Mariam</td>
+              <td>Duplicata</td>
+              <td>07/06/2026</td>
+              <td><span class="badge red">🔴 Rejetée</span></td>
+              <td class="actions-cell">
+                <button class="btn-voir" onclick="voirDetail(this)">👁 Voir</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- MODAL DÉTAIL -->
+  <div id="modal" class="modal-overlay" style="display:none;" onclick="fermerModal(event)">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3>Détail de la demande</h3>
+        <button onclick="document.getElementById('modal').style.display='none'" class="modal-close">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="detail-row"><span>Étudiant :</span><strong id="d-etudiant"></strong></div>
+        <div class="detail-row"><span>Type :</span><strong id="d-type"></strong></div>
+        <div class="detail-row"><span>Date :</span><strong id="d-date"></strong></div>
+        <div class="detail-row"><span>Statut :</span><strong id="d-statut"></strong></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-retour" onclick="document.getElementById('modal').style.display='none'">Fermer</button>
+        <a href="../demandes/detail.html?role=sp&type=attestation" class="btn-envoyer" style="text-decoration:none;">
+          Voir détail complet
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL COMPLÉMENT -->
+  <div id="modalComplement" class="modal-overlay" style="display:none;" onclick="fermerModalComplement(event)">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3>📝 Demander un complément</h3>
+        <button onclick="document.getElementById('modalComplement').style.display='none'" class="modal-close">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Message à l'étudiant</label>
+          <textarea id="complementMsg" placeholder="Précisez ce que l'étudiant doit compléter..."></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-retour" onclick="document.getElementById('modalComplement').style.display='none'">Annuler</button>
+        <button class="btn-envoyer" onclick="envoyerComplement()">Envoyer</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function filterDemandes(statut) {
+      document.querySelectorAll('#demandesTable tbody tr').forEach(row => {
+        row.style.display = (statut === 'all' || row.dataset.statut === statut) ? '' : 'none';
+      });
+    }
+    function voirDetail(btn) {
+      const row = btn.closest('tr');
+      const cells = row.querySelectorAll('td');
+      document.getElementById('d-etudiant').textContent = cells[1].textContent;
+      document.getElementById('d-type').textContent = cells[2].textContent;
+      document.getElementById('d-date').textContent = cells[3].textContent;
+      document.getElementById('d-statut').textContent = cells[4].textContent.trim();
+      document.getElementById('modal').style.display = 'flex';
+    }
+    function changerStatut(btn, statut) {
+      const row = btn.closest('tr');
+      const badge = row.querySelector('.badge');
+      row.dataset.statut = statut;
+      if (statut === 'validee') {
+        badge.className = 'badge green';
+        badge.textContent = '🟢 Transmise au DA';
+      } else {
+        badge.className = 'badge red';
+        badge.textContent = '🔴 Rejetée';
+      }
+      row.querySelectorAll('.btn-valider, .btn-rejeter, .btn-complement').forEach(b => b.remove());
+    }
+    function demanderComplement(btn) {
+      document.getElementById('modalComplement').style.display = 'flex';
+    }
+    function envoyerComplement() {
+      alert('Message envoyé à l\'étudiant !');
+      document.getElementById('modalComplement').style.display = 'none';
+    }
+    function fermerModal(e) {
+      if (e.target.id === 'modal') document.getElementById('modal').style.display = 'none';
+    }
+    function fermerModalComplement(e) {
+      if (e.target.id === 'modalComplement') document.getElementById('modalComplement').style.display = 'none';
+    }
+  </script>
+</body>
+</html>
