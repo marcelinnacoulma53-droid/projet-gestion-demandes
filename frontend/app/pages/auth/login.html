@@ -31,7 +31,20 @@
       </form>
     </div>
   </div>
+  <script src="../../assets/js/core/api.js"></script>
   <script src="../../assets/js/core/auth.js"></script>
+  <script>
+    document.getElementById('loginForm').addEventListener('submit', function(e) {
+      e.preventDefault();
+      const email = document.getElementById('matricule').value;
+      const password = document.getElementById('password').value;
+      if (email && password) {
+        login(email, password);
+      } else {
+        document.getElementById('errorMsg').textContent = 'Veuillez remplir tous les champs.';
+      }
+    });
+  </script>
 </body>
 </html>
 <script>
