@@ -124,7 +124,21 @@ const login = async (req, res) => {
             { expiresIn: authConfig.jwtExpire }
         );
 
-        // ✅ Réponse au frontend
+        // ✅ Vérifier si c'est la première connexion (pour le personnel)
+        if (user.premiere_connexion === true) {
+            return res.json({
+                success: true,
+                premiere_connexion: true,
+                token: token,
+                user: {
+                    id: user.id_utilisateur,
+                    email: user.email,
+                    role: user.role_libelle
+                }
+            });
+        }
+
+        // ✅ Réponse au frontend (connexion normale)
         res.json({
             success: true,
             token,
@@ -220,7 +234,8 @@ const createStaff = async (req, res, next) => {
             prenom,
             email,
             mot_de_passe: motDePasseHash,
-            id_role: roleInfo.id_role
+            id_role: roleInfo.id_role,
+            premiere_connexion: true   // ← AJOUTER CETTE LIGNE
         });
 
         // Selon le rôle, insérer dans la table spécifique
@@ -258,4 +273,62 @@ const createStaff = async (req, res, next) => {
     }
 };
 
-module.exports = { register, login, getMe, logout, createStaff };
+// ============================================================
+// 5. CHANGER LES IDENTIFIANTS (première connexion)
+// POST /api/auth/changer-identifiants
+// ============================================================
+const changerIdentifiants = async (req, res, next) => {
+    const userId = req.user.userId;
+    const { nouveau_email, nouveau_mot_de_passe, confirmation_mot_de_passe } = req.body;
+
+    if (!nouveau_email || !nouveau_mot_de_passe || !confirmation_mot_de_passe) {
+        return res.status(400).json({ message: 'Tous les champs sont requis' });
+    }
+
+    if (nouveau_mot_de_passe !== confirmation_mot_de_passe) {
+        return res.status(400).json({ message: 'Les mots de passe ne correspondent pas' });
+    }
+
+    try {
+        // Vérifier si le nouvel email n'existe pas déjà (pour un autre utilisateur)
+        const emailExistant = await userRepo.findByEmail(nouveau_email);
+        if (emailExistant && emailExistant.id_utilisateur !== userId) {
+            return res.status(409).json({ message: 'Cet email est déjà utilisé' });
+        }
+
+        // Hacher le nouveau mot de passe
+        const motDePasseHash = await bcrypt.hash(nouveau_mot_de_passe, authConfig.bcryptRounds);
+
+        // Mettre à jour l'utilisateur
+        await userRepo.update(userId, {
+            email: nouveau_email,
+            mot_de_passe: motDePasseHash,
+            premiere_connexion: false
+        });
+
+        // Récupérer le rôle pour le nouveau token
+        const roleResult = await userRepo.findByEmailWithRole(nouveau_email);
+        
+        const newToken = jwt.sign(
+            { userId: userId, role: roleResult?.role_libelle || 'staff' },
+            authConfig.jwtSecret,
+            { expiresIn: authConfig.jwtExpire }
+        );
+
+        res.json({
+            success: true,
+            message: 'Identifiants mis à jour avec succès',
+            token: newToken,
+            user: {
+                id: userId,
+                email: nouveau_email,
+                role: roleResult?.role_libelle || 'staff'
+            }
+        });
+
+    } catch (error) {
+        next(error);
+    }
+};
+
+module.exports = { register, login, getMe, logout, createStaff, changerIdentifiants };
