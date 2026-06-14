@@ -1,18 +1,44 @@
-// Version temporaire
-let personnels = [];
+const db = require('../connection');
 
-const personnelRepo = {
-    create: async (data) => {
-        const newId = personnels.length + 1;
-        const newPersonnel = {
-            id_personnel: newId,
-            id_utilisateur: data.id_utilisateur,
-            fonction: data.fonction,
-            service: data.service
-        };
-        personnels.push(newPersonnel);
-        return newPersonnel;
-    }
+
+// =======================================
+// Créer un personnel administratif
+// =======================================
+async function create(personnelData) {
+
+    const {
+        id_utilisateur,
+        fonction,
+        service
+    } = personnelData;
+
+
+    const result = await db.query(
+        `
+        INSERT INTO personnel_administratif
+        (
+            id_utilisateur,
+            fonction,
+            service
+        )
+        VALUES ($1,$2,$3)
+        RETURNING
+            id_personnel,
+            id_utilisateur
+        `,
+        [
+            id_utilisateur,
+            fonction,
+            service
+        ]
+    );
+
+
+    return result.rows[0];
+}
+
+
+
+module.exports = {
+    create
 };
-
-module.exports = personnelRepo;
