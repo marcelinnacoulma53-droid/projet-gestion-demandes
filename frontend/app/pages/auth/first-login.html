@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>EduRequest — Configuration du compte</title>
+  <link rel="stylesheet" href="../../assets/css/main.css"/>
+</head>
+<body>
+  <div class="login-container">
+    <div class="login-card" style="max-width:460px;">
+      <div class="login-header">
+        <div style="font-size:48px;">🔐</div>
+        <h1>Bienvenue !</h1>
+        <p>Configurez votre compte avant de continuer</p>
+      </div>
+
+      <!-- Rôle détecté -->
+      <div id="role-banner" style="background:#e8eaf6; border:2px solid #1a237e; border-radius:8px; padding:12px 16px; margin-bottom:16px; text-align:center;">
+        <p style="font-size:13px; color:#666; margin:0 0 4px;">Vous êtes connecté en tant que</p>
+        <strong id="role-display" style="font-size:18px; color:#1a237e;">Chargement...</strong>
+      </div>
+
+      <div style="background:#fff8e1; border:2px solid #f9a825; border-radius:8px; padding:12px 16px; margin-bottom:20px; font-size:13px; color:#555;">
+        ⚠️ Pour des raisons de sécurité, veuillez définir vos vraies informations avant de continuer.
+      </div>
+
+      <div class="form-group">
+        <label>Nom complet</label>
+        <input type="text" id="nom" placeholder="Ex: Traoré Aminata"/>
+      </div>
+      <div class="form-group">
+        <label>Nouvel email</label>
+        <input type="email" id="newEmail" placeholder="Ex: aminata.traore@esi.bf"/>
+      </div>
+      <div class="form-group">
+        <label>Nouveau mot de passe</label>
+        <input type="password" id="newPassword" placeholder="Minimum 8 caractères"/>
+      </div>
+      <div class="form-group">
+        <label>Confirmer le mot de passe</label>
+        <input type="password" id="confirmPassword" placeholder="Répétez le mot de passe"/>
+      </div>
+
+      <p id="errorMsg" style="color:#c62828; font-size:13px; margin-bottom:10px;"></p>
+
+      <button class="btn-login" onclick="confirmerInfos()">
+        Confirmer et accéder à mon espace
+      </button>
+    </div>
+  </div>
+
+  <script src="../../assets/js/core/api.js"></script>
+  <script src="../../assets/js/core/auth.js"></script>
+  <script>
+    const roles_labels = {
+      secretaire: '👤 Secrétaire',
+      sp: '👤 Secrétaire Permanent (SP)',
+      da: '👤 Directeur Adjoint (DA)',
+      enseignant: '👨‍🏫 Enseignant',
+      professeur: '👨‍🏫 Professeur',
+      directrice: '👤 Directrice',
+      presidence: '👤 Présidence',
+      scolarite: '👤 Chef de Scolarité',
+      admin: '🛡️ Administrateur'
+    };
+
+    window.addEventListener('DOMContentLoaded', () => {
+      const user = getCurrentUser();
+      const role = user.role || 'inconnu';
+      document.getElementById('role-display').textContent = roles_labels[role] || role;
+    });
+
+    function confirmerInfos() {
+      const nom = document.getElementById('nom').value;
+      const newEmail = document.getElementById('newEmail').value;
+      const newPassword = document.getElementById('newPassword').value;
+      const confirmPassword = document.getElementById('confirmPassword').value;
+      const errorMsg = document.getElementById('errorMsg');
+
+      if (!nom || !newEmail || !newPassword || !confirmPassword) {
+        errorMsg.textContent = 'Veuillez remplir tous les champs.';
+        return;
+      }
+      if (newPassword !== confirmPassword) {
+        errorMsg.textContent = 'Les mots de passe ne correspondent pas.';
+        return;
+      }
+      if (newPassword.length < 8) {
+        errorMsg.textContent = 'Le mot de passe doit contenir au moins 8 caractères.';
+        return;
+      }
+
+      const user = getCurrentUser();
+      user.nom = nom;
+      user.email = newEmail;
+      user.firstLogin = false;
+      localStorage.setItem('user', JSON.stringify(user));
+
+      redirectByRole(user.role);
+    }
+  </script>
+</body>
+</html>
