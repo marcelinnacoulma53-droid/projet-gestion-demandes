@@ -8,6 +8,7 @@ const router = express.Router();
 
 // J'importe le contrôleur qui gère la logique des fichiers
 const documentController = require('../controllers/document.controller');
+const { upload } = require('../controllers/document.controller');
 
 // J'importe le middleware d'authentification (vérifie que l'utilisateur est connecté)
 const { authenticate } = require('../../middlewares/auth.middleware');
@@ -29,7 +30,7 @@ const { authenticate } = require('../../middlewares/auth.middleware');
 router.post(
     '/upload/:demandeId', 
     authenticate,           // Vérifie que l'utilisateur est connecté
-    documentController.upload.single('fichier'),  // ← middleware multer // Traite le fichier (un seul fichier, nommé 'fichier')
+    upload.single('fichier'),  // ← middleware multer // Traite le fichier (un seul fichier, nommé 'fichier')
     documentController.uploadFichier 
 );
 
@@ -41,7 +42,7 @@ router.post(
  * 
  * Paramètre : documentId = L'ID du document à télécharger
  */
-router.get('/:documentId', authenticate, documentController.download);
+router.get('/:documentId', authenticate, documentController.telechargerFichier);
 
 /**
  * DELETE /api/documents/:documentId
@@ -51,7 +52,7 @@ router.get('/:documentId', authenticate, documentController.download);
  * 
  * Paramètre : documentId = L'ID du document à supprimer
  */
-router.delete('/:documentId', authenticate, documentController.delete);
+router.delete('/:documentId', authenticate, documentController.supprimerFichier);
 
 // J'exporte le routeur pour l'utiliser dans app.js
 module.exports = router;

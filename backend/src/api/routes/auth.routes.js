@@ -45,6 +45,12 @@ router.post('/logout', authController.logout);
 // ✅ Profil de l'utilisateur connecté
 router.get('/me', authenticate, authController.getMe);
 
+// ✅ Changer les identifiants (première connexion du personnel)
+router.post('/changer-identifiants', 
+    authenticate,
+    authController.changerIdentifiants
+);
+
 // ============================================================
 // À VENIR PLUS TARD
 // ============================================================

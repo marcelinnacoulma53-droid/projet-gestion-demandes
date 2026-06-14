@@ -1,71 +1,183 @@
-// ============================================================
-// REPOSITORY DEMANDES (version temporaire)
-// En attendant la version finale de Membre 1
-// ============================================================
+const db = require('../connection');
 
-// Simulation d'une base de données en mémoire
-let demandes = [
-    {
-        id_demande: 1,
-        reference: 'DEM-001',
-        objet: 'Demande d\'attestation',
-        description: 'Besoin d\'une attestation pour le stage',
-        statut: 'soumise',
-        date_creation: new Date(),
-        date_soumission: new Date(),
-        id_etudiant: 1,
-        id_type_demande: 1,
-        id_etape_courante: null
+
+// =======================================
+// Créer une demande
+// =======================================
+async function create(demandeData) {
+
+    const {
+        reference,
+        id_etudiant,
+        objet,
+        description,
+        id_type_demande,
+        id_statut,
+        id_etape_courante
+    } = demandeData;
+
+
+    const result = await db.query(
+        `
+        INSERT INTO demandes
+        (
+            reference,
+            id_etudiant,
+            objet,
+            description,
+            id_type_demande,
+            id_statut,
+            id_etape_courante
+        )
+        VALUES ($1,$2,$3,$4,$5,$6,$7)
+        RETURNING
+            id_demande,
+            reference,
+            objet,
+            description,
+            date_creation
+        `,
+        [
+            reference,
+            id_etudiant,
+            objet,
+            description,
+            id_type_demande,
+            id_statut,
+            id_etape_courante
+        ]
+    );
+
+
+    return result.rows[0];
+}
+
+
+
+// =======================================
+// Trouver les demandes d'un étudiant
+// =======================================
+async function findByEtudiant(id_etudiant) {
+
+    const result = await db.query(
+        `
+        SELECT
+            id_demande,
+            reference,
+            objet,
+            s.libelle AS statut
+        FROM demandes d
+        LEFT JOIN statuts s
+            ON d.id_statut = s.id_statut
+        WHERE d.id_etudiant = $1
+        ORDER BY d.date_creation DESC
+        `,
+        [id_etudiant]
+    );
+
+
+    return result.rows;
+}
+
+
+
+// =======================================
+// Trouver une demande par ID
+// =======================================
+async function findById(id_demande) {
+
+    const result = await db.query(
+        `
+        SELECT
+            d.id_demande,
+            d.reference,
+            d.objet,
+            d.description,
+            s.libelle AS statut,
+            d.date_creation,
+            d.id_etudiant
+        FROM demandes d
+        LEFT JOIN statuts s
+            ON d.id_statut = s.id_statut
+        WHERE d.id_demande = $1
+        `,
+        [id_demande]
+    );
+
+
+    return result.rows[0] || null;
+}
+
+
+
+// =======================================
+// Mettre à jour une demande
+// =======================================
+async function update(id_demande, updates) {
+
+    const fields = [];
+    const values = [];
+
+    let index = 1;
+
+
+    for (const key in updates) {
+
+        fields.push(`${key} = $${index}`);
+        values.push(updates[key]);
+
+        index++;
     }
-];
 
-const demandeRepo = {
-    // Créer une nouvelle demande
-    create: async (demandeData) => {
-        const newId = demandes.length + 1;
-        const newDemande = {
-            id_demande: newId,
-            reference: `DEM-${String(newId).padStart(3, '0')}`,
-            objet: demandeData.objet,
-            description: demandeData.description || '',
-            statut: demandeData.statut || 'brouillon',
-            date_creation: new Date(),
-            date_soumission: null,
-            id_etudiant: demandeData.id_etudiant,
-            id_type_demande: demandeData.type_demande === 'reclamation' ? 1 : 2,
-            id_etape_courante: null
-        };
-        demandes.push(newDemande);
-        return newDemande;
-    },
 
-    // Trouver les demandes d'un étudiant
-    findByEtudiant: async (id_etudiant) => {
-        return demandes.filter(d => d.id_etudiant === id_etudiant);
-    },
-
-    // Trouver une demande par son ID
-    findById: async (id_demande) => {
-        return demandes.find(d => d.id_demande === parseInt(id_demande)) || null;
-    },
-
-    // Mettre à jour une demande
-    update: async (id_demande, updates) => {
-        const index = demandes.findIndex(d => d.id_demande === parseInt(id_demande));
-        if (index === -1) return null;
-        
-        demandes[index] = { ...demandes[index], ...updates };
-        return demandes[index];
-    },
-
-    // Supprimer une demande
-    delete: async (id_demande) => {
-        const index = demandes.findIndex(d => d.id_demande === parseInt(id_demande));
-        if (index === -1) return false;
-        
-        demandes.splice(index, 1);
-        return true;
+    if (fields.length === 0) {
+        return null;
     }
+
+
+    values.push(id_demande);
+
+
+    const result = await db.query(
+        `
+        UPDATE demandes
+        SET ${fields.join(', ')}
+        WHERE id_demande = $${index}
+        RETURNING *
+        `,
+        values
+    );
+
+
+    return result.rows[0] || null;
+}
+
+
+
+// =======================================
+// Récupérer toutes les demandes
+// (fonction déjà présente avant)
+// =======================================
+async function findAll() {
+
+    const result = await db.query(
+        `
+        SELECT *
+        FROM demandes
+        ORDER BY date_creation DESC
+        `
+    );
+
+
+    return result.rows;
+}
+
+
+
+module.exports = {
+    create,
+    findByEtudiant,
+    findById,
+    update,
+    findAll
 };
-
-module.exports = demandeRepo;
