@@ -1,18 +1,44 @@
-// Version temporaire
-let professeurs = [];
+const db = require('../connection');
 
-const professeurRepo = {
-    create: async (data) => {
-        const newId = professeurs.length + 1;
-        const newProfesseur = {
-            id_professeur: newId,
-            id_utilisateur: data.id_utilisateur,
-            grade: data.grade,
-            specialite: data.specialite
-        };
-        professeurs.push(newProfesseur);
-        return newProfesseur;
-    }
+
+// =======================================
+// Créer un professeur
+// =======================================
+async function create(professeurData) {
+
+    const {
+        id_utilisateur,
+        grade,
+        specialite
+    } = professeurData;
+
+
+    const result = await db.query(
+        `
+        INSERT INTO professeurs
+        (
+            id_utilisateur,
+            grade,
+            specialite
+        )
+        VALUES ($1,$2,$3)
+        RETURNING
+            id_professeur,
+            id_utilisateur
+        `,
+        [
+            id_utilisateur,
+            grade,
+            specialite
+        ]
+    );
+
+
+    return result.rows[0];
+}
+
+
+
+module.exports = {
+    create
 };
-
-module.exports = professeurRepo;
