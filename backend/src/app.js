@@ -6,14 +6,14 @@ const express = require('express');
 const cors = require('cors');
 
 // Test de connexion PostgreSQL (ajouté depuis M1)
-const db = require('./config/database');
+/*const db = require('./config/database');
 db.query('SELECT NOW()')
     .then(result => {
         console.log("✅ Connexion PostgreSQL réussie :", result.rows[0]);
     })
     .catch(error => {
         console.error("❌ Erreur PostgreSQL :", error.message);
-    });
+    });*/
 
 // ============================================================
 // IMPORT DES ROUTES
