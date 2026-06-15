@@ -91,7 +91,10 @@ CREATE TABLE utilisateurs (
     mot_de_passe TEXT NOT NULL,
     telephone VARCHAR(30),
     actif BOOLEAN DEFAULT TRUE,
+<<<<<<< HEAD
     premiere_connexion BOOLEAN DEFAULT TRUE,
+=======
+>>>>>>> 1a9763134f4e693112c3027c5644a118c2628b51
     date_creation TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     id_role INT REFERENCES roles(id_role)
 );
