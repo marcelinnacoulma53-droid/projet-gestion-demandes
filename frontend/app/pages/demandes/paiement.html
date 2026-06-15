@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>EduRequest — Paiement</title>
+  <link rel="stylesheet" href="../../assets/css/main.css"/>
+  <link rel="stylesheet" href="../../assets/css/components.css"/>
+</head>
+<body class="dashboard-body">
+  <nav class="navbar">
+    <div class="navbar-brand">🎓 EduRequest</div>
+    <div class="navbar-user">
+      <span>👤 Étudiant</span>
+      <a href="../auth/login.html" class="btn-logout">Déconnexion</a>
+    </div>
+  </nav>
+
+  <div class="dashboard-layout">
+    <aside class="sidebar">
+      <ul>
+        <li onclick="location.href='../dashboard/etudiant.html'">🏠 Tableau de bord</li>
+        <li class="active">📋 Mes demandes</li>
+        <li onclick="location.href='nouvelle.html'">➕ Nouvelle demande</li>
+      </ul>
+    </aside>
+
+    <main class="main-content">
+      <div style="max-width:500px; margin:0 auto;">
+
+        <!-- ETAPE 1 : CHOIX -->
+        <div id="etape-choix" class="section-card">
+          <h2 style="margin-bottom:6px;">💳 Paiement des frais</h2>
+          <p style="color:#666; font-size:13px; margin-bottom:20px;">Demande de documents académiques</p>
+          <div class="frais-recap">
+            <div class="frais-recap-row"><span>Type</span><strong>Documents académiques</strong></div>
+            <div class="frais-recap-row"><span>Étudiant</span><strong>Koné Mamadou</strong></div>
+            <div class="frais-recap-row"><span>Document</span><strong id="doc-label">1 document</strong></div>
+            <div class="frais-recap-row total"><span>Montant</span><strong id="montant-label" style="color:#e65100;">10 000 FCFA</strong></div>
+          </div>
+          <p style="font-size:13px; color:#555; margin-bottom:14px;">Choisissez votre mode de paiement :</p>
+          <div style="display:flex; flex-direction:column; gap:12px;">
+            <button class="btn-om" onclick="afficherOM()">
+              <img src="../../assets/images/logo-om.png" alt="Orange Money" style="width:48px; height:48px; object-fit:contain;"/>
+              <div>
+                <strong>Orange Money</strong>
+                <p>Payer via votre compte Orange Money</p>
+              </div>
+              <span>›</span>
+            </button>
+
+          </div>
+        </div>
+
+        <!-- ETAPE 2 : ORANGE MONEY -->
+        <div id="etape-ussd" class="section-card" style="display:none;">
+          <div class="om-header">
+            <img src="../../assets/images/logo-om.png" alt="Orange Money" style="width:80px; object-fit:contain; margin-bottom:8px;"/>
+            <h2 style="color:#e65100;">Orange Money</h2>
+            <p style="color:#888; font-size:13px;">Paiement sécurisé — <span id="montant-om">10 000 FCFA</span></p>
+          </div>
+
+          <div class="etape-block">
+            <div class="etape-num">1</div>
+            <div>
+              <p class="etape-label">Composez ce code sur votre téléphone Orange :</p>
+              <div class="ussd-code" onclick="copierCode()">
+                <span id="ussd-display">*144*4*6*10000#</span>
+                <span class="copier-btn" id="copierTxt">📋 Copier</span>
+              </div>
+              <p style="font-size:11px; color:#888; margin-top:6px;">Cliquez sur le code pour copier</p>
+            </div>
+          </div>
+
+          <div class="etape-block">
+            <div class="etape-num">2</div>
+            <div style="flex:1;">
+              <p class="etape-label">Entrez votre numéro Orange Money :</p>
+              <div style="display:flex; align-items:center; gap:8px;">
+                <span style="background:#f5f5f5; padding:10px 12px; border-radius:7px; border:2px solid #e0e0e0; font-weight:600; color:#333;">+226</span>
+                <input type="tel" id="numOM" placeholder="XX XX XX XX" maxlength="8" style="flex:1;"
+                  oninput="this.value=this.value.replace(/[^0-9]/g,'')"/>
+              </div>
+            </div>
+          </div>
+
+          <div class="etape-block">
+            <div class="etape-num">3</div>
+            <div style="flex:1;">
+              <p class="etape-label">Entrez le code OTP reçu par SMS :</p>
+              <input type="text" id="codeOTP" placeholder="Ex: 123456" maxlength="6"
+                style="width:100%; letter-spacing:6px; font-size:20px; font-weight:700; text-align:center;"
+                oninput="this.value=this.value.replace(/[^0-9]/g,'')"/>
+              <p style="font-size:11px; color:#888; margin-top:6px;">Code à 6 chiffres reçu sur votre téléphone</p>
+            </div>
+          </div>
+
+          <div class="om-info">
+            <p>🔒 Paiement sécurisé par Orange Money Burkina Faso</p>
+            <p>⏱️ Le code OTP expire dans 5 minutes</p>
+          </div>
+
+          <p id="om-error" style="color:#c62828; font-size:13px; margin-bottom:10px; display:none;">
+            ⚠️ Veuillez remplir tous les champs correctement.
+          </p>
+
+          <div class="form-actions">
+            <button class="btn-retour" onclick="retourChoix()">← Retour</button>
+            <button class="btn-om-payer" onclick="confirmerPaiement()">
+              Confirmer — <span id="montant-btn">10 000 FCFA</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- ETAPE 3 : CHARGEMENT -->
+        <div id="etape-loading" class="section-card" style="display:none; text-align:center; padding:40px;">
+          <div class="spinner"></div>
+          <h3 style="margin:20px 0 8px; color:#e65100;">Vérification en cours...</h3>
+          <p style="color:#666; font-size:13px;">Validation de votre paiement Orange Money</p>
+        </div>
+
+        <!-- ETAPE 4 : SUCCÈS -->
+        <div id="etape-succes" class="section-card" style="display:none; text-align:center; padding:40px;">
+          <div style="font-size:64px;">✅</div>
+          <h3 style="color:#2e7d32; margin:16px 0 8px;">Paiement confirmé !</h3>
+          <p style="color:#666; font-size:13px; margin-bottom:20px;">
+            Votre paiement de <strong id="montant-recu">10 000 FCFA</strong> a été effectué avec succès.
+          </p>
+          <div class="recu-box">
+            <p>🧾 Reçu de paiement</p>
+            <div class="frais-recap-row"><span>Référence</span><strong id="refPaiement">#OM001</strong></div>
+            <div class="frais-recap-row"><span>Date</span><strong id="date-recu"></strong></div>
+            <div class="frais-recap-row"><span>Montant</span><strong id="montant-recu2">10 000 FCFA</strong></div>
+            <div class="frais-recap-row"><span>Statut</span><strong style="color:#2e7d32;">✅ Payé</strong></div>
+          </div>
+          <a href="../dashboard/etudiant.html" class="btn-envoyer"
+            style="text-decoration:none; display:inline-block; margin-top:20px;">
+            Retour au tableau de bord
+          </a>
+        </div>
+
+        <!-- ETAPE SCOLARITE -->
+        <div id="etape-scolarite" class="section-card" style="display:none; text-align:center; padding:32px;">
+          <div style="font-size:48px;">🏫</div>
+          <h3 style="color:#1a237e; margin:16px 0 8px;">Paiement à la scolarité</h3>
+          <p style="color:#666; font-size:13px; margin-bottom:20px; line-height:1.6;">
+            Présentez-vous au bureau de la <strong>scolarité</strong> avec ce bon pour effectuer votre paiement.
+          </p>
+          <div class="recu-box">
+            <p>📋 Bon de demande</p>
+            <div class="frais-recap-row"><span>Référence</span><strong id="ref-scolarite">#ESI001</strong></div>
+            <div class="frais-recap-row"><span>Montant</span><strong id="montant-scolarite">10 000 FCFA</strong></div>
+            <div class="frais-recap-row"><span>Date limite</span><strong id="date-limite"></strong></div>
+          </div>
+          <a href="../dashboard/etudiant.html" class="btn-envoyer"
+            style="text-decoration:none; display:inline-block; margin-top:20px;">
+            Retour au tableau de bord
+          </a>
+        </div>
+
+      </div>
+    </main>
+  </div>
+
+  <script>
+    // Lire montant depuis URL
+    const urlP = new URLSearchParams(window.location.search);
+    const montant = parseInt(urlP.get('montant')) || 10000;
+    const ussdCode = '*144*4*6*' + montant + '#';
+
+    // Date du jour
+    const today = new Date();
+    const dateStr = today.toLocaleDateString('fr-FR');
+    const dateLimite = new Date(today.setDate(today.getDate() + 7)).toLocaleDateString('fr-FR');
+    const montantStr = montant.toLocaleString('fr-FR') + ' FCFA';
+
+    // Mettre à jour tous les affichages au chargement
+    window.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('montant-label').textContent = montantStr;
+      document.getElementById('montant-om').textContent = montantStr;
+      document.getElementById('montant-btn').textContent = montantStr;
+      document.getElementById('montant-recu').textContent = montantStr;
+      document.getElementById('montant-recu2').textContent = montantStr;
+      document.getElementById('montant-scolarite').textContent = montantStr;
+      document.getElementById('ussd-display').textContent = ussdCode;
+      document.getElementById('date-recu').textContent = dateStr;
+      document.getElementById('date-limite').textContent = dateLimite;
+      document.getElementById('refPaiement').textContent = '#OM' + Date.now().toString().slice(-8);
+      document.getElementById('ref-scolarite').textContent = '#ESI' + Date.now().toString().slice(-8);
+    });
+
+    function afficherOM() {
+      document.getElementById('etape-choix').style.display = 'none';
+      document.getElementById('etape-ussd').style.display = 'block';
+    }
+    function afficherScolarite() {
+      document.getElementById('etape-choix').style.display = 'none';
+      document.getElementById('etape-scolarite').style.display = 'block';
+    }
+    function retourChoix() {
+      document.getElementById('etape-ussd').style.display = 'none';
+      document.getElementById('etape-choix').style.display = 'block';
+    }
+    function copierCode() {
+      navigator.clipboard.writeText(ussdCode);
+      document.getElementById('copierTxt').textContent = '✅ Copié !';
+      setTimeout(() => document.getElementById('copierTxt').textContent = '📋 Copier', 2000);
+    }
+    function confirmerPaiement() {
+      const num = document.getElementById('numOM').value;
+      const otp = document.getElementById('codeOTP').value;
+      const err = document.getElementById('om-error');
+      if (num.length < 8 || otp.length < 6) {
+        err.style.display = 'block';
+        return;
+      }
+      err.style.display = 'none';
+      document.getElementById('etape-ussd').style.display = 'none';
+      document.getElementById('etape-loading').style.display = 'block';
+      setTimeout(() => {
+        document.getElementById('etape-loading').style.display = 'none';
+        document.getElementById('etape-succes').style.display = 'block';
+      }, 3000);
+    }
+  </script>
+</body>
+</html>

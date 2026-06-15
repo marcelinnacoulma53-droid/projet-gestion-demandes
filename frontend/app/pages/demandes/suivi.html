@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>EduRequest — Suivi des demandes</title>
+  <link rel="stylesheet" href="../../assets/css/main.css"/>
+  <link rel="stylesheet" href="../../assets/css/components.css"/>
+</head>
+<body class="dashboard-body">
+  <nav class="navbar">
+    <div class="navbar-brand">🎓 EduRequest</div>
+    <div class="navbar-user">
+      <span>👤 Étudiant</span>
+      <a href="../auth/login.html" class="btn-logout">Déconnexion</a>
+    </div>
+  </nav>
+  <div class="dashboard-layout">
+    <aside class="sidebar">
+      <ul>
+        <li onclick="location.href='../dashboard/etudiant.html'">🏠 Tableau de bord</li>
+        <li class="active">📋 Mes demandes</li>
+        <li onclick="location.href='nouvelle.html'">➕ Nouvelle demande</li>
+      </ul>
+    </aside>
+    <main class="main-content">
+      <div class="section-card">
+        <h2>📋 Suivi de mes demandes</h2>
+        <div style="margin:16px 0; display:flex; gap:10px; flex-wrap:wrap;">
+          <button class="btn-filter active-filter" onclick="filtrer('all',this)">Toutes</button>
+          <button class="btn-filter" onclick="filtrer('en_attente',this)">🟡 En attente</button>
+          <button class="btn-filter" onclick="filtrer('validee',this)">🟢 Validées</button>
+          <button class="btn-filter" onclick="filtrer('rejetee',this)">🔴 Rejetées</button>
+        </div>
+        <table class="demandes-table" id="suiviTable">
+          <thead>
+            <tr><th>N°</th><th>Type</th><th>Date</th><th>Statut</th><th>Étape actuelle</th><th>Action</th></tr>
+          </thead>
+          <tbody>
+            <tr data-statut="en_attente">
+              <td>001</td><td>Réclamation</td><td>10/06/2026</td>
+              <td><span class="badge yellow">🟡 En attente</span></td>
+              <td>Examen SP</td>
+              <td><a href="detail.html" class="btn-detail">Voir détail</a></td>
+            </tr>
+            <tr data-statut="validee">
+              <td>002</td><td>Attestation</td><td>08/06/2026</td>
+              <td><span class="badge green">🟢 Validée</span></td>
+              <td>Terminé</td>
+              <td><a href="detail.html" class="btn-detail">Voir détail</a></td>
+            </tr>
+            <tr data-statut="rejetee">
+              <td>003</td><td>Duplicata</td><td>05/06/2026</td>
+              <td><span class="badge red">🔴 Rejetée</span></td>
+              <td>Terminé</td>
+              <td><a href="detail.html" class="btn-detail">Voir détail</a></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </main>
+  </div>
+  <script>
+    function filtrer(statut, btn) {
+      document.querySelectorAll('.btn-filter').forEach(b => b.classList.remove('active-filter'));
+      btn.classList.add('active-filter');
+      document.querySelectorAll('#suiviTable tbody tr').forEach(row => {
+        row.style.display = (statut === 'all' || row.dataset.statut === statut) ? '' : 'none';
+      });
+    }
+  </script>
+</body>
+</html>

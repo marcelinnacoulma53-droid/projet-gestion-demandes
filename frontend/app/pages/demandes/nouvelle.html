@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>EduRequest — Nouvelle demande</title>
+  <link rel="stylesheet" href="../../assets/css/main.css"/>
+  <link rel="stylesheet" href="../../assets/css/components.css"/>
+</head>
+<body class="dashboard-body">
+
+  <nav class="navbar">
+    <div class="navbar-brand">🎓 EduRequest</div>
+    <div class="navbar-user">
+      <span>👤 Étudiant</span>
+      <a href="../auth/login.html" class="btn-logout">Déconnexion</a>
+    </div>
+  </nav>
+
+  <div class="dashboard-layout">
+    <aside class="sidebar">
+      <ul>
+        <li onclick="location.href='../dashboard/etudiant.html'">🏠 Tableau de bord</li>
+        <li onclick="location.href='../dashboard/etudiant.html'">📋 Mes demandes</li>
+        <li class="active">➕ Nouvelle demande</li>
+      </ul>
+    </aside>
+
+    <main class="main-content">
+      <div class="section-card" style="max-width:720px; margin:0 auto;">
+
+        <h2 id="form-title">➕ Nouvelle demande</h2>
+
+        <!-- CHOIX DU TYPE -->
+        <div id="choix-type">
+          <p style="color:#666; margin-bottom:18px;">Choisissez le type de demande :</p>
+          <div class="btn-grid">
+            <button class="btn-demande" onclick="afficherFormulaire('reclamation')">📝 Réclamation de note</button>
+            <button class="btn-demande" onclick="afficherFormulaire('derogation')">📄 Dérogation</button>
+            <button class="btn-demande" onclick="afficherFormulaire('duplicata')">📑 Duplicata</button>
+            <button class="btn-demande" onclick="afficherFormulaire('attestation')">🎓 Attestation</button>
+          </div>
+        </div>
+
+        <!-- ===== FORMULAIRE RÉCLAMATION (fiche officielle ESI) ===== -->
+        <div id="form-reclamation" class="formulaire" style="display:none;">
+
+          <div class="fiche-header">
+            <div class="fiche-header-left">
+              <p>MINISTÈRE DE L'ENSEIGNEMENT SUPÉRIEUR</p>
+              <p>DE LA RECHERCHE ET DE L'INNOVATION</p>
+              <p>SECRÉTARIAT GÉNÉRAL</p>
+              <p><strong>UNIVERSITÉ NAZI BONI</strong></p>
+              <p>ÉCOLE SUPÉRIEURE D'INFORMATIQUE</p>
+            </div>
+            <div class="fiche-header-center"><img src="../../assets/images/logo-esi.png" alt="Logo ESI" style="width:70px; height:70px; object-fit:contain;"/></div>
+            <div class="fiche-header-right">
+              <p>BURKINA FASO</p>
+              <p><em>La Patrie ou la Mort, nous Vaincrons</em></p>
+            </div>
+          </div>
+
+          <h3 class="fiche-titre">FICHE DE RÉCLAMATION</h3>
+
+          <!-- Infos générales -->
+          <div class="fiche-row">
+            <div class="form-group flex-1">
+              <label>Année universitaire concernée</label>
+              <input type="text" placeholder="Ex: 2025-2026"/>
+            </div>
+            <div class="form-group flex-1">
+              <label>INE</label>
+              <input type="text" placeholder="Numéro INE"/>
+            </div>
+          </div>
+
+          <div class="fiche-row">
+            <div class="form-group flex-2">
+              <label>Nom et prénom(s)</label>
+              <input type="text" placeholder="Votre nom complet"/>
+            </div>
+            <div class="form-group flex-1">
+              <label>Tél</label>
+              <input type="tel" placeholder="+226 XX XX XX XX"/>
+            </div>
+          </div>
+
+          <div class="fiche-row">
+            <div class="form-group flex-1">
+              <label>Filière</label>
+              <input type="text" placeholder="Ex: Informatique"/>
+            </div>
+            <div class="form-group flex-1">
+              <label>Option</label>
+              <input type="text" placeholder="Ex: GL"/>
+            </div>
+            <div class="form-group flex-1">
+              <label>Niveau</label>
+              <select>
+                <option>L1</option><option>L2</option><option>L3</option>
+                <option>M1</option><option>M2</option>
+              </select>
+            </div>
+            <div class="form-group flex-1">
+              <label>Semestre</label>
+              <select>
+                <option>S1</option><option>S2</option>
+                <option>S3</option><option>S4</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Session -->
+          <div class="fiche-section">
+            <div class="fiche-row" style="align-items:flex-start; gap:40px;">
+              <div>
+                <label class="section-label">Session</label>
+                <div class="checkbox-group">
+                  <label><input type="checkbox"/> Normale</label>
+                  <label><input type="checkbox"/> Rattrapage</label>
+                </div>
+              </div>
+              <div style="flex:1;">
+                <label class="section-label">Pièces justificatives jointes</label>
+                <div class="checkbox-group flex-wrap">
+                  <label><input type="checkbox"/> Relevés de notes</label>
+                  <label><input type="checkbox"/> Attestation d'inscription</label>
+                  <label><input type="checkbox"/> Copies</label>
+                  <label><input type="checkbox"/> Autres</label>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Correspondant -->
+          <div class="fiche-section">
+            <label class="section-label">Correspondant</label>
+            <div class="checkbox-group flex-wrap">
+              <label><input type="checkbox"/> Directeur</label>
+              <label><input type="checkbox"/> Directrice adjointe</label>
+              <label><input type="checkbox"/> Coordonnateur</label>
+              <label><input type="checkbox"/> Enseignant</label>
+              <label><input type="checkbox"/> Chef de service de la Scolarité</label>
+            </div>
+          </div>
+
+          <!-- Motifs -->
+          <div class="fiche-section">
+            <label class="section-label">Motifs de la demande</label>
+            <div class="checkbox-group flex-wrap">
+              <label><input type="checkbox"/> Comptabilité des notes sur la copie</label>
+              <label><input type="checkbox"/> Rectification de note</label>
+              <label><input type="checkbox"/> Note non répertoriée</label>
+              <label><input type="checkbox"/> Annulation de note</label>
+              <label><input type="checkbox"/> Rectification du nom</label>
+              <label><input type="checkbox"/> Rectification de n° matricule</label>
+              <label><input type="checkbox"/> Rectification du lieu de naissance</label>
+              <label><input type="checkbox"/> Rectification de la date de naissance</label>
+              <label><input type="checkbox"/> Insertion du nom sur le PV</label>
+            </div>
+            <div class="form-group" style="margin-top:10px;">
+              <label>Autres (à préciser)</label>
+              <input type="text" placeholder="Précisez si autre motif"/>
+            </div>
+          </div>
+
+          <!-- ECUES -->
+          <div class="fiche-section">
+            <label class="section-label">ECUES concernés (mentionnez les intitulés des ECUES)</label>
+            <div class="form-group">
+              <input type="text" placeholder="ECUE 1"/>
+            </div>
+            <div class="form-group">
+              <input type="text" placeholder="ECUE 2"/>
+            </div>
+            <div class="form-group">
+              <input type="text" placeholder="ECUE 3"/>
+            </div>
+          </div>
+
+          <!-- Description -->
+          <div class="fiche-section">
+            <div class="form-group">
+              <label class="section-label">Description du problème <em>(Si nécessaire)</em></label>
+              <textarea placeholder="Décrivez votre problème en détail..." style="height:100px;"></textarea>
+            </div>
+          </div>
+
+          <!-- Upload copie -->
+          <div class="fiche-section upload-section">
+            <label class="section-label">📎 Joindre votre copie (PDF obligatoire)</label>
+            <div class="upload-box" id="uploadBox" onclick="document.getElementById('copieFile').click()">
+              <div class="upload-icon">📄</div>
+              <p>Cliquez pour sélectionner votre copie en PDF</p>
+              <span id="fileName" style="color:#1a237e; font-weight:600;"></span>
+              <input type="file" id="copieFile" accept=".pdf" style="display:none"
+                onchange="document.getElementById('fileName').textContent = this.files[0]?.name || ''"/>
+            </div>
+          </div>
+
+          <div class="form-actions">
+            <button class="btn-retour" onclick="retour()">← Retour</button>
+            <button class="btn-envoyer" onclick="envoyer()">Envoyer la réclamation</button>
+          </div>
+        </div>
+
+        <!-- FORMULAIRE DÉROGATION -->
+        <div id="form-derogation" class="formulaire" style="display:none;">
+          <h3 style="margin-bottom:18px; color:#1a237e;">📄 Demande de dérogation</h3>
+          <div class="form-group">
+            <label>Objet de la dérogation</label>
+            <input type="text" placeholder="Ex: Autorisation d'absence"/>
+          </div>
+          <div class="form-group">
+            <label>Motif</label>
+            <textarea placeholder="Expliquez votre motif..."></textarea>
+          </div>
+          <div class="form-group">
+            <label>Pièce jointe</label>
+            <input type="file" accept=".pdf,.jpg,.png"/>
+          </div>
+          <div class="form-actions">
+            <button class="btn-retour" onclick="retour()">← Retour</button>
+            <button class="btn-envoyer" onclick="envoyer()">Envoyer la demande</button>
+          </div>
+        </div>
+
+        <!-- FORMULAIRE DUPLICATA (Fiche officielle ESI) -->
+        <div id="form-duplicata" class="formulaire" style="display:none;">
+
+          <div class="fiche-header">
+            <div class="fiche-header-left">
+              <p>MINISTÈRE DE L'ENSEIGNEMENT SUPÉRIEUR</p>
+              <p>DE LA RECHERCHE ET DE L'INNOVATION</p>
+              <p>SECRÉTARIAT GÉNÉRAL</p>
+              <p><strong>UNIVERSITÉ NAZI BONI</strong></p>
+              <p>ÉCOLE SUPÉRIEURE D'INFORMATIQUE</p>
+            </div>
+            <div class="fiche-header-center"><img src="../../assets/images/logo-esi.png" alt="Logo ESI" style="width:70px; height:70px; object-fit:contain;"/></div>
+            <div class="fiche-header-right">
+              <p>BURKINA FASO</p>
+              <p><em>La Patrie ou la Mort, nous Vaincrons</em></p>
+            </div>
+          </div>
+
+          <h3 class="fiche-titre">FICHE DE DEMANDE DE DOCUMENTS ACADÉMIQUES</h3>
+
+          <div class="frais-banner">
+            💰 Frais de traitement : <strong>10 000 FCFA</strong>
+          </div>
+
+          <div class="fiche-row">
+            <div class="form-group flex-2">
+              <label>Année universitaire concernée</label>
+              <input type="text" placeholder="Ex: 2025-2026"/>
+            </div>
+            <div class="form-group flex-1">
+              <label>INE</label>
+              <input type="text" placeholder="Numéro INE"/>
+            </div>
+          </div>
+
+          <div class="fiche-row">
+            <div class="form-group flex-2">
+              <label>Nom et prénom(s)</label>
+              <input type="text" placeholder="Votre nom complet"/>
+            </div>
+            <div class="form-group flex-1">
+              <label>Tél</label>
+              <input type="tel" placeholder="+226 XX XX XX XX"/>
+            </div>
+          </div>
+
+          <div class="fiche-row">
+            <div class="form-group flex-1">
+              <label>Niveau</label>
+              <select>
+                <option>L1</option><option>L2</option><option>L3</option>
+                <option>M1</option><option>M2</option>
+              </select>
+            </div>
+            <div class="form-group flex-1">
+              <label>Semestre</label>
+              <select>
+                <option>S1</option><option>S2</option>
+                <option>S3</option><option>S4</option>
+              </select>
+            </div>
+            <div class="form-group flex-1">
+              <label>Session</label>
+              <select>
+                <option>Normale</option>
+                <option>Rattrapage</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="fiche-section">
+            <label class="section-label">Pièces justificatives jointes</label>
+            <div class="checkbox-group flex-wrap">
+              <label><input type="checkbox"/> Relevés de notes</label>
+              <label><input type="checkbox"/> Attestation d'inscription</label>
+              <label><input type="checkbox"/> Autres</label>
+            </div>
+          </div>
+
+          <div class="fiche-section">
+            <label class="section-label">Correspondant</label>
+            <div class="checkbox-group flex-wrap">
+              <label><input type="checkbox"/> Directeur</label>
+              <label><input type="checkbox"/> Directrice adjointe</label>
+              <label><input type="checkbox"/> Coordonnateur</label>
+              <label><input type="checkbox"/> Responsable des stages</label>
+              <label><input type="checkbox"/> Chef Scolarité</label>
+            </div>
+          </div>
+
+          <div class="fiche-section">
+            <label class="section-label">Document demandé</label>
+            <div class="checkbox-group">
+              <label><input type="radio" name="doc-duplicata"/> Relevés de notes</label>
+              <label><input type="radio" name="doc-duplicata"/> Certificat de scolarité</label>
+              <label><input type="radio" name="doc-duplicata"/> Attestation provisoire</label>
+              <label><input type="radio" name="doc-duplicata"/> Attestation de niveau</label>
+              <label><input type="radio" name="doc-duplicata"/> Correction (préciser la correction)</label>
+              <label><input type="radio" name="doc-duplicata"/> Autres (à préciser)</label>
+            </div>
+            <div class="form-group" style="margin-top:10px;">
+              <input type="text" placeholder="Précisez si autre document..."/>
+            </div>
+          </div>
+
+          <div class="frais-banner">
+            💰 Frais de traitement : <strong>10 000 FCFA</strong>
+          </div>
+
+          <div class="fiche-section">
+            <div class="form-group">
+              <label class="section-label">Description de la demande <em>(Si nécessaire)</em></label>
+              <textarea placeholder="Décrivez votre demande..."></textarea>
+            </div>
+          </div>
+
+          <div class="form-actions">
+            <button class="btn-retour" onclick="retour()">← Retour</button>
+            <button class="btn-envoyer" onclick="envoyer()">Envoyer la demande</button>
+          </div>
+        </div>
+
+        <!-- FORMULAIRE ATTESTATION -->
+        <div id="form-attestation" class="formulaire" style="display:none;">
+          <h3 style="margin-bottom:18px; color:#1a237e;">🎓 Demande d'attestation</h3>
+          <div class="form-group">
+            <label>Type d'attestation</label>
+            <select>
+              <option value="">-- Choisir --</option>
+              <option>Attestation d'inscription</option>
+              <option>Attestation de fréquentation</option>
+              <option>Attestation de réussite</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Nombre d'exemplaires <span style="color:#888; font-size:12px;">(3 maximum)</span></label>
+            <div style="display:flex; gap:12px;">
+              <label style="display:flex; align-items:center; gap:6px; cursor:pointer;">
+                <input type="radio" name="exemplaires" value="1" checked/> 1 exemplaire
+              </label>
+              <label style="display:flex; align-items:center; gap:6px; cursor:pointer;">
+                <input type="radio" name="exemplaires" value="2"/> 2 exemplaires
+              </label>
+              <label style="display:flex; align-items:center; gap:6px; cursor:pointer;">
+                <input type="radio" name="exemplaires" value="3"/> 3 exemplaires
+              </label>
+            </div>
+          </div>
+          <div class="form-actions">
+            <button class="btn-retour" onclick="retour()">← Retour</button>
+            <button class="btn-envoyer" onclick="envoyer()">Envoyer la demande</button>
+          </div>
+        </div>
+
+        <!-- CONFIRMATION -->
+        <div id="confirmation" style="display:none; text-align:center; padding:40px 0;">
+          <div style="font-size:60px;">✅</div>
+          <h3 style="color:#2e7d32; margin:16px 0 8px;">Demande envoyée !</h3>
+          <p style="color:#666; margin-bottom:24px;">Votre demande a été soumise avec succès.</p>
+          <a href="../dashboard/etudiant.html" class="btn-envoyer" style="text-decoration:none;">
+            Retour au tableau de bord
+          </a>
+        </div>
+
+      </div>
+    </main>
+  </div>
+
+  <script>
+    function payerDuplicata() {
+      const checked = document.querySelector('input[name="doc-duplicata"]:checked');
+      if (!checked) { alert('Veuillez sélectionner un document.'); return; }
+      window.location.href = 'paiement.html?montant=10000&docs=1';
+    }
+
+    function afficherFormulaire(type) {
+      document.getElementById('choix-type').style.display = 'none';
+      document.getElementById('form-' + type).style.display = 'block';
+      document.getElementById('form-title').textContent = '';
+    }
+
+    // Ouvrir automatiquement si type dans URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const typeURL = urlParams.get('type');
+    if (typeURL) afficherFormulaire(typeURL);
+    function retour() {
+      document.querySelectorAll('.formulaire').forEach(f => f.style.display = 'none');
+      document.getElementById('choix-type').style.display = 'block';
+      document.getElementById('form-title').textContent = '➕ Nouvelle demande';
+    }
+    function envoyer() {
+      const typeActif = document.querySelector('.formulaire[style*="block"]')?.id;
+      if (typeActif === 'form-duplicata') {
+        window.location.href = 'paiement.html';
+        return;
+      }
+      document.querySelectorAll('.formulaire').forEach(f => f.style.display = 'none');
+      document.getElementById('confirmation').style.display = 'block';
+    }
+  </script>
+</body>
+</html>
