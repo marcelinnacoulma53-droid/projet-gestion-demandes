@@ -1,4 +1,3 @@
-// Connexion
 async function login(email, motDePasse) {
   try {
     const data = await authAPI.login({ email, mot_de_passe: motDePasse });
@@ -6,24 +5,15 @@ async function login(email, motDePasse) {
       localStorage.setItem('token', data.token);
       localStorage.setItem('user', JSON.stringify(data.user));
 
-      const role = data.user.role;
+      const role = data.user.role.toLowerCase();
 
-      // Première connexion staff → page de configuration
+      // Première connexion staff - si premiere_connexion existe dans la réponse
       if (data.user.premiere_connexion === true) {
         window.location.href = 'first-login.html?role=' + role;
         return;
       }
 
-      // Redirection normale selon le rôle
-      if (role === 'etudiant') window.location.href = '../dashboard/etudiant.html';
-      else if (role === 'secretaire') window.location.href = '../dashboard/staff.html?role=secretaire';
-      else if (role === 'sp') window.location.href = '../dashboard/sp.html';
-      else if (role === 'da') window.location.href = '../dashboard/staff.html?role=da';
-      else if (role === 'enseignant') window.location.href = '../dashboard/enseignant.html';
-      else if (role === 'directrice') window.location.href = '../dashboard/staff.html?role=directrice';
-      else if (role === 'presidence') window.location.href = '../dashboard/staff.html?role=presidence';
-      else if (role === 'scolarite') window.location.href = '../dashboard/staff.html?role=scolarite';
-      else if (role === 'admin') window.location.href = '../dashboard/admin.html';
+      redirectByRole(role);
 
     } else {
       document.getElementById('errorMsg').textContent = data.message || 'Identifiants incorrects.';
@@ -33,7 +23,19 @@ async function login(email, motDePasse) {
   }
 }
 
-// Inscription étudiant
+function redirectByRole(role) {
+  const r = role.toLowerCase();
+  if (r === 'etudiant') window.location.href = '../dashboard/etudiant.html';
+  else if (r === 'secretaire') window.location.href = '../dashboard/staff.html?role=secretaire';
+  else if (r === 'sp') window.location.href = '../dashboard/sp.html';
+  else if (r === 'da') window.location.href = '../dashboard/staff.html?role=da';
+  else if (r === 'professeur') window.location.href = '../dashboard/enseignant.html';
+  else if (r === 'directrice') window.location.href = '../dashboard/staff.html?role=directrice';
+  else if (r === 'presidence') window.location.href = '../dashboard/staff.html?role=presidence';
+  else if (r === 'scolarite') window.location.href = '../dashboard/staff.html?role=scolarite';
+  else if (r === 'administrateur') window.location.href = '../dashboard/admin.html';
+}
+
 async function register(formData) {
   try {
     const data = await authAPI.register(formData);
@@ -47,32 +49,16 @@ async function register(formData) {
   }
 }
 
-// Déconnexion
 function logout() {
   localStorage.removeItem('token');
   localStorage.removeItem('user');
   window.location.href = '../auth/login.html';
 }
 
-// Vérifier si connecté
 function isAuthenticated() {
   return !!localStorage.getItem('token');
 }
 
-// Récupérer l'utilisateur connecté
 function getCurrentUser() {
   return JSON.parse(localStorage.getItem('user') || '{}');
-}
-
-// Redirection par rôle
-function redirectByRole(role) {
-  if (role === 'etudiant') window.location.href = '../dashboard/etudiant.html';
-  else if (role === 'secretaire') window.location.href = '../dashboard/staff.html?role=secretaire';
-  else if (role === 'sp') window.location.href = '../dashboard/sp.html';
-  else if (role === 'da') window.location.href = '../dashboard/staff.html?role=da';
-  else if (role === 'enseignant') window.location.href = '../dashboard/enseignant.html';
-  else if (role === 'directrice') window.location.href = '../dashboard/staff.html?role=directrice';
-  else if (role === 'presidence') window.location.href = '../dashboard/staff.html?role=presidence';
-  else if (role === 'scolarite') window.location.href = '../dashboard/staff.html?role=scolarite';
-  else if (role === 'admin') window.location.href = '../dashboard/admin.html';
 }
