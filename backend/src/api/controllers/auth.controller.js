@@ -20,6 +20,7 @@ const personnelRepo = require('../../db/repositories/personnel.repo');
 // POST /api/auth/register
 // ============================================================
 const register = async (req, res) => {
+    console.log(`📥 Requête reçue : ${req.method} ${req.url}`);
     const { nom, prenom, matricule, email, mot_de_passe } = req.body;
 
     if (!nom || !prenom || !matricule || !email || !mot_de_passe) {
@@ -89,6 +90,7 @@ const register = async (req, res) => {
 // POST /api/auth/login
 // ============================================================
 const login = async (req, res) => {
+    console.log(`📥 Requête reçue : ${req.method} ${req.url}`);
     const { email, mot_de_passe } = req.body;
 
     if (!email || !mot_de_passe) {
