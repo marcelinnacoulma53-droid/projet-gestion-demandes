@@ -1,3 +1,4 @@
+// Connexion
 async function login(email, motDePasse) {
   try {
     const data = await authAPI.login({ email, mot_de_passe: motDePasse });
@@ -7,7 +8,7 @@ async function login(email, motDePasse) {
 
       const role = data.user.role.toLowerCase();
 
-      // Première connexion staff - si premiere_connexion existe dans la réponse
+      // Première connexion staff
       if (data.user.premiere_connexion === true) {
         window.location.href = 'first-login.html?role=' + role;
         return;
@@ -61,4 +62,17 @@ function isAuthenticated() {
 
 function getCurrentUser() {
   return JSON.parse(localStorage.getItem('user') || '{}');
+}
+
+function redirectByRole(role) {
+  const r = role.toLowerCase();
+  if (r === 'etudiant') window.location.href = '../dashboard/etudiant.html';
+  else if (r === 'secretaire') window.location.href = '../dashboard/staff.html?role=secretaire';
+  else if (r === 'sp') window.location.href = '../dashboard/sp.html';
+  else if (r === 'da') window.location.href = '../dashboard/staff.html?role=da';
+  else if (r === 'professeur') window.location.href = '../dashboard/enseignant.html';
+  else if (r === 'directrice') window.location.href = '../dashboard/staff.html?role=directrice';
+  else if (r === 'presidence') window.location.href = '../dashboard/staff.html?role=presidence';
+  else if (r === 'scolarite') window.location.href = '../dashboard/staff.html?role=scolarite';
+  else if (r === 'administrateur') window.location.href = '../dashboard/admin.html';
 }
