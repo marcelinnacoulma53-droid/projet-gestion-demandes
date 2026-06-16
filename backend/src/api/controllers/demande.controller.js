@@ -1,10 +1,17 @@
 // ============================================================
-// CONTRÔLEUR DES DEMANDES
+// CONTRÔLEUR DES DEMANDES (avec intégration M3)
 // ============================================================
 
 const demandeRepo = require('../../db/repositories/demande.repo');
 const userRepo = require('../../db/repositories/user.repo');
 
+// ✅ IMPORT DES SERVICES DE MEMBRE 3
+const permissionService = require('../../core/services/permission.service');
+const visibilityRules = require('../../core/rules/visibility.rules');
+
+// ============================================================
+// 1. CRÉER UNE DEMANDE
+// ============================================================
 const createDemande = async (req, res, next) => {
     const userId = req.user.userId;
     const { type_demande, objet, description } = req.body;
@@ -43,19 +50,16 @@ const createDemande = async (req, res, next) => {
     }
 };
 
+// ============================================================
+// 2. RÉCUPÉRER LES DEMANDES VISIBLES (amélioré)
+// ============================================================
 const getMesDemandes = async (req, res, next) => {
     const userId = req.user.userId;
+    const role = req.user.role;
 
     try {
-        const etudiant = await userRepo.findEtudiantByUserId(userId);
-        
-        if (!etudiant) {
-            return res.status(404).json({ 
-                message: 'Étudiant non trouvé' 
-            });
-        }
-
-        const demandes = await demandeRepo.findByEtudiant(etudiant.id_etudiant);
+        // ✅ Utilisation des règles de visibilité de M3
+        const demandes = await visibilityRules.getDemandesVisibles(userId, role);
 
         res.json({
             success: true,
@@ -67,19 +71,15 @@ const getMesDemandes = async (req, res, next) => {
     }
 };
 
+// ============================================================
+// 3. RÉCUPÉRER UNE DEMANDE PAR ID (amélioré)
+// ============================================================
 const getDemandeById = async (req, res, next) => {
     const demandeId = req.params.id;
     const userId = req.user.userId;
+    const role = req.user.role;
 
     try {
-        const etudiant = await userRepo.findEtudiantByUserId(userId);
-        
-        if (!etudiant) {
-            return res.status(404).json({ 
-                message: 'Étudiant non trouvé' 
-            });
-        }
-
         const demande = await demandeRepo.findById(demandeId);
 
         if (!demande) {
@@ -88,7 +88,10 @@ const getDemandeById = async (req, res, next) => {
             });
         }
 
-        if (demande.id_etudiant !== etudiant.id_etudiant) {
+        // ✅ Utilisation du service de permission de M3
+        const peutVoir = await permissionService.peutVoir(demandeId, userId, role);
+        
+        if (!peutVoir) {
             return res.status(403).json({ 
                 message: 'Vous n\'avez pas accès à cette demande' 
             });
@@ -104,6 +107,9 @@ const getDemandeById = async (req, res, next) => {
     }
 };
 
+// ============================================================
+// 4. MODIFIER UN BROUILLON
+// ============================================================
 const updateBrouillon = async (req, res, next) => {
     const demandeId = req.params.id;
     const userId = req.user.userId;
@@ -126,6 +132,7 @@ const updateBrouillon = async (req, res, next) => {
             });
         }
 
+        // ✅ Vérification que la demande appartient bien à l'étudiant
         if (demande.id_etudiant !== etudiant.id_etudiant) {
             return res.status(403).json({ 
                 message: 'Vous n\'avez pas accès à cette demande' 
@@ -154,6 +161,9 @@ const updateBrouillon = async (req, res, next) => {
     }
 };
 
+// ============================================================
+// 5. SOUMETTRE UNE DEMANDE
+// ============================================================
 const soumettreDemande = async (req, res, next) => {
     const demandeId = req.params.id;
     const userId = req.user.userId;
@@ -175,6 +185,7 @@ const soumettreDemande = async (req, res, next) => {
             });
         }
 
+        // ✅ Vérification que la demande appartient bien à l'étudiant
         if (demande.id_etudiant !== etudiant.id_etudiant) {
             return res.status(403).json({ 
                 message: 'Vous n\'avez pas accès à cette demande' 
