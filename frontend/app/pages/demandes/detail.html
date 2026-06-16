@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>EduRequest — Détail demande</title>
+  <link rel="stylesheet" href="../../assets/css/main.css"/>
+  <link rel="stylesheet" href="../../assets/css/components.css"/>
+</head>
+<body class="dashboard-body">
+  <nav class="navbar">
+    <div class="navbar-brand">🎓 EduRequest</div>
+    <div class="navbar-user">
+      <span>👤 Étudiant</span>
+      <a href="../auth/login.html" class="btn-logout">Déconnexion</a>
+    </div>
+  </nav>
+
+  <div class="dashboard-layout">
+    <aside class="sidebar">
+      <ul>
+        <li onclick="location.href='../dashboard/etudiant.html'">🏠 Tableau de bord</li>
+        <li class="active">📋 Mes demandes</li>
+        <li onclick="location.href='nouvelle.html'">➕ Nouvelle demande</li>
+      </ul>
+    </aside>
+
+    <main class="main-content">
+      <div class="section-card" style="max-width:720px; margin:0 auto;">
+
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px;">
+          <h2>📋 Détail de la demande</h2>
+          <span class="badge yellow" style="font-size:14px; padding:6px 16px;">🟡 En attente</span>
+        </div>
+
+        <!-- INFORMATIONS GÉNÉRALES -->
+        <div class="fiche-section">
+          <label class="section-label">Informations générales</label>
+          <div class="detail-row"><span>N° demande :</span><strong>#001</strong></div>
+          <div class="detail-row"><span>Type :</span><strong>Réclamation de note</strong></div>
+          <div class="detail-row"><span>Année universitaire :</span><strong>2025-2026</strong></div>
+          <div class="detail-row"><span>Date soumission :</span><strong>10/06/2026</strong></div>
+          <div class="detail-row"><span>Étudiant :</span><strong>Koné Mamadou</strong></div>
+          <div class="detail-row"><span>INE :</span><strong>N00222020241</strong></div>
+          <div class="detail-row"><span>Téléphone :</span><strong>+226 70 00 00 00</strong></div>
+          <div class="detail-row"><span>Filière :</span><strong>Informatique</strong></div>
+          <div class="detail-row"><span>Option :</span><strong>Génie Logiciel</strong></div>
+          <div class="detail-row"><span>Niveau :</span><strong>L2</strong></div>
+          <div class="detail-row"><span>Semestre :</span><strong>S3</strong></div>
+          <div class="detail-row"><span>Session :</span><strong>Normale</strong></div>
+        </div>
+
+        <!-- PIÈCES JUSTIFICATIVES -->
+        <div class="fiche-section">
+          <label class="section-label">📎 Pièces justificatives jointes</label>
+          <div class="checkbox-group flex-wrap">
+            <label style="color:#2e7d32;"><input type="checkbox" checked disabled/> Relevés de notes</label>
+            <label style="color:#2e7d32;"><input type="checkbox" checked disabled/> Copies</label>
+            <label style="color:#aaa;"><input type="checkbox" disabled/> Attestation d'inscription</label>
+            <label style="color:#aaa;"><input type="checkbox" disabled/> Autres</label>
+          </div>
+        </div>
+
+        <!-- CORRESPONDANT -->
+        <div class="fiche-section">
+          <label class="section-label">Correspondant concerné</label>
+          <div class="checkbox-group flex-wrap">
+            <label style="color:#2e7d32;"><input type="checkbox" checked disabled/> Directeur</label>
+            <label style="color:#2e7d32;"><input type="checkbox" checked disabled/> Enseignant</label>
+            <label style="color:#aaa;"><input type="checkbox" disabled/> Directrice adjointe</label>
+            <label style="color:#aaa;"><input type="checkbox" disabled/> Coordonnateur</label>
+            <label style="color:#aaa;"><input type="checkbox" disabled/> Chef de service Scolarité</label>
+          </div>
+        </div>
+
+        <!-- MOTIFS -->
+        <div class="fiche-section">
+          <label class="section-label">Motifs de la demande</label>
+          <div class="checkbox-group flex-wrap">
+            <label style="color:#2e7d32;"><input type="checkbox" checked disabled/> Rectification de note</label>
+            <label style="color:#2e7d32;"><input type="checkbox" checked disabled/> Note non répertoriée</label>
+            <label style="color:#aaa;"><input type="checkbox" disabled/> Comptabilité des notes sur la copie</label>
+            <label style="color:#aaa;"><input type="checkbox" disabled/> Annulation de note</label>
+            <label style="color:#aaa;"><input type="checkbox" disabled/> Rectification du nom</label>
+          </div>
+        </div>
+
+        <!-- ECUES CONCERNÉS -->
+        <div class="fiche-section">
+          <label class="section-label">ECUES concernés</label>
+          <div class="detail-row"><span>ECUE 1 :</span><strong>Algorithmique</strong></div>
+          <div class="detail-row"><span>ECUE 2 :</span><strong>Mathématiques</strong></div>
+        </div>
+
+        <!-- DESCRIPTION -->
+        <div class="fiche-section">
+          <label class="section-label">Description du problème</label>
+          <p style="font-size:13px; color:#444; line-height:1.6; margin:0;">
+            J'ai remarqué une erreur dans le calcul de ma note finale. La somme des points
+            sur ma copie donne 12/20 mais la note reportée est 08/20. Je demande une vérification.
+          </p>
+        </div>
+
+        <!-- COPIE PDF -->
+        <div class="fiche-section" style="background:#e8eaf6;">
+          <label class="section-label">📄 Copie jointe</label>
+          <a href="#" style="color:#1a237e; font-weight:600; font-size:14px;">
+            📄 copie_maths.pdf — Cliquez pour voir
+          </a>
+        </div>
+
+        <!-- TIMELINE -->
+        <div class="fiche-section">
+          <label class="section-label">📌 Suivi du traitement</label>
+          <div class="timeline">
+            <div class="timeline-item done">
+              <div class="timeline-dot green"></div>
+              <div class="timeline-content">
+                <strong>✅ Demande soumise</strong>
+                <span>10/06/2026 — par l'étudiant</span>
+              </div>
+            </div>
+            <div class="timeline-item done">
+              <div class="timeline-dot green"></div>
+              <div class="timeline-content">
+                <strong>✅ Reçue par la Secrétaire</strong>
+                <span>10/06/2026 — Transmise au DA</span>
+              </div>
+            </div>
+            <div class="timeline-item current">
+              <div class="timeline-dot yellow"></div>
+              <div class="timeline-content">
+                <strong>🟡 Examen par le DA</strong>
+                <span>En attente de traitement</span>
+              </div>
+            </div>
+            <div class="timeline-item pending">
+              <div class="timeline-dot grey"></div>
+              <div class="timeline-content">
+                <strong>Transmission à l'Enseignant</strong>
+                <span>En attente</span>
+              </div>
+            </div>
+            <div class="timeline-item pending">
+              <div class="timeline-dot grey"></div>
+              <div class="timeline-content">
+                <strong>Retour DA (décision finale)</strong>
+                <span>En attente</span>
+              </div>
+            </div>
+            <div class="timeline-item pending">
+              <div class="timeline-dot grey"></div>
+              <div class="timeline-content">
+                <strong>Exécution par la Scolarité</strong>
+                <span>En attente</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ZONE ACTIONS STAFF -->
+        <div class="fiche-section" id="actions-staff" style="background:#f9f9f9;">
+          <label class="section-label">⚡ Actions</label>
+          <div class="actions-cell" style="gap:10px; flex-wrap:wrap;">
+            <button class="btn-valider" style="padding:10px 20px; font-size:14px;" onclick="changerStatut('validee')">✅ Valider</button>
+            <button class="btn-rejeter" style="padding:10px 20px; font-size:14px;" onclick="changerStatut('rejetee')">❌ Rejeter</button>
+            <button class="btn-complement" style="padding:10px 20px; font-size:14px;" onclick="demanderComplement()">📝 Demander complément</button>
+          </div>
+          <div id="complement-box" style="display:none; margin-top:14px;">
+            <div class="form-group">
+              <label>Message à l'étudiant</label>
+              <textarea id="msg-complement" placeholder="Précisez ce que l'étudiant doit compléter..."></textarea>
+            </div>
+            <button class="btn-envoyer" onclick="envoyerComplement()">Envoyer le message</button>
+          </div>
+        </div>
+
+        <!-- BOUTON RETOUR DYNAMIQUE -->
+        <div style="margin-top:16px;">
+          <button class="btn-retour" onclick="history.back()">← Retour</button>
+        </div>
+
+      </div>
+    </main>
+  </div>
+
+  <script>
+    // Adapter le contenu selon le type de demande
+    const typeD = urlP.get('type') || 'reclamation';
+
+    const titres = {
+      reclamation: '📝 Réclamation de note',
+      attestation: '🎓 Demande d'attestation',
+      duplicata: '📑 Demande de duplicata',
+      derogation: '📄 Demande de dérogation'
+    };
+
+    const timelines = {
+      reclamation: ['✅ Demande soumise', '✅ Reçue par la Secrétaire', '🟡 Examen par le DA', 'Transmission à l'Enseignant', 'Retour DA (décision finale)', 'Exécution par la Scolarité'],
+      attestation: ['✅ Demande soumise', '✅ Reçue par la Secrétaire', '🟡 Examen par le SP', 'Transmission au DA', 'Décision Directrice', 'Exécution par la Scolarité'],
+      duplicata: ['✅ Demande soumise', '✅ Reçue par la Secrétaire', '🟡 Examen par le SP', 'Transmission au DA', 'Décision Directrice', 'Exécution par la Scolarité'],
+      derogation: ['✅ Demande soumise', '✅ Reçue par la Secrétaire', '🟡 Examen par le SP', 'Transmission au DA', 'Décision finale', 'Exécution']
+    };
+
+    window.addEventListener('DOMContentLoaded', () => {
+      // Changer le badge type
+      const typeBadge = document.querySelector('.detail-row strong');
+      if (typeBadge) typeBadge.textContent = titres[typeD] || titres['reclamation'];
+
+      // Adapter la timeline
+      const tl = timelines[typeD] || timelines['reclamation'];
+      const dots = document.querySelectorAll('.timeline-dot');
+      const contents = document.querySelectorAll('.timeline-content strong');
+      contents.forEach((el, i) => {
+        if (tl[i]) el.textContent = tl[i];
+      });
+
+      // Cacher section enseignant si pas réclamation
+      if (typeD !== 'reclamation') {
+        document.querySelectorAll('.detail-row').forEach(row => {
+          const label = row.querySelector('span');
+          if (label && ['Matière :', 'Enseignant :', 'Note obtenue :'].includes(label.textContent)) {
+            row.style.display = 'none';
+          }
+        });
+      }
+    });
+
+    // Cacher les actions si c'est un étudiant
+    window.addEventListener('DOMContentLoaded', () => {
+      const urlP = new URLSearchParams(window.location.search);
+      const role = urlP.get('role') || 'etudiant';
+      if (role === 'etudiant') {
+        document.getElementById('actions-staff').style.display = 'none';
+      }
+    });
+
+    function changerStatut(statut) {
+      const badge = document.querySelector('.badge');
+      if (statut === 'validee') {
+        badge.className = 'badge green';
+        badge.textContent = '🟢 Validée';
+      } else {
+        badge.className = 'badge red';
+        badge.textContent = '🔴 Rejetée';
+      }
+      document.getElementById('actions-staff').style.display = 'none';
+      alert(statut === 'validee' ? '✅ Demande validée !' : '❌ Demande rejetée !');
+    }
+    function demanderComplement() {
+      const box = document.getElementById('complement-box');
+      box.style.display = box.style.display === 'none' ? 'block' : 'none';
+    }
+    function envoyerComplement() {
+      const msg = document.getElementById('msg-complement').value;
+      if (!msg) { alert('Écrivez un message.'); return; }
+      alert('📝 Message envoyé à l\'étudiant !');
+      document.getElementById('complement-box').style.display = 'none';
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>EduRequest — Espace Enseignant</title>
+  <link rel="stylesheet" href="../../assets/css/main.css"/>
+  <link rel="stylesheet" href="../../assets/css/components.css"/>
+</head>
+<body class="dashboard-body">
+  <nav class="navbar">
+    <div class="navbar-brand">🎓 EduRequest</div>
+    <div class="navbar-user">
+      <span>👤 Enseignant</span>
+      <a href="../auth/login.html" class="btn-logout">Déconnexion</a>
+    </div>
+  </nav>
+
+  <div class="dashboard-layout">
+    <aside class="sidebar">
+      <ul>
+        <li class="active">🏠 Tableau de bord</li>
+        <li onclick="location.href='#reclamations'">📋 Réclamations reçues</li>
+      </ul>
+    </aside>
+
+    <main class="main-content">
+
+      <!-- STATS -->
+      <div class="stats-grid">
+        <div class="stat-card">
+          <h3>Total reçues</h3>
+          <p class="stat-number">3</p>
+        </div>
+        <div class="stat-card yellow">
+          <h3>En attente</h3>
+          <p class="stat-number">2</p>
+        </div>
+        <div class="stat-card green">
+          <h3>Traitées</h3>
+          <p class="stat-number">1</p>
+        </div>
+      </div>
+
+      <!-- TABLEAU RÉCLAMATIONS -->
+      <section class="section-card" id="reclamations">
+        <h2>📋 Réclamations à traiter</h2>
+        <table class="demandes-table" id="reclamTable">
+          <thead>
+            <tr>
+              <th>N°</th>
+              <th>Étudiant</th>
+              <th>Matière</th>
+              <th>Note actuelle</th>
+              <th>Date</th>
+              <th>Statut</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr data-statut="en_attente">
+              <td>001</td>
+              <td>Koné Mamadou</td>
+              <td>Mathématiques</td>
+              <td><strong>08/20</strong></td>
+              <td>10/06/2026</td>
+              <td><span class="badge yellow">🟡 En attente</span></td>
+              <td>
+                <button class="btn-voir" onclick="ouvrirCorrection(this, '08', 'Koné Mamadou', 'Mathématiques')">
+                  ✏️ Traiter
+                </button>
+              </td>
+            </tr>
+            <tr data-statut="en_attente">
+              <td>002</td>
+              <td>Traoré Fatoumata</td>
+              <td>Algorithmique</td>
+              <td><strong>10/20</strong></td>
+              <td>09/06/2026</td>
+              <td><span class="badge yellow">🟡 En attente</span></td>
+              <td>
+                <button class="btn-voir" onclick="ouvrirCorrection(this, '10', 'Traoré Fatoumata', 'Algorithmique')">
+                  ✏️ Traiter
+                </button>
+              </td>
+            </tr>
+            <tr data-statut="traitee">
+              <td>003</td>
+              <td>Sawadogo Issouf</td>
+              <td>Réseaux</td>
+              <td><strong>12/20</strong></td>
+              <td>08/06/2026</td>
+              <td><span class="badge green">🟢 Traitée</span></td>
+              <td>
+                <button class="btn-voir" onclick="alert('Déjà traitée.')">👁 Voir</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- MODAL CORRECTION NOTE -->
+  <div id="modalCorrection" class="modal-overlay" style="display:none;" onclick="fermerModal(event)">
+    <div class="modal-box" style="max-width:520px;">
+      <div class="modal-header">
+        <h3>✏️ Traitement de la réclamation</h3>
+        <button onclick="document.getElementById('modalCorrection').style.display='none'" class="modal-close">✕</button>
+      </div>
+      <div class="modal-body">
+
+        <div class="fiche-section" style="margin-bottom:14px;">
+          <div class="detail-row"><span>Étudiant :</span><strong id="c-etudiant"></strong></div>
+          <div class="detail-row"><span>Matière :</span><strong id="c-matiere"></strong></div>
+          <div class="detail-row"><span>Note actuelle :</span><strong id="c-note-actuelle" style="color:#c62828;"></strong></div>
+        </div>
+
+        <!-- CHOIX ENSEIGNANT -->
+        <div class="fiche-section">
+          <label class="section-label">Décision de l'enseignant</label>
+          <div class="checkbox-group" style="margin-bottom:16px;">
+            <label>
+              <input type="radio" name="decision" value="modifier" onchange="toggleNoteField(true)"/>
+              ✅ Modifier la note
+            </label>
+            <label>
+              <input type="radio" name="decision" value="maintenir" onchange="toggleNoteField(false)"/>
+              ❌ Maintenir la note actuelle
+            </label>
+          </div>
+
+          <!-- NOUVELLE NOTE (visible si modifier) -->
+          <div id="noteField" style="display:none;">
+            <div class="form-group">
+              <label>Nouvelle note <span style="color:#c62828;">*</span></label>
+              <input type="number" id="nouvelleNote" min="0" max="20"
+                placeholder="Ex: 12" style="font-size:20px; font-weight:700; text-align:center;"/>
+              <p style="font-size:11px; color:#888; margin-top:4px;">Note sur 20</p>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Commentaire <span style="color:#888; font-weight:400;">(obligatoire)</span></label>
+            <textarea id="commentaire" placeholder="Expliquez votre décision..." style="height:100px;"></textarea>
+          </div>
+        </div>
+
+      </div>
+      <div class="modal-footer">
+        <button class="btn-retour" onclick="document.getElementById('modalCorrection').style.display='none'">Annuler</button>
+        <button class="btn-envoyer" onclick="soumettrDecision()">Envoyer au DA</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let currentRow = null;
+
+    function ouvrirCorrection(btn, noteActuelle, etudiant, matiere) {
+      currentRow = btn.closest('tr');
+      document.getElementById('c-etudiant').textContent = etudiant;
+      document.getElementById('c-matiere').textContent = matiere;
+      document.getElementById('c-note-actuelle').textContent = noteActuelle + '/20';
+      document.getElementById('nouvelleNote').value = '';
+      document.getElementById('commentaire').value = '';
+      document.querySelectorAll('input[name="decision"]').forEach(r => r.checked = false);
+      document.getElementById('noteField').style.display = 'none';
+      document.getElementById('modalCorrection').style.display = 'flex';
+    }
+
+    function toggleNoteField(show) {
+      document.getElementById('noteField').style.display = show ? 'block' : 'none';
+    }
+
+    function soumettrDecision() {
+      const decision = document.querySelector('input[name="decision"]:checked');
+      const commentaire = document.getElementById('commentaire').value;
+
+      if (!decision) { alert('Choisissez une décision.'); return; }
+      if (!commentaire) { alert('Le commentaire est obligatoire.'); return; }
+
+      if (decision.value === 'modifier') {
+        const note = document.getElementById('nouvelleNote').value;
+        if (!note || note < 0 || note > 20) { alert('Entrez une note valide (0-20).'); return; }
+        // Mettre à jour la note dans le tableau
+        currentRow.querySelectorAll('td')[3].innerHTML = '<strong style="color:#2e7d32;">' + note + '/20</strong>';
+      }
+
+      // Mettre à jour le statut
+      const badge = currentRow.querySelector('.badge');
+      badge.className = 'badge green';
+      badge.textContent = '🟢 Traitée';
+      currentRow.dataset.statut = 'traitee';
+      currentRow.querySelector('button').textContent = '👁 Voir';
+      currentRow.querySelector('button').onclick = () => alert('Déjà traitée.');
+
+      document.getElementById('modalCorrection').style.display = 'none';
+      alert('✅ Décision envoyée au DA avec succès !');
+    }
+
+    function fermerModal(e) {
+      if (e.target.id === 'modalCorrection')
+        document.getElementById('modalCorrection').style.display = 'none';
+    }
+  </script>
+</body>
+</html>

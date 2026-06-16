@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>EduRequest — Mon Espace</title>
+  <link rel="stylesheet" href="../../assets/css/main.css"/>
+  <link rel="stylesheet" href="../../assets/css/components.css"/>
+</head>
+<body class="dashboard-body">
+
+  <!-- NAVBAR -->
+  <nav class="navbar">
+    <div class="navbar-brand">🎓 EduRequest</div>
+    <div class="navbar-user">
+      <span id="userName">👤 Étudiant</span>
+      <a href="../auth/login.html" class="btn-logout">Déconnexion</a>
+    </div>
+  </nav>
+
+  <div class="dashboard-layout">
+
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+      <ul>
+        <li class="active">🏠 Tableau de bord</li>
+        <li onclick="showSection('mes-demandes')">📋 Mes demandes</li>
+        <li onclick="showSection('nouvelle-demande')">➕ Nouvelle demande</li>
+      </ul>
+    </aside>
+
+    <!-- CONTENU PRINCIPAL -->
+    <main class="main-content">
+
+      <!-- STATS -->
+      <div class="stats-grid">
+        <div class="stat-card">
+          <h3>Total demandes</h3>
+          <p class="stat-number">3</p>
+        </div>
+        <div class="stat-card yellow">
+          <h3>En attente</h3>
+          <p class="stat-number">1</p>
+        </div>
+        <div class="stat-card green">
+          <h3>Validées</h3>
+          <p class="stat-number">1</p>
+        </div>
+        <div class="stat-card red">
+          <h3>Rejetées</h3>
+          <p class="stat-number">1</p>
+        </div>
+      </div>
+
+      <!-- BOUTONS NOUVELLE DEMANDE -->
+      <section id="nouvelle-demande" class="section-card">
+        <h2>➕ Nouvelle demande</h2>
+        <div class="btn-grid">
+          <a href="../demandes/nouvelle.html?type=reclamation" class="btn-demande">
+            📝 Réclamation de note
+          </a>
+          <a href="../demandes/nouvelle.html?type=derogation" class="btn-demande">
+            📄 Dérogation
+          </a>
+          <a href="../demandes/nouvelle.html?type=duplicata" class="btn-demande">
+            📑 Duplicata
+          </a>
+          <a href="../demandes/nouvelle.html?type=attestation" class="btn-demande">
+            🎓 Attestation
+          </a>
+        </div>
+      </section>
+
+      <!-- TABLEAU DES DEMANDES -->
+      <section id="mes-demandes" class="section-card">
+        <h2>📋 Mes demandes</h2>
+        <table class="demandes-table">
+          <thead>
+            <tr>
+              <th>N°</th>
+              <th>Type</th>
+              <th>Date</th>
+              <th>Statut</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>1</td>
+              <td>Réclamation</td>
+              <td>10/06/2026</td>
+              <td><span class="badge yellow">🟡 En attente</span></td>
+              <td><a href="../demandes/detail.html" class="btn-detail">Voir</a></td>
+            </tr>
+            <tr>
+              <td>2</td>
+              <td>Attestation</td>
+              <td>08/06/2026</td>
+              <td><span class="badge green">🟢 Validée</span></td>
+              <td><a href="../demandes/detail.html" class="btn-detail">Voir</a></td>
+            </tr>
+            <tr>
+              <td>3</td>
+              <td>Duplicata</td>
+              <td>05/06/2026</td>
+              <td><span class="badge red">🔴 Rejetée</span></td>
+              <td><a href="../demandes/detail.html" class="btn-detail">Voir</a></td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+    </main>
+  </div>
+
+  <script>
+    function showSection(id) {
+      document.getElementById(id).scrollIntoView({behavior: 'smooth'});
+    }
+  </script>
+</body>
+</html>

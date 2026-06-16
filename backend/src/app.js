@@ -6,14 +6,14 @@ const express = require('express');
 const cors = require('cors');
 
 // Test de connexion PostgreSQL (ajouté depuis M1)
-const db = require('./config/database');
+/*const db = require('./config/database');
 db.query('SELECT NOW()')
     .then(result => {
         console.log("✅ Connexion PostgreSQL réussie :", result.rows[0]);
     })
     .catch(error => {
         console.error("❌ Erreur PostgreSQL :", error.message);
-    });
+    });*/
 
 // ============================================================
 // IMPORT DES ROUTES
@@ -31,7 +31,11 @@ const { errorHandler } = require('./middlewares/error.middleware');
 // ============================================================
 
 const app = express();
-
+// Middleware pour logger toutes les requêtes
+app.use((req, res, next) => {
+    console.log(`📥 ${req.method} ${req.url}`);
+    next();
+});
 // ============================================================
 // MIDDLEWARES GLOBAUX
 // ============================================================
