@@ -3,19 +3,49 @@
 // Définit qui peut voir quoi
 // ============================================================
 
+const demandeRepo = require('../../db/repositories/demande.repo');
+const etudiantRepo = require('../../db/repositories/etudiant.repo');
+const professeurRepo = require('../../db/repositories/professeur.repo');
+
 const visibilityRules = {
+    /**
+     * Récupère les demandes visibles par un utilisateur
+     */
     getDemandesVisibles: async (id_utilisateur, role) => {
-        // TODO: Implémenter avec les repositories de M1
-        // if (role === 'etudiant') {
-        //     const etudiant = await etudiantRepo.findByUserId(id_utilisateur);
-        //     return await demandeRepo.findByEtudiant(etudiant.id_etudiant);
-        // }
-        // if (role === 'professeur') {
-        //     return await demandeRepo.findByProfesseur(id_professeur);
-        // }
-        // return await demandeRepo.findAll();
-        
-        return [];
+        try {
+            // Admin voit tout
+            if (role === 'admin') {
+                return await demandeRepo.findAll();
+            }
+            
+            // Étudiant : seulement ses propres demandes
+            if (role === 'etudiant') {
+                const etudiant = await etudiantRepo.findByUserId(id_utilisateur);
+                return await demandeRepo.findByEtudiant(etudiant.id_etudiant);
+            }
+            
+            // Professeur : seulement les réclamations qui le concernent
+            if (role === 'professeur') {
+                const professeur = await professeurRepo.findByUserId(id_utilisateur);
+                return await demandeRepo.findByProfesseur(professeur.id_professeur);
+            }
+            
+            // SP : seulement dérogations et duplicatas
+            if (role === 'sp') {
+                return await demandeRepo.findByType(['derogation', 'duplicata']);
+            }
+            
+            // DA : réclamations, duplicatas, attestations
+            if (role === 'da') {
+                return await demandeRepo.findByType(['reclamation', 'duplicata', 'attestation']);
+            }
+            
+            // Secrétaire, directrice, présidence, scolarité : voir tout
+            return await demandeRepo.findAll();
+        } catch (error) {
+            console.error('Erreur getDemandesVisibles:', error);
+            return [];
+        }
     }
 };
 
