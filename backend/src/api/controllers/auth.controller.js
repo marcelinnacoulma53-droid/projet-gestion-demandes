@@ -145,7 +145,8 @@ const login = async (req, res) => {
             user: {
                 id: user.id_utilisateur,
                 email: user.email,
-                role: user.role_libelle
+                role: user.role_libelle,
+                premiere_connexion: user.premiere_connexion
             }
         });
 
