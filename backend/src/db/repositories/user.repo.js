@@ -38,7 +38,7 @@ async function findByEmailWithRole(email) {
             u.mot_de_passe,
             u.actif,
             u.id_role,
-            u.premiere_connexion
+            u.premiere_connexion,
             r.libelle AS role_libelle
         FROM utilisateurs u
         LEFT JOIN roles r

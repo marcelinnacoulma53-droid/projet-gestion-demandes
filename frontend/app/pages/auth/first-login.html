@@ -66,8 +66,18 @@
     };
 
     window.addEventListener('DOMContentLoaded', () => {
+      // Récupérer le rôle depuis l'URL
+      const urlParams = new URLSearchParams(window.location.search);
+      const roleURL = urlParams.get('role');
       const user = getCurrentUser();
-      const role = user.role || 'inconnu';
+      const role = roleURL || user.role || 'inconnu';
+
+      // Sauvegarder le rôle dans localStorage si présent dans l'URL
+      if (roleURL) {
+        user.role = roleURL;
+        localStorage.setItem('user', JSON.stringify(user));
+      }
+
       document.getElementById('role-display').textContent = roles_labels[role] || role;
     });
 
