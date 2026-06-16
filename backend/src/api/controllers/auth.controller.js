@@ -50,7 +50,8 @@ const register = async (req, res) => {
         const newUser = await userRepo.create({
             nom, prenom, email,
             mot_de_passe: motDePasseHash,
-            id_role: roleEtudiant.id_role
+            id_role: roleEtudiant.id_role,
+            premiere_connexion: false
         });
 
         // ✅ VRAI appel (plus de simulation) - Crée l'étudiant dans la table etudiants
