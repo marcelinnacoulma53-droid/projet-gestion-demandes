@@ -132,22 +132,23 @@
         });
         const data = await response.json();
 
-        if (data && Array.isArray(data)) {
+        const demandes = data.demandes || data || [];
+        if (Array.isArray(demandes)) {
           // Mettre à jour les stats
-          document.querySelector('.stat-card:nth-child(1) .stat-number').textContent = data.length;
-          const enAttente = data.filter(d => d.statut === 'en_attente').length;
-          const validees = data.filter(d => d.statut === 'validee').length;
-          const rejetees = data.filter(d => d.statut === 'rejetee').length;
+          document.querySelector('.stat-card:nth-child(1) .stat-number').textContent = demandes.length;
+          const enAttente = demandes.filter(d => d.statut === 'en_attente').length;
+          const validees = demandes.filter(d => d.statut === 'validee').length;
+          const rejetees = demandes.filter(d => d.statut === 'rejetee').length;
           document.querySelector('.stat-card.yellow .stat-number').textContent = enAttente;
           document.querySelector('.stat-card.green .stat-number').textContent = validees;
           document.querySelector('.stat-card.red .stat-number').textContent = rejetees;
 
           // Mettre à jour le tableau
           const tbody = document.querySelector('.demandes-table tbody');
-          if (data.length === 0) {
+          if (demandes.length === 0) {
             tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#888; padding:20px;">Aucune demande pour le moment</td></tr>';
           } else {
-            tbody.innerHTML = data.map((d, i) => `
+            tbody.innerHTML = demandes.map((d, i) => `
               <tr>
                 <td>${i+1}</td>
                 <td>${d.type_demande || d.type || 'N/A'}</td>
