@@ -118,5 +118,52 @@
       document.getElementById(id).scrollIntoView({behavior: 'smooth'});
     }
   </script>
+<script src="../../assets/js/core/api.js"></script>
+  <script src="../../assets/js/core/auth.js"></script>
+  <script>
+    // Charger les vraies demandes depuis le backend
+    async function chargerDemandes() {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+
+      try {
+        const response = await fetch('http://localhost:3000/api/demandes/mes-demandes', {
+          headers: { 'Authorization': 'Bearer ' + token }
+        });
+        const data = await response.json();
+
+        if (data && Array.isArray(data)) {
+          // Mettre à jour les stats
+          document.querySelector('.stat-card:nth-child(1) .stat-number').textContent = data.length;
+          const enAttente = data.filter(d => d.statut === 'en_attente').length;
+          const validees = data.filter(d => d.statut === 'validee').length;
+          const rejetees = data.filter(d => d.statut === 'rejetee').length;
+          document.querySelector('.stat-card.yellow .stat-number').textContent = enAttente;
+          document.querySelector('.stat-card.green .stat-number').textContent = validees;
+          document.querySelector('.stat-card.red .stat-number').textContent = rejetees;
+
+          // Mettre à jour le tableau
+          const tbody = document.querySelector('.demandes-table tbody');
+          if (data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#888; padding:20px;">Aucune demande pour le moment</td></tr>';
+          } else {
+            tbody.innerHTML = data.map((d, i) => `
+              <tr>
+                <td>${i+1}</td>
+                <td>${d.type_demande || d.type || 'N/A'}</td>
+                <td>${new Date(d.date_soumission || d.created_at).toLocaleDateString('fr-FR')}</td>
+                <td><span class="badge ${d.statut === 'en_attente' ? 'yellow' : d.statut === 'validee' ? 'green' : 'red'}">${d.statut}</span></td>
+                <td><a href="../demandes/detail.html?id=${d.id_demande}" class="btn-detail">Voir</a></td>
+              </tr>
+            `).join('');
+          }
+        }
+      } catch(e) {
+        console.error('Erreur chargement demandes:', e);
+      }
+    }
+
+    chargerDemandes();
+  </script>
 </body>
 </html>
