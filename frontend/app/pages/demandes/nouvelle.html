@@ -415,14 +415,62 @@
       document.getElementById('choix-type').style.display = 'block';
       document.getElementById('form-title').textContent = '➕ Nouvelle demande';
     }
-    function envoyer() {
+    async function envoyer() {
       const typeActif = document.querySelector('.formulaire[style*="block"]')?.id;
+      
       if (typeActif === 'form-duplicata') {
         window.location.href = 'paiement.html';
         return;
       }
-      document.querySelectorAll('.formulaire').forEach(f => f.style.display = 'none');
-      document.getElementById('confirmation').style.display = 'block';
+
+      // Déterminer le type de demande
+      const typeMap = {
+        'form-reclamation': 'reclamation',
+        'form-derogation': 'derogation',
+        'form-attestation': 'attestation'
+      };
+      const type_demande = typeMap[typeActif] || 'autre';
+
+      // Récupérer les champs selon le type
+      let objet = '';
+      let description = '';
+
+      if (typeActif === 'form-reclamation') {
+        const matiere = document.querySelector('#form-reclamation input[placeholder*="Math"]')?.value || '';
+        const motif = document.querySelector('#form-reclamation textarea')?.value || '';
+        objet = 'Réclamation de note - ' + matiere;
+        description = motif;
+      } else if (typeActif === 'form-derogation') {
+        objet = document.querySelector('#form-derogation input')?.value || 'Dérogation';
+        description = document.querySelector('#form-derogation textarea')?.value || '';
+      } else if (typeActif === 'form-attestation') {
+        objet = document.querySelector('#form-attestation select')?.value || 'Attestation';
+        description = objet;
+      }
+
+      // Envoyer au backend
+      try {
+        const token = localStorage.getItem('token');
+        const response = await fetch('http://localhost:3000/api/demandes', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + token
+          },
+          body: JSON.stringify({ type_demande, objet, description })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+          document.querySelectorAll('.formulaire').forEach(f => f.style.display = 'none');
+          document.getElementById('confirmation').style.display = 'block';
+        } else {
+          alert('Erreur : ' + (data.message || 'Une erreur est survenue'));
+        }
+      } catch(e) {
+        alert('Erreur de connexion au serveur.');
+      }
     }
   </script>
 </body>
