@@ -183,6 +183,50 @@
   </div>
 
   <script>
+    async function chargerDemandesStaff() {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+      try {
+        const response = await fetch('http://localhost:3000/api/demandes/mes-demandes', {
+          headers: { 'Authorization': 'Bearer ' + token }
+        });
+        const data = await response.json();
+        const demandes = data.demandes || [];
+
+        document.querySelector('.stat-card:nth-child(1) .stat-number').textContent = demandes.length;
+        const enAttente = demandes.filter(d => d.statut === 'soumise' || d.statut === 'en_cours_de_traitement').length;
+        const validees = demandes.filter(d => d.statut === 'acceptee').length;
+        const rejetees = demandes.filter(d => d.statut === 'rejetee').length;
+        document.querySelector('.stat-card.yellow .stat-number').textContent = enAttente;
+        document.querySelector('.stat-card.green .stat-number').textContent = validees;
+        document.querySelector('.stat-card.red .stat-number').textContent = rejetees;
+
+        const tbody = document.getElementById('demandesTable').querySelector('tbody');
+        if (demandes.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:#888; padding:20px;">Aucune demande pour le moment</td></tr>';
+        } else {
+          tbody.innerHTML = demandes.map((d) => {
+            const statut = d.statut || 'soumise';
+            const badgeClass = statut.includes('accept') ? 'green' : statut.includes('rejet') ? 'red' : 'yellow';
+            const date = d.date_creation ? new Date(d.date_creation).toLocaleDateString('fr-FR') : 'N/A';
+            return `<tr data-statut="${statut}" data-id="${d.id_demande}">
+              <td>${d.reference || d.id_demande}</td>
+              <td>${d.nom_etudiant || 'Étudiant'}</td>
+              <td>${d.objet || 'N/A'}</td>
+              <td>${date}</td>
+              <td><span class="badge ${badgeClass}">${statut}</span></td>
+              <td class="actions-cell">
+                <button class="btn-voir" onclick="window.location.href=\'../demandes/detail.html?id=\'+${d.id_demande}">👁 Voir</button>
+              </td>
+            </tr>`;
+          }).join('');
+        }
+      } catch(e) {
+        console.error('Erreur chargement demandes staff:', e);
+      }
+    }
+    chargerDemandesStaff();
+
     function filterDemandes(statut) {
       const rows = document.querySelectorAll('#demandesTable tbody tr');
       rows.forEach(row => {

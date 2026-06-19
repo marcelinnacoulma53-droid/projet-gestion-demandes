@@ -3,6 +3,7 @@
 // ============================================================
 
 const demandeRepo = require('../../db/repositories/demande.repo');
+const { generateReference } = require('../../utils/generateReference');
 const userRepo = require('../../db/repositories/user.repo');
 
 // ✅ IMPORT DES SERVICES DE MEMBRE 3
@@ -31,7 +32,9 @@ const createDemande = async (req, res, next) => {
             });
         }
 
+        const reference = generateReference(type_demande);
         const nouvelleDemande = await demandeRepo.create({
+            reference: reference,
             id_etudiant: etudiant.id_etudiant,
             type_demande: type_demande,
             objet: objet,
