@@ -69,6 +69,14 @@
         document.getElementById('errorMsg').textContent = 'Veuillez remplir tous les champs.';
         return;
       }
+      // Validation INE : commence par N et 11 chiffres
+      if (!/^N[0-9]{11}$/.test(matricule)) {
+        document.getElementById('errorMsg').textContent = "L'INE doit commencer par N et contenir 11 chiffres (ex: N20240000001).";
+        return;
+      }
+        document.getElementById('errorMsg').textContent = 'Veuillez remplir tous les champs.';
+        return;
+      }
 
       if (mot_de_passe !== confirm_password) {
         document.getElementById('errorMsg').textContent = 'Les mots de passe ne correspondent pas.';
