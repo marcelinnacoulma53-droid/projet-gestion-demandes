@@ -185,31 +185,31 @@
   </div>
 
   <script>
-    // Adapter le contenu selon le type de demande
+    // Récupérer les paramètres de l'URL
+    const urlP = new URLSearchParams(window.location.search);
     const typeD = urlP.get('type') || 'reclamation';
 
     const titres = {
       reclamation: '📝 Réclamation de note',
-      attestation: '🎓 Demande d'attestation',
+      attestation: '🎓 Demande d\'attestation',
       duplicata: '📑 Demande de duplicata',
       derogation: '📄 Demande de dérogation'
     };
 
     const timelines = {
-      reclamation: ['✅ Demande soumise', '✅ Reçue par la Secrétaire', '🟡 Examen par le DA', 'Transmission à l'Enseignant', 'Retour DA (décision finale)', 'Exécution par la Scolarité'],
+      reclamation: ['✅ Demande soumise', '✅ Reçue par la Secrétaire', '🟡 Examen par le DA', 'Transmission à l\'Enseignant', 'Retour DA (décision finale)', 'Exécution par la Scolarité'],
       attestation: ['✅ Demande soumise', '✅ Reçue par la Secrétaire', '🟡 Examen par le SP', 'Transmission au DA', 'Décision Directrice', 'Exécution par la Scolarité'],
       duplicata: ['✅ Demande soumise', '✅ Reçue par la Secrétaire', '🟡 Examen par le SP', 'Transmission au DA', 'Décision Directrice', 'Exécution par la Scolarité'],
       derogation: ['✅ Demande soumise', '✅ Reçue par la Secrétaire', '🟡 Examen par le SP', 'Transmission au DA', 'Décision finale', 'Exécution']
     };
 
-    window.addEventListener('DOMContentLoaded', () => {
+    window.addEventListener('DOMContentLoaded', function() {
       // Changer le badge type
       const typeBadge = document.querySelector('.detail-row strong');
       if (typeBadge) typeBadge.textContent = titres[typeD] || titres['reclamation'];
 
       // Adapter la timeline
       const tl = timelines[typeD] || timelines['reclamation'];
-      const dots = document.querySelectorAll('.timeline-dot');
       const contents = document.querySelectorAll('.timeline-content strong');
       contents.forEach((el, i) => {
         if (tl[i]) el.textContent = tl[i];
@@ -224,14 +224,12 @@
           }
         });
       }
-    });
 
-    // Cacher les actions si c'est un étudiant
-    window.addEventListener('DOMContentLoaded', () => {
-      const urlP = new URLSearchParams(window.location.search);
+      // Cacher les actions si c'est un étudiant
       const role = urlP.get('role') || 'etudiant';
       if (role === 'etudiant') {
-        document.getElementById('actions-staff').style.display = 'none';
+        const actionsStaff = document.getElementById('actions-staff');
+        if (actionsStaff) actionsStaff.style.display = 'none';
       }
     });
 
@@ -244,18 +242,28 @@
         badge.className = 'badge red';
         badge.textContent = '🔴 Rejetée';
       }
-      document.getElementById('actions-staff').style.display = 'none';
+      const actionsStaff = document.getElementById('actions-staff');
+      if (actionsStaff) actionsStaff.style.display = 'none';
       alert(statut === 'validee' ? '✅ Demande validée !' : '❌ Demande rejetée !');
     }
+
     function demanderComplement() {
       const box = document.getElementById('complement-box');
-      box.style.display = box.style.display === 'none' ? 'block' : 'none';
+      if (box) {
+        box.style.display = box.style.display === 'none' ? 'block' : 'none';
+      }
     }
+
     function envoyerComplement() {
-      const msg = document.getElementById('msg-complement').value;
-      if (!msg) { alert('Écrivez un message.'); return; }
+      const msg = document.getElementById('msg-complement');
+      if (!msg || !msg.value) {
+        alert('Écrivez un message.');
+        return;
+      }
       alert('📝 Message envoyé à l\'étudiant !');
-      document.getElementById('complement-box').style.display = 'none';
+      const box = document.getElementById('complement-box');
+      if (box) box.style.display = 'none';
+      if (msg) msg.value = '';
     }
   </script>
 </body>
