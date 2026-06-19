@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>EduRequest — Administration</title>
+  <link rel="stylesheet" href="../../assets/css/main.css"/>
+  <link rel="stylesheet" href="../../assets/css/components.css"/>
+</head>
+<body class="dashboard-body">
+  <nav class="navbar">
+    <div class="navbar-brand">🎓 EduRequest</div>
+    <div class="navbar-user">
+      <span>🛡️ Administrateur</span>
+      <a href="../auth/login.html" class="btn-logout">Déconnexion</a>
+    </div>
+  </nav>
+
+  <div class="dashboard-layout">
+    <aside class="sidebar">
+      <ul>
+        <li class="active">🏠 Tableau de bord</li>
+        <li onclick="filterDemandes('all')">📋 Toutes les demandes</li>
+        <li onclick="filterDemandes('en_attente')">🟡 En attente</li>
+        <li onclick="filterDemandes('validee')">🟢 Validées</li>
+        <li onclick="filterDemandes('rejetee')">🔴 Rejetées</li>
+        <li onclick="location.href='staff.html?role=admin'">👥 Gestion utilisateurs</li>
+      </ul>
+    </aside>
+
+    <main class="main-content">
+
+      <!-- STATS -->
+      <div class="stats-grid">
+        <div class="stat-card">
+          <h3>Total demandes</h3>
+          <p class="stat-number" id="totalDemandes">0</p>
+        </div>
+        <div class="stat-card yellow">
+          <h3>En attente</h3>
+          <p class="stat-number" id="enAttente">0</p>
+        </div>
+        <div class="stat-card green">
+          <h3>Validées</h3>
+          <p class="stat-number" id="validees">0</p>
+        </div>
+        <div class="stat-card red">
+          <h3>Rejetées</h3>
+          <p class="stat-number" id="rejetees">0</p>
+        </div>
+      </div>
+
+      <!-- TABLEAU DES DEMANDES -->
+      <section class="section-card">
+        <h2>📋 Toutes les demandes</h2>
+
+        <table class="demandes-table" id="demandesTable">
+          <thead>
+            <tr>
+              <th>N°</th>
+              <th>Étudiant</th>
+              <th>Type</th>
+              <th>Date</th>
+              <th>Statut</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="demandesBody">
+            <tr>
+              <td colspan="6" style="text-align:center; color:#888; padding:20px;">
+                Chargement des demandes...
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- MODAL DÉTAIL -->
+  <div id="modal" class="modal-overlay" style="display:none;" onclick="fermerModal(event)">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3 id="modal-title">Détail de la demande</h3>
+        <button onclick="document.getElementById('modal').style.display='none'" class="modal-close">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="detail-row"><span>Étudiant :</span><strong id="d-etudiant"></strong></div>
+        <div class="detail-row"><span>Type :</span><strong id="d-type"></strong></div>
+        <div class="detail-row"><span>Date :</span><strong id="d-date"></strong></div>
+        <div class="detail-row"><span>Statut :</span><strong id="d-statut"></strong></div>
+        <div class="detail-row"><span>Description :</span><p id="d-desc" style="margin:6px 0 0; color:#444; font-size:13px;"></p></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-retour" onclick="document.getElementById('modal').style.display='none'">Fermer</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="../../assets/js/core/api.js"></script>
+  <script src="../../assets/js/core/auth.js"></script>
+  <script>
+    // Charger toutes les demandes
+    async function chargerDemandes() {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        window.location.href = '../auth/login.html';
+        return;
+      }
+
+      try {
+        const response = await fetch('http://localhost:3000/api/demandes/mes-demandes', {
+          headers: { 'Authorization': 'Bearer ' + token }
+        });
+        const data = await response.json();
+        const demandes = data.demandes || [];
+
+        // Mettre à jour les stats
+        document.getElementById('totalDemandes').textContent = demandes.length;
+        const enAttente = demandes.filter(d => d.statut === 'en_attente' || d.statut === 'soumise').length;
+        const validees = demandes.filter(d => d.statut === 'validee' || d.statut === 'acceptee').length;
+        const rejetees = demandes.filter(d => d.statut === 'rejetee').length;
+        document.getElementById('enAttente').textContent = enAttente;
+        document.getElementById('validees').textContent = validees;
+        document.getElementById('rejetees').textContent = rejetees;
+
+        // Mettre à jour le tableau
+        const tbody = document.getElementById('demandesBody');
+        if (demandes.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:#888; padding:20px;">Aucune demande pour le moment</td></tr>';
+        } else {
+          tbody.innerHTML = demandes.map((d) => {
+            const statut = d.statut || 'soumise';
+            const badgeClass = statut.includes('accept') ? 'green' : statut.includes('rejet') ? 'red' : 'yellow';
+            const date = d.date_creation ? new Date(d.date_creation).toLocaleDateString('fr-FR') : 'N/A';
+            return `<tr data-statut="${statut}" data-id="${d.id_demande}">
+              <td>${d.reference || d.id_demande}</td>
+              <td>${d.nom_etudiant || 'Étudiant'}</td>
+              <td>${d.objet || 'N/A'}</td>
+              <td>${date}</td>
+              <td><span class="badge ${badgeClass}">${statut}</span></td>
+              <td class="actions-cell">
+                <button class="btn-voir" onclick="voirDetail(${d.id_demande})">👁 Voir</button>
+              </td>
+            </tr>`;
+          }).join('');
+        }
+      } catch(e) {
+        console.error('Erreur chargement demandes:', e);
+        document.getElementById('demandesBody').innerHTML = '<tr><td colspan="6" style="text-align:center; color:#c62828; padding:20px;">Erreur de chargement</td></tr>';
+      }
+    }
+
+    // Voir le détail d'une demande
+    async function voirDetail(id) {
+      try {
+        const token = localStorage.getItem('token');
+        const response = await fetch(`http://localhost:3000/api/demandes/${id}`, {
+          headers: { 'Authorization': 'Bearer ' + token }
+        });
+        const data = await response.json();
+        const demande = data.demande || data;
+
+        document.getElementById('d-etudiant').textContent = demande.nom_etudiant || 'N/A';
+        document.getElementById('d-type').textContent = demande.type_demande || demande.objet || 'N/A';
+        document.getElementById('d-date').textContent = demande.date_creation ? new Date(demande.date_creation).toLocaleDateString('fr-FR') : 'N/A';
+        document.getElementById('d-statut').textContent = demande.statut || 'N/A';
+        document.getElementById('d-desc').textContent = demande.description || 'Aucune description.';
+
+        document.getElementById('modal').style.display = 'flex';
+      } catch(e) {
+        alert('Erreur lors du chargement du détail.');
+      }
+    }
+
+    // Filtrer les demandes
+    function filterDemandes(statut) {
+      const rows = document.querySelectorAll('#demandesBody tr');
+      rows.forEach(row => {
+        if (statut === 'all' || row.dataset.statut === statut) {
+          row.style.display = '';
+        } else {
+          row.style.display = 'none';
+        }
+      });
+    }
+
+    function fermerModal(e) {
+      if (e.target.id === 'modal') {
+        document.getElementById('modal').style.display = 'none';
+      }
+    }
+
+    // Vérifier l'accès admin
+    (function verifierAcces() {
+      const user = getCurrentUser();
+      if (!user || user.role !== 'Administrateur') {
+        window.location.href = '../auth/login.html';
+        return;
+      }
+      chargerDemandes();
+    })();
+  </script>
+</body>
+</html>
