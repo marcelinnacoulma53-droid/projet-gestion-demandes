@@ -62,9 +62,29 @@ async function create(etudiantData) {
     return result.rows[0];
 }
 
+// =======================================
+// Trouver un étudiant par son ID utilisateur
+// =======================================
+async function findByUserId(id_utilisateur) {
+    const result = await db.query(
+        `
+        SELECT
+            id_etudiant,
+            id_utilisateur,
+            matricule,
+            id_filiere,
+            id_niveau
+        FROM etudiants
+        WHERE id_utilisateur = $1
+        `,
+        [id_utilisateur]
+    );
 
+    return result.rows[0] || null;
+}
 
 module.exports = {
     findByMatricule,
-    create
+    create,
+    findByUserId
 };
