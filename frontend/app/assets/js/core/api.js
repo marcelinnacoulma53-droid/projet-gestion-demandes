@@ -1,4 +1,4 @@
-const API_BASE = 'http://localhost:3000/api';
+const API_BASE = 'https://projet-gestion-demandes-backend.onrender.com/api';
 
 const api = {
   async post(endpoint, data) {
