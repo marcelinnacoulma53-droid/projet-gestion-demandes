@@ -1,7 +1,9 @@
 // Connexion
 async function login(email, motDePasse) {
   try {
-    const data = await authAPI.login({ email: identifiant, mot_de_passe: motDePasse });
+    const data = await authAPI.login({ email: email, mot_de_passe: motDePasse });
+    // ou en raccourci ES6 :
+    //const data = await authAPI.login({ email, mot_de_passe: motDePasse });
     if (data.token) {
       localStorage.setItem('token', data.token);
       localStorage.setItem('user', JSON.stringify(data.user));

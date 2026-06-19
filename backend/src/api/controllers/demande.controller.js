@@ -8,11 +8,14 @@ const userRepo = require('../../db/repositories/user.repo');
 
 // ✅ IMPORT DES SERVICES DE MEMBRE 3
 const permissionService = require('../../core/services/permission.service');
-const visibilityRules = require('../../core/rules/visibility.rules');
-
+const visibilityRules = require('../../core/rules/visibility.rules'); 
 // ============================================================
 // 1. CRÉER UNE DEMANDE
 // ============================================================
+// demande.controller.js — createDemande corrigé
+
+const db = require('../../db/connection'); // ⚠️ à ajouter en haut du fichier si absent
+
 const createDemande = async (req, res, next) => {
     const userId = req.user.userId;
     const { type_demande, objet, description } = req.body;
@@ -25,21 +28,37 @@ const createDemande = async (req, res, next) => {
 
     try {
         const etudiant = await userRepo.findEtudiantByUserId(userId);
-        
         if (!etudiant) {
-            return res.status(404).json({ 
-                message: 'Étudiant non trouvé' 
-            });
+            return res.status(404).json({ message: 'Étudiant non trouvé' });
         }
+
+        // ✅ Le front envoie "reclamation" (minuscule), la base a "Reclamation"
+        // On normalise avec ILIKE pour ignorer la casse
+        const typeInfo = await db.query(
+            'SELECT id_type_demande FROM types_demande WHERE libelle ILIKE $1',
+            [type_demande]
+        );
+        if (typeInfo.rows.length === 0) {
+            return res.status(400).json({ message: 'Type de demande invalide : ' + type_demande });
+        }
+        const id_type_demande = typeInfo.rows[0].id_type_demande;
+
+        // ✅ Toute nouvelle demande démarre au statut "Brouillon"
+        const statutInfo = await db.query(
+            'SELECT id_statut FROM statuts WHERE libelle = $1',
+            ['Brouillon']
+        );
+        const id_statut = statutInfo.rows[0]?.id_statut;
 
         const reference = generateReference(type_demande);
         const nouvelleDemande = await demandeRepo.create({
             reference: reference,
             id_etudiant: etudiant.id_etudiant,
-            type_demande: type_demande,
+            id_type_demande: id_type_demande,
             objet: objet,
             description: description || '',
-            statut: 'brouillon'
+            id_statut: id_statut,
+            id_etape_courante: null
         });
 
         res.status(201).json({
