@@ -23,11 +23,11 @@
           <input type="text" id="prenom" placeholder="Ex: Mamadou" required/>
         </div>
         <div class="form-group">
-          <label>Matricule (INE)</label>
-          <input type="text" id="matricule" placeholder="Ex: 2024INF001" required/>
+          <label>INE</label>
+          <input type="text" id="matricule" placeholder="Ex: N20240000001" required/>
         </div>
         <div class="form-group">
-          <label>Email universitaire</label>
+          <label>Email</label>
           <input type="email" id="email" placeholder="Ex: kone@esi.bf" required/>
         </div>
         <div class="form-group">
@@ -68,12 +68,10 @@
         document.getElementById('errorMsg').textContent = 'Veuillez remplir tous les champs.';
         return;
       }
+
       // Validation INE : commence par N et 11 chiffres
       if (!/^N[0-9]{11}$/.test(matricule)) {
         document.getElementById('errorMsg').textContent = "L'INE doit commencer par N et contenir 11 chiffres (ex: N20240000001).";
-        return;
-      }
-        document.getElementById('errorMsg').textContent = 'Veuillez remplir tous les champs.';
         return;
       }
 
