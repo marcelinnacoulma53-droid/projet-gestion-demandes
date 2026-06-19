@@ -392,7 +392,7 @@
       </div>
     </main>
   </div>
-
+  <script src="../../assets/js/core/api.js"></script>
   <script>
     function payerDuplicata() {
       const checked = document.querySelector('input[name="doc-duplicata"]:checked');
@@ -451,7 +451,7 @@
       // Envoyer au backend
       try {
         const token = localStorage.getItem('token');
-        const response = await fetch('http://localhost:3000/api/demandes', {
+        const response = await fetch(API_BASE + '/demandes', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

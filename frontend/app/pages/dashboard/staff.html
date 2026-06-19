@@ -181,13 +181,14 @@
       </div>
     </div>
   </div>
-
+  <script src="../../assets/js/core/api.js"></script>
+  <script src="../../assets/js/core/auth.js"></script>
   <script>
     async function chargerDemandesStaff() {
       const token = localStorage.getItem('token');
       if (!token) return;
       try {
-        const response = await fetch('http://localhost:3000/api/demandes/mes-demandes', {
+        const response = await fetch(API_BASE + '/demandes/mes-demandes', {
           headers: { 'Authorization': 'Bearer ' + token }
         });
         const data = await response.json();

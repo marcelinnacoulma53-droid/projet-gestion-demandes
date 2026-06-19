@@ -118,7 +118,7 @@
       document.getElementById(id).scrollIntoView({behavior: 'smooth'});
     }
   </script>
-<script src="../../assets/js/core/api.js"></script>
+  <script src="../../assets/js/core/api.js"></script>
   <script src="../../assets/js/core/auth.js"></script>
   <script>
     // Charger les vraies demandes depuis le backend
@@ -127,7 +127,7 @@
       if (!token) return;
 
       try {
-        const response = await fetch('http://localhost:3000/api/demandes/mes-demandes', {
+        const response = await fetch(API_BASE + '/demandes/mes-demandes', {
           headers: { 'Authorization': 'Bearer ' + token }
         });
         const data = await response.json();
