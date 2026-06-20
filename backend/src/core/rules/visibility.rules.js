@@ -14,7 +14,7 @@ const visibilityRules = {
     getDemandesVisibles: async (id_utilisateur, role) => {
         try {
             // Admin voit tout
-            if (role === 'admin') {
+            if (role === 'admin' || role === 'administrateur') {
                 return await demandeRepo.findAll();
             }
             

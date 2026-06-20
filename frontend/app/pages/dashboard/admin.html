@@ -11,7 +11,7 @@
   <nav class="navbar">
     <div class="navbar-brand">🎓 EduRequest</div>
     <div class="navbar-user">
-      <span>🛡️ Administrateur</span>
+      <span id="roleLabel">🛡️ Administrateur</span>
       <a href="../auth/login.html" class="btn-logout">Déconnexion</a>
     </div>
   </nav>
@@ -176,14 +176,17 @@
     }
 
     // Filtrer les demandes
-    function filterDemandes(statut) {
+    function filterDemandes(groupe) {
       const rows = document.querySelectorAll('#demandesBody tr');
       rows.forEach(row => {
-        if (statut === 'all' || row.dataset.statut === statut) {
-          row.style.display = '';
-        } else {
-          row.style.display = 'none';
-        }
+        if (groupe === 'all') { row.style.display = ''; return; }
+        const s = (row.dataset.statut || '').toLowerCase();
+        let visible = false;
+        if (groupe === 'en_attente') visible = (s === 'soumise' || s === 'en cours de traitement');
+        else if (groupe === 'validee') visible = (s === 'acceptee' || s === 'terminee');
+        else if (groupe === 'rejetee') visible = (s === 'rejetee');
+        else visible = (s === groupe);
+        row.style.display = visible ? '' : 'none';
       });
     }
 
@@ -193,10 +196,13 @@
       }
     }
 
+    // Rôle dynamique dans la navbar
+    afficherRoleNavbar('roleLabel');
+
     // Vérifier l'accès admin
     (function verifierAcces() {
       const user = getCurrentUser();
-      if (!user || user.role.toLowerCase() !== 'administrateur') {
+      if (!user || !user.role || user.role.toLowerCase() !== 'administrateur') {
         window.location.href = '../auth/login.html';
         return;
       }

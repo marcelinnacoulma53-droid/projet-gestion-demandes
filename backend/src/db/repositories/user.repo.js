@@ -147,7 +147,7 @@ async function findEtudiantByUserId(id_utilisateur) {
 // Mettre à jour un utilisateur
 // =======================================
 async function update(id_utilisateur, updates) {
-    const { email, mot_de_passe, premiere_connexion } = updates;
+    const { email, mot_de_passe, premiere_connexion, nom } = updates;
     
     let query = 'UPDATE utilisateurs SET ';
     const params = [];
@@ -166,6 +166,11 @@ async function update(id_utilisateur, updates) {
     if (premiere_connexion !== undefined) {
         query += `premiere_connexion = $${paramIndex}, `;
         params.push(premiere_connexion);
+        paramIndex++;
+    }
+    if (nom !== undefined) {
+        query += `nom = $${paramIndex}, `;
+        params.push(nom);
         paramIndex++;
     }
     

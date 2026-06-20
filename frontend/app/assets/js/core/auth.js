@@ -63,7 +63,14 @@ function isAuthenticated() {
 }
 
 function getCurrentUser() {
-  return JSON.parse(localStorage.getItem('user') || '{}');
+  try {
+    const val = localStorage.getItem('user');
+    if (!val) return {};
+    const parsed = JSON.parse(val);
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch(e) {
+    return {};
+  }
 }
 
 const ROLE_LABELS = {
@@ -89,7 +96,7 @@ function resolveCurrentRole() {
   const urlParams = new URLSearchParams(window.location.search);
   const roleFromUrl = urlParams.get('role');
   const user = getCurrentUser();
-  const role = roleFromUrl || user.role;
+  const role = roleFromUrl || (user ? user.role : null);
 
   if (roleFromUrl && user) {
     user.role = roleFromUrl;

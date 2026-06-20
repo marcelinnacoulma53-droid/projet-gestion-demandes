@@ -13,7 +13,7 @@
   <nav class="navbar">
     <div class="navbar-brand">🎓 EduRequest</div>
     <div class="navbar-user">
-      <span id="userName">👤 Étudiant</span>
+      <span id="roleLabel">👤 Étudiant</span>
       <a href="../auth/login.html" class="btn-logout">Déconnexion</a>
     </div>
   </nav>
@@ -121,6 +121,14 @@
   <script src="../../assets/js/core/api.js"></script>
   <script src="../../assets/js/core/auth.js"></script>
   <script>
+    // Vérifier l'authentification
+    if (!isAuthenticated()) {
+      window.location.href = '../auth/login.html';
+    }
+
+    // Afficher le nom/rôle dans la navbar
+    afficherRoleNavbar('roleLabel');
+
     // Charger les vraies demandes depuis le backend
     async function chargerDemandes() {
       const token = localStorage.getItem('token');

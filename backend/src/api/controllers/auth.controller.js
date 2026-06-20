@@ -284,7 +284,7 @@ const createStaff = async (req, res, next) => {
 // ============================================================
 const changerIdentifiants = async (req, res, next) => {
     const userId = req.user.userId;
-    const { nouveau_email, nouveau_mot_de_passe, confirmation_mot_de_passe } = req.body;
+    const { nouveau_email, nouveau_mot_de_passe, confirmation_mot_de_passe, nom } = req.body;
 
     if (!nouveau_email || !nouveau_mot_de_passe || !confirmation_mot_de_passe) {
         return res.status(400).json({ message: 'Tous les champs sont requis' });
@@ -308,7 +308,8 @@ const changerIdentifiants = async (req, res, next) => {
         await userRepo.update(userId, {
             email: nouveau_email,
             mot_de_passe: motDePasseHash,
-            premiere_connexion: false
+            premiere_connexion: false,
+            nom: nom || undefined
         });
 
         // Récupérer le rôle pour le nouveau token

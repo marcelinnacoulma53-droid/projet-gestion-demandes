@@ -312,14 +312,17 @@
       }
     }
 
-    function filterDemandes(statut) {
+    function filterDemandes(groupe) {
       const rows = document.querySelectorAll('#demandesTable tbody tr');
       rows.forEach(row => {
-        if (statut === 'all' || row.dataset.statut === statut) {
-          row.style.display = '';
-        } else {
-          row.style.display = 'none';
-        }
+        if (groupe === 'all') { row.style.display = ''; return; }
+        const s = (row.dataset.statut || '').toLowerCase();
+        let visible = false;
+        if (groupe === 'en_attente') visible = (s === 'soumise' || s === 'en cours de traitement');
+        else if (groupe === 'validee') visible = (s === 'acceptee' || s === 'terminee');
+        else if (groupe === 'rejetee') visible = (s === 'rejetee');
+        else visible = (s === groupe);
+        row.style.display = visible ? '' : 'none';
       });
     }
 
