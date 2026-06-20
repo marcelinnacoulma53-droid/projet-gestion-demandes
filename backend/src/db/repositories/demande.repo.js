@@ -171,12 +171,31 @@ async function findAll() {
 
     const result = await db.query(
         `
-        SELECT *
-        FROM demandes
-        ORDER BY date_creation DESC
+        SELECT
+            d.id_demande,
+            d.reference,
+            d.objet,
+            d.description,
+            d.date_creation,
+            d.date_soumission,
+            d.id_etudiant,
+            d.id_type_demande,
+            d.id_statut,
+            d.id_etape_courante,
+            LOWER(s.libelle) AS statut,
+            LOWER(td.libelle) AS type_demande,
+            LOWER(ew.libelle) AS etape_courante,
+            u.nom AS nom_etudiant,
+            u.prenom AS prenom_etudiant
+        FROM demandes d
+        LEFT JOIN statuts s ON d.id_statut = s.id_statut
+        LEFT JOIN types_demande td ON d.id_type_demande = td.id_type_demande
+        LEFT JOIN etapes_workflow ew ON d.id_etape_courante = ew.id_etape
+        LEFT JOIN etudiants e ON d.id_etudiant = e.id_etudiant
+        LEFT JOIN utilisateurs u ON e.id_utilisateur = u.id_utilisateur
+        ORDER BY d.date_creation DESC
         `
     );
-
 
     return result.rows;
 }
@@ -211,8 +230,8 @@ async function findByStatutLibelle(libelleStatut) {
         `
         SELECT
             d.id_demande, d.reference, d.objet, d.description, d.date_creation,
-            d.id_etudiant, td.libelle AS type_demande, s.libelle AS statut,
-            ew.libelle AS etape_courante
+            d.id_etudiant, LOWER(td.libelle) AS type_demande, LOWER(s.libelle) AS statut,
+            LOWER(ew.libelle) AS etape_courante
         FROM demandes d
         LEFT JOIN types_demande td ON d.id_type_demande = td.id_type_demande
         LEFT JOIN statuts s ON d.id_statut = s.id_statut
@@ -230,8 +249,8 @@ async function findByEtapeLibelle(libelleEtape) {
         `
         SELECT
             d.id_demande, d.reference, d.objet, d.description, d.date_creation,
-            d.id_etudiant, td.libelle AS type_demande, s.libelle AS statut,
-            ew.libelle AS etape_courante,
+            d.id_etudiant, LOWER(td.libelle) AS type_demande, LOWER(s.libelle) AS statut,
+            LOWER(ew.libelle) AS etape_courante,
             u.nom AS nom_etudiant, u.prenom AS prenom_etudiant
         FROM demandes d
         LEFT JOIN types_demande td ON d.id_type_demande = td.id_type_demande
@@ -252,8 +271,8 @@ async function findByTypeLibelles(listeLibellesType) {
         `
         SELECT
             d.id_demande, d.reference, d.objet, d.description, d.date_creation,
-            d.id_etudiant, td.libelle AS type_demande, s.libelle AS statut,
-            ew.libelle AS etape_courante,
+            d.id_etudiant, LOWER(td.libelle) AS type_demande, LOWER(s.libelle) AS statut,
+            LOWER(ew.libelle) AS etape_courante,
             u.nom AS nom_etudiant, u.prenom AS prenom_etudiant
         FROM demandes d
         LEFT JOIN types_demande td ON d.id_type_demande = td.id_type_demande
@@ -275,8 +294,8 @@ async function findByProfesseur(id_professeur) {
         `
         SELECT
             d.id_demande, d.reference, d.objet, d.description, d.date_creation,
-            d.id_etudiant, td.libelle AS type_demande, s.libelle AS statut,
-            ew.libelle AS etape_courante,
+            d.id_etudiant, LOWER(td.libelle) AS type_demande, LOWER(s.libelle) AS statut,
+            LOWER(ew.libelle) AS etape_courante,
             u.nom AS nom_etudiant, u.prenom AS prenom_etudiant
         FROM demandes d
         LEFT JOIN types_demande td ON d.id_type_demande = td.id_type_demande

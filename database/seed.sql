@@ -42,6 +42,7 @@ VALUES
 ('Secretaire'),
 ('SP'),
 ('DA'),
+('DA_Final'),
 ('Professeur'),
 ('Directrice'),
 ('Presidence'),
@@ -52,9 +53,9 @@ ON CONFLICT (libelle) DO NOTHING;
 
 INSERT INTO decisions (libelle)
 VALUES
-('Acceptee'),
-('Rejetee'),
-('Transmise'),
+('VALIDE'),
+('REJETE'),
+('Transmis'),
 ('En attente')
 ON CONFLICT (libelle) DO NOTHING;
 

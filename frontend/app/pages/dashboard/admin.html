@@ -118,8 +118,8 @@
 
         // Mettre à jour les stats
         document.getElementById('totalDemandes').textContent = demandes.length;
-        const enAttente = demandes.filter(d => d.statut === 'en_attente' || d.statut === 'soumise').length;
-        const validees = demandes.filter(d => d.statut === 'validee' || d.statut === 'acceptee').length;
+        const enAttente = demandes.filter(d => d.statut === 'soumise' || d.statut === 'en cours de traitement').length;
+        const validees = demandes.filter(d => d.statut === 'acceptee' || d.statut === 'terminee').length;
         const rejetees = demandes.filter(d => d.statut === 'rejetee').length;
         document.getElementById('enAttente').textContent = enAttente;
         document.getElementById('validees').textContent = validees;
@@ -157,7 +157,7 @@
     async function voirDetail(id) {
       try {
         const token = localStorage.getItem('token');
-        const response = await fetch(`http://localhost:3000/api/demandes/${id}`, {
+        const response = await fetch(API_BASE + '/demandes/' + id, {
           headers: { 'Authorization': 'Bearer ' + token }
         });
         const data = await response.json();
@@ -196,7 +196,7 @@
     // Vérifier l'accès admin
     (function verifierAcces() {
       const user = getCurrentUser();
-      if (!user || user.role !== 'Administrateur') {
+      if (!user || user.role.toLowerCase() !== 'administrateur') {
         window.location.href = '../auth/login.html';
         return;
       }

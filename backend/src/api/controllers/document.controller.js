@@ -42,6 +42,7 @@ const upload = multer({
 // Repositories M1
 const documentRepo = require('../../db/repositories/document.repo');
 const demandeRepo = require('../../db/repositories/demande.repo');
+const etudiantRepo = require('../../db/repositories/etudiant.repo');
 
 // Service M3
 const notificationService = require('../../core/services/notification.service');
@@ -62,8 +63,11 @@ const uploadFichier = async (req, res, next) => {
         }
 
         // Vérifier que l'utilisateur a le droit d'uploader
-        if (demande.id_etudiant !== userId && req.user.role === 'etudiant') {
-            return res.status(403).json({ message: 'Accès non autorisé' });
+        if (req.user.role === 'etudiant') {
+            const etudiant = await etudiantRepo.findByUserId(userId);
+            if (!etudiant || demande.id_etudiant !== etudiant.id_etudiant) {
+                return res.status(403).json({ message: 'Accès non autorisé' });
+            }
         }
 
         // Vérifier qu'un fichier a été envoyé
@@ -81,9 +85,11 @@ const uploadFichier = async (req, res, next) => {
             chemin_stockage: req.file.path
         });
 
-        // Notifier l'utilisateur (M3)
+        // Notifier l'étudiant (M3) — chercher son id_utilisateur
+        const notifUser = await etudiantRepo.findById(demande.id_etudiant);
+        const notifUserId = notifUser ? notifUser.id_utilisateur : userId;
         await notificationService.notifierUtilisateur(
-            demande.id_etudiant,
+            notifUserId,
             `Un fichier a été ajouté à votre demande ${demandeId}`,
             demandeId
         );

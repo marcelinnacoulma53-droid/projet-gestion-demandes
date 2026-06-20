@@ -178,6 +178,27 @@ async function update(id_utilisateur, updates) {
     return result.rows[0] || null;
 }
 
+// =======================================
+// Trouver les utilisateurs par libellé de rôle
+// =======================================
+async function findByRole(roleLibelle) {
+    const result = await db.query(
+        `
+        SELECT
+            u.id_utilisateur,
+            u.nom,
+            u.prenom,
+            u.email
+        FROM utilisateurs u
+        LEFT JOIN roles r ON u.id_role = r.id_role
+        WHERE LOWER(r.libelle) = LOWER($1)
+        `,
+        [roleLibelle]
+    );
+
+    return result.rows;
+}
+
 // Export du repository
 module.exports = {
     findByEmail,
@@ -186,5 +207,6 @@ module.exports = {
     findById,
     create,
     findEtudiantByUserId,
-    update   
+    update,
+    findByRole
 };

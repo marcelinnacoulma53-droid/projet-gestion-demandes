@@ -203,8 +203,8 @@
         const demandes = data.demandes || [];
 
         document.querySelector('.stat-card:nth-child(1) .stat-number').textContent = demandes.length;
-        const enAttente = demandes.filter(d => d.statut === 'soumise' || d.statut === 'en_cours_de_traitement').length;
-        const validees = demandes.filter(d => d.statut === 'acceptee').length;
+        const enAttente = demandes.filter(d => d.statut === 'soumise' || d.statut === 'en cours de traitement').length;
+        const validees = demandes.filter(d => d.statut === 'acceptee' || d.statut === 'terminee').length;
         const rejetees = demandes.filter(d => d.statut === 'rejetee').length;
         document.querySelector('.stat-card.yellow .stat-number').textContent = enAttente;
         document.querySelector('.stat-card.green .stat-number').textContent = validees;
@@ -216,7 +216,8 @@
         } else {
           tbody.innerHTML = demandes.map((d) => {
             const statut = d.statut || 'soumise';
-            const badgeClass = statut.includes('accept') ? 'green' : statut.includes('rejet') ? 'red' : 'yellow';
+            const s = statut.toLowerCase();
+            const badgeClass = s === 'acceptee' || s === 'terminee' ? 'green' : s === 'rejetee' ? 'red' : 'yellow';
             const date = d.date_creation ? new Date(d.date_creation).toLocaleDateString('fr-FR') : 'N/A';
             const etape = d.etape_courante || '';
             const peutTraiter = statut !== 'rejetee' && statut !== 'terminee' && statut !== 'cloturee';

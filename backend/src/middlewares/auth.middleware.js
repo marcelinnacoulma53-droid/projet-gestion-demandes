@@ -3,8 +3,12 @@
 const jwt = require('jsonwebtoken');
 
 // J'importe la configuration (pour récupérer le secret)
-//m const config = require('../config/env');
 const { jwtSecret } = require('../config/auth');
+
+// Vérification que la clé secrète est définie
+if (!jwtSecret) {
+    console.error('❌ JWT_SECRET non défini dans les variables d\'environnement');
+}
 
 // Je crée une fonction que j'appellerai "authenticate"
 // (req, res, next) = les 3 paramètres de tout middleware

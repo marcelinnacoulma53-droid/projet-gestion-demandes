@@ -25,17 +25,19 @@ const workflowService = {
             
             if (!nextStep) {
                 // Fin du workflow
+                const id_terminee = await demandeRepo.getStatutId('Terminee');
                 await demandeRepo.update(id_demande, { 
-                    statut: 'cloturee',
-                    date_cloture: new Date()
+                    id_statut: id_terminee
                 });
                 return { success: true, nextEtape: null, termine: true };
             }
             
             // 3. Mettre à jour la demande
+            const id_etape_suivante = await demandeRepo.getEtapeId(nextStep);
+            const id_en_cours = await demandeRepo.getStatutId('En cours de traitement');
             await demandeRepo.update(id_demande, { 
-                etape_courante: nextStep,
-                statut: 'en_cours'
+                id_etape_courante: id_etape_suivante,
+                id_statut: id_en_cours
             });
             
             // 4. Enregistrer le traitement
@@ -71,9 +73,9 @@ const workflowService = {
             }
             
             // Changer le statut
+            const id_rejetee = await demandeRepo.getStatutId('Rejetee');
             await demandeRepo.update(id_demande, { 
-                statut: 'rejetee',
-                date_cloture: new Date()
+                id_statut: id_rejetee
             });
             
             // Enregistrer le traitement

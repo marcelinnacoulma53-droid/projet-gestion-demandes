@@ -31,14 +31,16 @@ const demandeService = {
             const typeDemandeId = await demandeRepo.getTypeDemandeId(typeDemande);
             
             // 5. Créer la demande
+            const id_statut_brouillon = await demandeRepo.getStatutId('Brouillon');
+            const id_etape = await demandeRepo.getEtapeId(premiereEtape);
             const nouvelleDemande = await demandeRepo.create({
                 id_etudiant: etudiant.id_etudiant,
                 reference: reference,
                 objet: objet,
                 description: description,
                 id_type_demande: typeDemandeId,
-                statut: 'brouillon',
-                etape_courante: premiereEtape
+                id_statut: id_statut_brouillon,
+                id_etape_courante: id_etape
             });
             
             return nouvelleDemande;
@@ -71,8 +73,9 @@ const demandeService = {
             }
             
             // 4. Mettre à jour la demande
+            const id_soumise = await demandeRepo.getStatutId('Soumise');
             const demandeSoumise = await demandeRepo.update(id_demande, {
-                statut: 'soumise',
+                id_statut: id_soumise,
                 date_soumission: new Date()
             });
             
