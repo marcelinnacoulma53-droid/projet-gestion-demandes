@@ -1,5 +1,34 @@
 const API_BASE = window.API_BASE || 'https://projet-gestion-demandes-backend.onrender.com/api';
 
+function getAuthToken() {
+  return sessionStorage.getItem('token') || '';
+}
+
+function setAuthSession(token, user) {
+  sessionStorage.setItem('token', token);
+  sessionStorage.setItem('user', JSON.stringify(user || {}));
+  localStorage.removeItem('token');
+  localStorage.removeItem('user');
+}
+
+function clearAuthSession() {
+  sessionStorage.removeItem('token');
+  sessionStorage.removeItem('user');
+  localStorage.removeItem('token');
+  localStorage.removeItem('user');
+}
+
+function getStoredUser() {
+  try {
+    const val = sessionStorage.getItem('user');
+    if (!val) return {};
+    const parsed = JSON.parse(val);
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch(e) {
+    return {};
+  }
+}
+
 async function parseApiResponse(res) {
   const contentType = res.headers.get('content-type') || '';
   const data = contentType.includes('application/json')
@@ -18,7 +47,7 @@ async function parseApiResponse(res) {
 }
 
 function authHeaders(includeJson = false) {
-  const token = localStorage.getItem('token');
+  const token = getAuthToken();
   return {
     ...(includeJson && { 'Content-Type': 'application/json' }),
     ...(token && { 'Authorization': 'Bearer ' + token })

@@ -13,7 +13,7 @@
     <div class="navbar-brand">🎓 EduRequest</div>
     <div class="navbar-user">
       <span id="roleLabel">👤 Chargement...</span>
-      <a href="../auth/login.html" class="btn-logout">Déconnexion</a>
+      <a href="../auth/login.html" class="btn-logout" onclick="clearAuthSession()">Déconnexion</a>
     </div>
   </nav>
 
@@ -193,7 +193,7 @@
     });
 
     async function chargerDemandesStaff() {
-      const token = localStorage.getItem('token');
+      const token = getAuthToken();
       if (!token) return;
       try {
         const response = await fetch(API_BASE + '/demandes/mes-demandes', {
@@ -247,7 +247,7 @@
       const commentaire = prompt('Commentaire (optionnel) avant de transmettre :') || '';
 
       try {
-        const token = localStorage.getItem('token');
+        const token = getAuthToken();
         const response = await fetch(API_BASE + '/workflow/' + idDemande + '/valider', {
           method: 'POST',
           headers: {
@@ -286,7 +286,7 @@
       }
 
       try {
-        const token = localStorage.getItem('token');
+        const token = getAuthToken();
         const response = await fetch(API_BASE + '/workflow/' + idDemande + '/rejeter', {
           method: 'POST',
           headers: {

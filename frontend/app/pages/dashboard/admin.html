@@ -12,7 +12,7 @@
     <div class="navbar-brand">🎓 EduRequest</div>
     <div class="navbar-user">
       <span id="roleLabel">🛡️ Administrateur</span>
-      <a href="../auth/login.html" class="btn-logout">Déconnexion</a>
+      <a href="../auth/login.html" class="btn-logout" onclick="clearAuthSession()">Déconnexion</a>
     </div>
   </nav>
 
@@ -103,7 +103,7 @@
   <script>
     // Charger toutes les demandes
     async function chargerDemandes() {
-      const token = localStorage.getItem('token');
+      const token = getAuthToken();
       if (!token) {
         window.location.href = '../auth/login.html';
         return;
@@ -156,7 +156,7 @@
     // Voir le détail d'une demande
     async function voirDetail(id) {
       try {
-        const token = localStorage.getItem('token');
+        const token = getAuthToken();
         const response = await fetch(API_BASE + '/demandes/' + id, {
           headers: { 'Authorization': 'Bearer ' + token }
         });

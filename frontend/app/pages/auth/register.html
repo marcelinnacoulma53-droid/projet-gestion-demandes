@@ -85,8 +85,7 @@
         const data = await authAPI.register({ nom, prenom, matricule, email, mot_de_passe });
 
         if (data.success) {
-          localStorage.setItem('token', data.token);
-          localStorage.setItem('user', JSON.stringify(data.user));
+          setAuthSession(data.token, data.user);
           window.location.href = '../dashboard/etudiant.html';
         } else {
           document.getElementById('errorMsg').textContent = data.message || 'Erreur lors de l\'inscription.';

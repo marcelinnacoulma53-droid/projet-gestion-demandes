@@ -14,7 +14,7 @@
     <div class="navbar-brand">🎓 EduRequest</div>
     <div class="navbar-user">
       <span id="roleLabel">👤 Étudiant</span>
-      <a href="../auth/login.html" class="btn-logout">Déconnexion</a>
+      <a href="../auth/login.html" class="btn-logout" onclick="clearAuthSession()">Déconnexion</a>
     </div>
   </nav>
 
@@ -131,7 +131,7 @@
 
     // Charger les vraies demandes depuis le backend
     async function chargerDemandes() {
-      const token = localStorage.getItem('token');
+      const token = getAuthToken();
       if (!token) return;
 
       try {

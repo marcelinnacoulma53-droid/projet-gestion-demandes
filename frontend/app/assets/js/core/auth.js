@@ -5,8 +5,7 @@ async function login(email, motDePasse) {
     // ou en raccourci ES6 :
     //const data = await authAPI.login({ email, mot_de_passe: motDePasse });
     if (data.token) {
-      localStorage.setItem('token', data.token);
-      localStorage.setItem('user', JSON.stringify(data.user));
+      setAuthSession(data.token, data.user);
 
       const role = data.user.role.toLowerCase();
 
@@ -22,8 +21,7 @@ async function login(email, motDePasse) {
       document.getElementById('errorMsg').textContent = data.message || 'Identifiants incorrects.';
     }
   } catch(e) {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
+    clearAuthSession();
     document.getElementById('errorMsg').textContent = 'Erreur de connexion au serveur.';
   }
 }
@@ -55,17 +53,16 @@ async function register(formData) {
 }
 
 function logout() {
-  localStorage.removeItem('token');
-  localStorage.removeItem('user');
+  clearAuthSession();
   window.location.href = '../auth/login.html';
 }
 
 function isAuthenticated() {
-  return !!localStorage.getItem('token');
+  return !!getAuthToken();
 }
 
 function getRoleFromToken() {
-  const token = localStorage.getItem('token');
+  const token = getAuthToken();
   if (!token) return null;
   try {
     const payload = JSON.parse(atob(token.split('.')[1]));
@@ -76,14 +73,7 @@ function getRoleFromToken() {
 }
 
 function getCurrentUser() {
-  try {
-    const val = localStorage.getItem('user');
-    if (!val) return {};
-    const parsed = JSON.parse(val);
-    return parsed && typeof parsed === 'object' ? parsed : {};
-  } catch(e) {
-    return {};
-  }
+  return getStoredUser();
 }
 
 const ROLE_LABELS = {

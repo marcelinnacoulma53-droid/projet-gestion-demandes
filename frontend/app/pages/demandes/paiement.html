@@ -12,7 +12,7 @@
     <div class="navbar-brand">🎓 EduRequest</div>
     <div class="navbar-user">
       <span>👤 Étudiant</span>
-      <a href="../auth/login.html" class="btn-logout">Déconnexion</a>
+      <a href="../auth/login.html" class="btn-logout" onclick="clearAuthSession()">Déconnexion</a>
     </div>
   </nav>
 
@@ -225,7 +225,7 @@
         const exemplaires = urlP.get('exemplaires') || '1';
         const description = urlP.get('description') || '';
 
-        const token = localStorage.getItem('token');
+        const token = getAuthToken();
         const response = await fetch(API_BASE + '/demandes', {
           method: 'POST',
           headers: {
