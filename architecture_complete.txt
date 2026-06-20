@@ -638,6 +638,7 @@ const userRepo = require('../../db/repositories/user.repo');
 // ✅ IMPORT DES SERVICES DE MEMBRE 3
 const permissionService = require('../../core/services/permission.service');
 const visibilityRules = require('../../core/rules/visibility.rules'); 
+const workflowRules = require('../../core/rules/workflow.rules');
 // ============================================================
 // 1. CRÉER UNE DEMANDE
 // ============================================================
@@ -679,6 +680,9 @@ const createDemande = async (req, res, next) => {
         );
         const id_statut = statutInfo.rows[0]?.id_statut;
 
+        const premiereEtape = workflowRules.getFirstStep(type_demande.toLowerCase());
+        const id_etape_courante = await demandeRepo.getEtapeId(premiereEtape);
+
         const reference = generateReference(type_demande);
         const nouvelleDemande = await demandeRepo.create({
             reference: reference,
@@ -687,7 +691,7 @@ const createDemande = async (req, res, next) => {
             objet: objet,
             description: description || '',
             id_statut: id_statut,
-            id_etape_courante: null
+            id_etape_courante: id_etape_courante
         });
 
         res.status(201).json({
@@ -849,8 +853,10 @@ const soumettreDemande = async (req, res, next) => {
             });
         }
 
+        const id_statut_soumise = await demandeRepo.getStatutId('Soumise');
+
         const demandeSoumise = await demandeRepo.update(demandeId, {
-            statut: 'soumise',
+            id_statut: id_statut_soumise,
             date_soumission: new Date()
         });
 
@@ -1755,12 +1761,12 @@ const visibilityRules = {
             
             // SP : seulement dérogations et duplicatas
             if (role === 'sp') {
-                return await demandeRepo.findByType(['derogation', 'duplicata']);
+                return await demandeRepo.findByTypeLibelles(['Derogation', 'Duplicata']);
             }
             
             // DA : réclamations, duplicatas, attestations
             if (role === 'da') {
-                return await demandeRepo.findByType(['reclamation', 'duplicata', 'attestation']);
+                return await demandeRepo.findByTypeLibelles(['Reclamation', 'Duplicata', 'Attestation']);
             }
             
             // Secrétaire, directrice, présidence, scolarité : voir tout
@@ -1790,7 +1796,7 @@ const workflowRules = {
             reclamation: {
                 'secretaire': 'da',
                 'da': 'professeur',
-                'professeur': 'da',
+                'professeur': 'da_final',
                 'da_final': 'scolarite'
             },
             derogation: {
@@ -2467,12 +2473,21 @@ async function findById(id_demande) {
             d.reference,
             d.objet,
             d.description,
-            s.libelle AS statut,
+            LOWER(s.libelle) AS statut,
+            LOWER(td.libelle) AS type_demande,
+            LOWER(ew.libelle) AS etape_courante,
             d.date_creation,
-            d.id_etudiant
+            d.id_etudiant,
+            d.id_statut,
+            d.id_type_demande,
+            d.id_etape_courante
         FROM demandes d
         LEFT JOIN statuts s
             ON d.id_statut = s.id_statut
+        LEFT JOIN types_demande td
+            ON d.id_type_demande = td.id_type_demande
+        LEFT JOIN etapes_workflow ew
+            ON d.id_etape_courante = ew.id_etape
         WHERE d.id_demande = $1
         `,
         [id_demande]
@@ -2546,14 +2561,131 @@ async function findAll() {
     return result.rows;
 }
 
+//
+async function getTypeDemandeId(libelleType) {
+    const result = await db.query(
+        `SELECT id_type_demande FROM types_demande WHERE libelle ILIKE $1`,
+        [libelleType]
+    );
+    return result.rows[0]?.id_type_demande || null;
+}
 
+async function getStatutId(libelleStatut) {
+    const result = await db.query(
+        `SELECT id_statut FROM statuts WHERE libelle ILIKE $1`,
+        [libelleStatut]
+    );
+    return result.rows[0]?.id_statut || null;
+}
+
+async function getEtapeId(libelleEtape) {
+    const result = await db.query(
+        `SELECT id_etape FROM etapes_workflow WHERE libelle ILIKE $1`,
+        [libelleEtape]
+    );
+    return result.rows[0]?.id_etape || null;
+}
+
+async function findByStatutLibelle(libelleStatut) {
+    const result = await db.query(
+        `
+        SELECT
+            d.id_demande, d.reference, d.objet, d.description, d.date_creation,
+            d.id_etudiant, td.libelle AS type_demande, s.libelle AS statut,
+            ew.libelle AS etape_courante
+        FROM demandes d
+        LEFT JOIN types_demande td ON d.id_type_demande = td.id_type_demande
+        LEFT JOIN statuts s ON d.id_statut = s.id_statut
+        LEFT JOIN etapes_workflow ew ON d.id_etape_courante = ew.id_etape
+        WHERE s.libelle ILIKE $1
+        ORDER BY d.date_creation DESC
+        `,
+        [libelleStatut]
+    );
+    return result.rows;
+}
+
+async function findByEtapeLibelle(libelleEtape) {
+    const result = await db.query(
+        `
+        SELECT
+            d.id_demande, d.reference, d.objet, d.description, d.date_creation,
+            d.id_etudiant, td.libelle AS type_demande, s.libelle AS statut,
+            ew.libelle AS etape_courante,
+            u.nom AS nom_etudiant, u.prenom AS prenom_etudiant
+        FROM demandes d
+        LEFT JOIN types_demande td ON d.id_type_demande = td.id_type_demande
+        LEFT JOIN statuts s ON d.id_statut = s.id_statut
+        LEFT JOIN etapes_workflow ew ON d.id_etape_courante = ew.id_etape
+        LEFT JOIN etudiants e ON d.id_etudiant = e.id_etudiant
+        LEFT JOIN utilisateurs u ON e.id_utilisateur = u.id_utilisateur
+        WHERE ew.libelle ILIKE $1
+        ORDER BY d.date_creation DESC
+        `,
+        [libelleEtape]
+    );
+    return result.rows;
+}
+
+async function findByTypeLibelles(listeLibellesType) {
+    const result = await db.query(
+        `
+        SELECT
+            d.id_demande, d.reference, d.objet, d.description, d.date_creation,
+            d.id_etudiant, td.libelle AS type_demande, s.libelle AS statut,
+            ew.libelle AS etape_courante,
+            u.nom AS nom_etudiant, u.prenom AS prenom_etudiant
+        FROM demandes d
+        LEFT JOIN types_demande td ON d.id_type_demande = td.id_type_demande
+        LEFT JOIN statuts s ON d.id_statut = s.id_statut
+        LEFT JOIN etapes_workflow ew ON d.id_etape_courante = ew.id_etape
+        LEFT JOIN etudiants e ON d.id_etudiant = e.id_etudiant
+        LEFT JOIN utilisateurs u ON e.id_utilisateur = u.id_utilisateur
+        WHERE td.libelle ILIKE ANY($1)
+        ORDER BY d.date_creation DESC
+        `,
+        [listeLibellesType]
+    );
+    return result.rows;
+}
+
+
+async function findByProfesseur(id_professeur) {
+    const result = await db.query(
+        `
+        SELECT
+            d.id_demande, d.reference, d.objet, d.description, d.date_creation,
+            d.id_etudiant, td.libelle AS type_demande, s.libelle AS statut,
+            ew.libelle AS etape_courante,
+            u.nom AS nom_etudiant, u.prenom AS prenom_etudiant
+        FROM demandes d
+        LEFT JOIN types_demande td ON d.id_type_demande = td.id_type_demande
+        LEFT JOIN statuts s ON d.id_statut = s.id_statut
+        LEFT JOIN etapes_workflow ew ON d.id_etape_courante = ew.id_etape
+        LEFT JOIN reclamations r ON r.id_demande = d.id_demande
+        LEFT JOIN etudiants e ON d.id_etudiant = e.id_etudiant
+        LEFT JOIN utilisateurs u ON e.id_utilisateur = u.id_utilisateur
+        WHERE r.id_professeur = $1
+        ORDER BY d.date_creation DESC
+        `,
+        [id_professeur]
+    );
+    return result.rows;
+}
 
 module.exports = {
     create,
     findByEtudiant,
     findById,
     update,
-    findAll
+    findAll,
+    getTypeDemandeId,
+    getStatutId,
+    getEtapeId,
+    findByStatutLibelle,
+    findByEtapeLibelle,
+    findByTypeLibelles,
+    findByProfesseur
 };
 
 ════════════════════════════════════════════════════
@@ -3148,10 +3280,10 @@ const traitementRepo = {
             VALUES (
                 $1, 
                 $2, 
-                (SELECT id_decision FROM decisions WHERE libelle = $3),
+                (SELECT id_decision FROM decisions WHERE libelle ILIKE $3),
                 $4, 
-                $5, 
-                $6, 
+                (SELECT id_etape FROM etapes_workflow WHERE libelle ILIKE $5),
+                (SELECT id_etape FROM etapes_workflow WHERE libelle ILIKE $6),
                 NOW()
             )
             RETURNING *
@@ -5277,6 +5409,46 @@ function getCurrentUser() {
   return JSON.parse(localStorage.getItem('user') || '{}');
 }
 
+const ROLE_LABELS = {
+  etudiant: '👤 Étudiant',
+  secretaire: '👤 Secrétaire',
+  sp: '👤 Secrétaire Permanent (SP)',
+  da: '👤 Directeur Adjoint (DA)',
+  professeur: '👨‍🏫 Professeur',
+  enseignant: '👨‍🏫 Enseignant',
+  directrice: '👤 Directrice',
+  presidence: '👤 Présidence',
+  scolarite: '👤 Chef de Scolarité',
+  administrateur: '🛡️ Administrateur',
+  admin: '🛡️ Administrateur'
+};
+
+function getRoleLabel(role) {
+  if (!role) return '👤 Utilisateur';
+  return ROLE_LABELS[role.toLowerCase()] || ('👤 ' + role);
+}
+
+function resolveCurrentRole() {
+  const urlParams = new URLSearchParams(window.location.search);
+  const roleFromUrl = urlParams.get('role');
+  const user = getCurrentUser();
+  const role = roleFromUrl || user.role;
+
+  if (roleFromUrl && user) {
+    user.role = roleFromUrl;
+    localStorage.setItem('user', JSON.stringify(user));
+  }
+
+  return role ? role.toLowerCase() : '';
+}
+
+function afficherRoleNavbar(elementId) {
+  const el = document.getElementById(elementId);
+  if (el) {
+    el.textContent = getRoleLabel(resolveCurrentRole());
+  }
+}
+
 ════════════════════════════════════════════════════
 FICHIER : ./frontend/app/assets/js/core/storage.js
 ════════════════════════════════════════════════════
@@ -5479,32 +5651,9 @@ FICHIER : ./frontend/app/pages/auth/first-login.html
   <script src="../../assets/js/core/api.js"></script>
   <script src="../../assets/js/core/auth.js"></script>
   <script>
-    const roles_labels = {
-      secretaire: '👤 Secrétaire',
-      sp: '👤 Secrétaire Permanent (SP)',
-      da: '👤 Directeur Adjoint (DA)',
-      enseignant: '👨‍🏫 Enseignant',
-      professeur: '👨‍🏫 Professeur',
-      directrice: '👤 Directrice',
-      presidence: '👤 Présidence',
-      scolarite: '👤 Chef de Scolarité',
-      admin: '🛡️ Administrateur'
-    };
-
     window.addEventListener('DOMContentLoaded', () => {
-      // Récupérer le rôle depuis l'URL
-      const urlParams = new URLSearchParams(window.location.search);
-      const roleURL = urlParams.get('role');
-      const user = getCurrentUser();
-      const role = roleURL || user.role || 'inconnu';
-
-      // Sauvegarder le rôle dans localStorage si présent dans l'URL
-      if (roleURL) {
-        user.role = roleURL;
-        localStorage.setItem('user', JSON.stringify(user));
-      }
-
-      document.getElementById('role-display').textContent = roles_labels[role] || role;
+      const role = resolveCurrentRole() || 'inconnu';
+      document.getElementById('role-display').textContent = getRoleLabel(role);
     });
 
     async function confirmerInfos() {
@@ -6716,6 +6865,14 @@ FICHIER : ./frontend/app/pages/dashboard/staff.html
   <script src="../../assets/js/core/api.js"></script>
   <script src="../../assets/js/core/auth.js"></script>
   <script>
+    window.addEventListener('DOMContentLoaded', () => {
+      if (!isAuthenticated()) {
+        window.location.href = '../auth/login.html';
+        return;
+      }
+      afficherRoleNavbar('roleLabel');
+    });
+
     async function chargerDemandesStaff() {
       const token = localStorage.getItem('token');
       if (!token) return;
@@ -6742,7 +6899,8 @@ FICHIER : ./frontend/app/pages/dashboard/staff.html
             const statut = d.statut || 'soumise';
             const badgeClass = statut.includes('accept') ? 'green' : statut.includes('rejet') ? 'red' : 'yellow';
             const date = d.date_creation ? new Date(d.date_creation).toLocaleDateString('fr-FR') : 'N/A';
-            // staff.html — correction avec data-label
+            const etape = d.etape_courante || '';
+            const peutTraiter = statut !== 'rejetee' && statut !== 'terminee' && statut !== 'cloturee';
             return `<tr data-statut="${statut}" data-id="${d.id_demande}">
               <td data-label="N°">${d.reference || d.id_demande}</td>
               <td data-label="Étudiant">${d.nom_etudiant || 'Étudiant'}</td>
@@ -6750,7 +6908,11 @@ FICHIER : ./frontend/app/pages/dashboard/staff.html
               <td data-label="Date">${date}</td>
               <td data-label="Statut"><span class="badge ${badgeClass}">${statut}</span></td>
               <td data-label="Actions" class="actions-cell">
-                <button class="btn-voir" onclick="window.location.href='../demandes/detail.html?id='+${d.id_demande}">👁 Voir</button>
+                <button class="btn-voir" onclick="window.location.href='../demandes/detail.html?id=${d.id_demande}'">👁 Voir</button>
+                ${peutTraiter ? `
+                  <button class="btn-valider" onclick="transmettreDemande(${d.id_demande})">→ Transmettre</button>
+                  <button class="btn-rejeter" onclick="rejeterDemande(${d.id_demande})">✗ Rejeter</button>
+                ` : ''}
               </td>
             </tr>`;
           }).join('');
@@ -6760,6 +6922,75 @@ FICHIER : ./frontend/app/pages/dashboard/staff.html
       }
     }
     chargerDemandesStaff();
+
+    async function transmettreDemande(idDemande) {
+      const commentaire = prompt('Commentaire (optionnel) avant de transmettre :') || '';
+
+      try {
+        const token = localStorage.getItem('token');
+        const response = await fetch(API_BASE + '/workflow/' + idDemande + '/valider', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + token
+          },
+          body: JSON.stringify({ commentaire })
+        });
+
+        const data = await response.json();
+
+        if (!data.success) {
+          alert('Erreur : ' + (data.message || 'Impossible de transmettre la demande.'));
+          return;
+        }
+
+        if (data.data.termine) {
+          alert('Demande clôturée — fin du circuit de validation.');
+        } else {
+          alert('Demande transmise à l\'étape : ' + data.data.nextEtape);
+        }
+
+        chargerDemandesStaff();
+
+      } catch (e) {
+        console.error('Erreur transmission:', e);
+        alert('Erreur de connexion au serveur.');
+      }
+    }
+
+    async function rejeterDemande(idDemande) {
+      const motif = prompt('Motif du rejet (obligatoire) :');
+      if (!motif) {
+        alert('Le motif est obligatoire pour rejeter une demande.');
+        return;
+      }
+
+      try {
+        const token = localStorage.getItem('token');
+        const response = await fetch(API_BASE + '/workflow/' + idDemande + '/rejeter', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + token
+          },
+          body: JSON.stringify({ motif })
+        });
+
+        const data = await response.json();
+
+        if (!data.success) {
+          alert('Erreur : ' + (data.message || 'Impossible de rejeter la demande.'));
+          return;
+        }
+
+        alert('Demande rejetée.');
+        chargerDemandesStaff();
+
+      } catch (e) {
+        console.error('Erreur rejet:', e);
+        alert('Erreur de connexion au serveur.');
+      }
+    }
 
     function filterDemandes(statut) {
       const rows = document.querySelectorAll('#demandesTable tbody tr');
@@ -7940,6 +8171,3901 @@ FICHIER : ./frontend/app/pages/demandes/suivi.html
   </script>
 </body>
 </html>
+
+════════════════════════════════════════════════════
+FICHIER : ./frontend/architecture_complete.txt
+════════════════════════════════════════════════════
+
+════════════════════════════════════════════════════
+FICHIER : ./app/.gitignore
+════════════════════════════════════════════════════
+.vercel
+
+════════════════════════════════════════════════════
+FICHIER : ./app/.vercel/README.txt
+════════════════════════════════════════════════════
+> Why do I have a folder named ".vercel" in my project?
+The ".vercel" folder is created when you link a directory to a Vercel project.
+
+> What does the "project.json" file contain?
+The "project.json" file contains:
+- The ID of the Vercel project that you linked ("projectId")
+- The ID of the user or team your Vercel project is owned by ("orgId")
+
+> Should I commit the ".vercel" folder?
+No, you should not share the ".vercel" folder with anyone.
+Upon creation, it will be automatically added to your ".gitignore" file.
+
+════════════════════════════════════════════════════
+FICHIER : ./app/.vercel/project.json
+════════════════════════════════════════════════════
+{"projectId":"prj_ga3JmUk8NWuPDfNMnGthjvnez1ap","orgId":"team_OVKu3qBw5A4W3aSdH2Se7lbY","projectName":"projet-gestion-demandes"}
+════════════════════════════════════════════════════
+FICHIER : ./app/assets/css/components.css
+════════════════════════════════════════════════════
+.dashboard-body { background: #f0f2f5; margin: 0; font-family: 'Segoe UI', sans-serif; }
+
+/* NAVBAR */
+.navbar {
+  background: #1a237e;
+  color: white;
+  padding: 14px 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+.navbar-brand { font-size: 20px; font-weight: 700; }
+.navbar-user { display: flex; align-items: center; gap: 16px; font-size: 14px; }
+.btn-logout {
+  background: rgba(255,255,255,0.2);
+  color: white;
+  padding: 6px 14px;
+  border-radius: 6px;
+  text-decoration: none;
+  font-size: 13px;
+}
+.btn-logout:hover { background: rgba(255,255,255,0.35); }
+
+/* LAYOUT */
+.dashboard-layout { display: flex; min-height: calc(100vh - 52px); }
+
+/* SIDEBAR */
+.sidebar {
+  width: 220px;
+  background: white;
+  padding: 20px 0;
+  box-shadow: 2px 0 8px rgba(0,0,0,0.06);
+}
+.sidebar ul { list-style: none; padding: 0; margin: 0; }
+.sidebar li {
+  padding: 14px 24px;
+  cursor: pointer;
+  color: #444;
+  font-size: 14px;
+  transition: background 0.2s;
+}
+.sidebar li:hover, .sidebar li.active {
+  background: #e8eaf6;
+  color: #1a237e;
+  font-weight: 600;
+  border-left: 4px solid #1a237e;
+}
+
+/* MAIN */
+.main-content { flex: 1; padding: 24px; }
+
+/* STATS */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+}
+.stat-card {
+  background: white;
+  border-radius: 12px;
+  padding: 20px;
+  text-align: center;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+  border-top: 4px solid #1a237e;
+}
+.stat-card.yellow { border-top-color: #f9a825; }
+.stat-card.green  { border-top-color: #2e7d32; }
+.stat-card.red    { border-top-color: #c62828; }
+.stat-card h3 { font-size: 13px; color: #666; margin-bottom: 8px; }
+.stat-number { font-size: 32px; font-weight: 700; color: #1a237e; }
+
+/* SECTION CARD */
+.section-card {
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  margin-bottom: 24px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+}
+.section-card h2 { margin-bottom: 20px; color: #1a237e; font-size: 18px; }
+
+/* BOUTONS DEMANDE */
+.btn-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+.btn-demande {
+  background: #e8eaf6;
+  color: #1a237e;
+  border-radius: 10px;
+  padding: 18px;
+  text-align: center;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 15px;
+  transition: background 0.2s, transform 0.1s;
+}
+.btn-demande:hover { background: #1a237e; color: white; transform: translateY(-2px); }
+
+/* TABLEAU */
+.demandes-table { width: 100%; border-collapse: collapse; }
+.demandes-table th {
+  background: #f5f5f5;
+  padding: 12px;
+  text-align: left;
+  font-size: 13px;
+  color: #666;
+}
+.demandes-table td { padding: 12px; border-bottom: 1px solid #f0f0f0; font-size: 14px; }
+
+/* BADGES */
+.badge { padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+.badge.yellow { background: #fff8e1; color: #f9a825; }
+.badge.green  { background: #e8f5e9; color: #2e7d32; }
+.badge.red    { background: #ffebee; color: #c62828; }
+
+.btn-detail {
+  background: #1a237e;
+  color: white;
+  padding: 5px 12px;
+  border-radius: 6px;
+  text-decoration: none;
+  font-size: 12px;
+}
+.btn-detail:hover { background: #0d47a1; }
+
+/* FORMULAIRES */
+.form-group { margin-bottom: 18px; }
+.form-group label {
+  display: block;
+  margin-bottom: 6px;
+  font-weight: 600;
+  color: #333;
+  font-size: 14px;
+}
+.form-group input,
+.form-group select,
+.form-group textarea {
+  width: 100%;
+  padding: 11px 14px;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  font-size: 14px;
+  outline: none;
+  font-family: 'Segoe UI', sans-serif;
+  transition: border-color 0.3s;
+}
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus { border-color: #1a237e; }
+.form-group textarea { height: 100px; resize: vertical; }
+
+.form-actions { display: flex; gap: 12px; margin-top: 24px; }
+.btn-retour {
+  padding: 11px 22px;
+  border: 2px solid #1a237e;
+  background: white;
+  color: #1a237e;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.btn-retour:hover { background: #e8eaf6; }
+.btn-envoyer {
+  padding: 11px 28px;
+  background: #1a237e;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.btn-envoyer:hover { background: #0d47a1; }
+
+/* ===== FICHE RÉCLAMATION ===== */
+.fiche-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  font-size: 11px;
+  color: #444;
+  margin-bottom: 10px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid #1a237e;
+}
+.fiche-header-left { text-align: left; }
+.fiche-header-center { font-size: 36px; }
+.fiche-header-right { text-align: right; font-size: 11px; }
+
+.fiche-titre {
+  text-align: center;
+  font-size: 20px;
+  font-weight: 700;
+  color: #1a237e;
+  text-decoration: underline;
+  margin: 16px 0 20px;
+  text-transform: uppercase;
+}
+
+.fiche-row {
+  display: flex;
+  gap: 14px;
+  margin-bottom: 4px;
+}
+.flex-1 { flex: 1; }
+.flex-2 { flex: 2; }
+
+.fiche-section {
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 14px 16px;
+  margin-bottom: 14px;
+  background: #fafafa;
+}
+
+.section-label {
+  display: block;
+  font-weight: 700;
+  color: #1a237e;
+  font-size: 13px;
+  margin-bottom: 10px;
+}
+
+.checkbox-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.checkbox-group.flex-wrap {
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 10px 24px;
+}
+.checkbox-group label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: #333;
+  cursor: pointer;
+}
+.checkbox-group input[type="checkbox"] {
+  width: 15px;
+  height: 15px;
+  accent-color: #1a237e;
+}
+
+/* UPLOAD */
+.upload-section { background: #e8eaf6; border-color: #1a237e; }
+.upload-box {
+  border: 2px dashed #1a237e;
+  border-radius: 8px;
+  padding: 24px;
+  text-align: center;
+  cursor: pointer;
+  background: white;
+  transition: background 0.2s;
+}
+.upload-box:hover { background: #e8eaf6; }
+.upload-icon { font-size: 36px; margin-bottom: 8px; }
+.upload-box p { color: #666; font-size: 13px; margin-bottom: 6px; }
+
+/* FORMULAIRES */
+.form-group { margin-bottom: 14px; }
+.form-group label {
+  display: block;
+  margin-bottom: 5px;
+  font-weight: 600;
+  color: #333;
+  font-size: 13px;
+}
+.form-group input,
+.form-group select,
+.form-group textarea {
+  width: 100%;
+  padding: 10px 13px;
+  border: 2px solid #e0e0e0;
+  border-radius: 7px;
+  font-size: 13px;
+  outline: none;
+  font-family: 'Segoe UI', sans-serif;
+  transition: border-color 0.3s;
+  background: white;
+}
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus { border-color: #1a237e; }
+.form-group textarea { height: 100px; resize: vertical; }
+
+.form-actions { display: flex; gap: 12px; margin-top: 20px; justify-content: flex-end; }
+.btn-retour {
+  padding: 11px 22px;
+  border: 2px solid #1a237e;
+  background: white;
+  color: #1a237e;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.btn-retour:hover { background: #e8eaf6; }
+.btn-envoyer {
+  padding: 11px 28px;
+  background: #1a237e;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.btn-envoyer:hover { background: #0d47a1; }
+
+/* ACTIONS TABLEAU */
+.actions-cell { display: flex; gap: 6px; flex-wrap: wrap; }
+.btn-voir {
+  padding: 5px 10px; border-radius: 6px; font-size: 12px;
+  font-weight: 600; cursor: pointer; border: none;
+  background: #e3f2fd; color: #1565c0;
+}
+.btn-valider {
+  padding: 5px 10px; border-radius: 6px; font-size: 12px;
+  font-weight: 600; cursor: pointer; border: none;
+  background: #e8f5e9; color: #2e7d32;
+}
+.btn-rejeter {
+  padding: 5px 10px; border-radius: 6px; font-size: 12px;
+  font-weight: 600; cursor: pointer; border: none;
+  background: #ffebee; color: #c62828;
+}
+.btn-complement {
+  padding: 5px 10px; border-radius: 6px; font-size: 12px;
+  font-weight: 600; cursor: pointer; border: none;
+  background: #fff8e1; color: #f57f17;
+}
+
+/* MODAL */
+.modal-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.5);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 1000;
+}
+.modal-box {
+  background: white; border-radius: 14px;
+  width: 100%; max-width: 500px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+  overflow: hidden;
+}
+.modal-header {
+  background: #1a237e; color: white;
+  padding: 16px 20px;
+  display: flex; justify-content: space-between; align-items: center;
+}
+.modal-header h3 { font-size: 16px; }
+.modal-close {
+  background: none; border: none; color: white;
+  font-size: 18px; cursor: pointer;
+}
+.modal-body { padding: 20px; }
+.modal-footer {
+  padding: 14px 20px;
+  display: flex; justify-content: flex-end; gap: 10px;
+  border-top: 1px solid #f0f0f0;
+}
+.detail-row {
+  display: flex; gap: 10px; align-items: baseline;
+  padding: 8px 0; border-bottom: 1px solid #f5f5f5;
+  font-size: 14px;
+}
+.detail-row span { color: #666; min-width: 90px; }
+
+/* FIX BOUTONS ACTIONS */
+.actions-cell { display: flex !important; gap: 6px !important; flex-wrap: wrap !important; }
+.btn-voir, .btn-valider, .btn-rejeter, .btn-complement {
+  display: inline-block !important;
+  padding: 5px 10px !important;
+  border-radius: 6px !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  cursor: pointer !important;
+  border: none !important;
+}
+.btn-voir { background: #e3f2fd !important; color: #1565c0 !important; }
+.btn-valider { background: #e8f5e9 !important; color: #2e7d32 !important; }
+.btn-rejeter { background: #ffebee !important; color: #c62828 !important; }
+.btn-complement { background: #fff8e1 !important; color: #f57f17 !important; }
+
+/* TIMELINE */
+.timeline { display: flex; flex-direction: column; gap: 0; }
+.timeline-item { display: flex; gap: 14px; padding: 10px 0; position: relative; }
+.timeline-item:not(:last-child)::before {
+  content: '';
+  position: absolute;
+  left: 7px; top: 28px;
+  width: 2px; height: calc(100% - 10px);
+  background: #e0e0e0;
+}
+.timeline-dot {
+  width: 16px; height: 16px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  margin-top: 3px;
+}
+.timeline-dot.green { background: #2e7d32; }
+.timeline-dot.yellow { background: #f9a825; }
+.timeline-dot.grey { background: #bdbdbd; }
+.timeline-content { display: flex; flex-direction: column; gap: 2px; }
+.timeline-content strong { font-size: 14px; color: #222; }
+.timeline-content span { font-size: 12px; color: #888; }
+
+/* FILTRES */
+.btn-filter {
+  padding: 7px 16px;
+  border: 2px solid #e0e0e0;
+  background: white;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  color: #555;
+  transition: all 0.2s;
+}
+.btn-filter:hover { border-color: #1a237e; color: #1a237e; }
+.active-filter { background: #1a237e !important; color: white !important; border-color: #1a237e !important; }
+
+/* FRAIS BANNER */
+.frais-banner {
+  background: #fff8e1;
+  border: 2px solid #f9a825;
+  border-radius: 8px;
+  padding: 12px 18px;
+  margin-bottom: 18px;
+  color: #333;
+  font-size: 14px;
+  text-align: center;
+}
+.frais-banner strong { color: #e65100; font-size: 16px; }
+
+/* PAIEMENT */
+.frais-recap {
+  background: #f5f5f5;
+  border-radius: 10px;
+  padding: 16px;
+  margin-bottom: 20px;
+}
+.frais-recap-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 7px 0;
+  font-size: 13px;
+  border-bottom: 1px solid #eeeeee;
+  color: #444;
+}
+.frais-recap-row.total {
+  border-bottom: none;
+  margin-top: 4px;
+  font-size: 15px;
+  color: #111;
+}
+.frais-recap-row.total strong { color: #e65100; font-size: 17px; }
+
+.btn-om {
+  display: flex; align-items: center; gap: 14px;
+  background: #fff3e0; border: 2px solid #ff6d00;
+  border-radius: 12px; padding: 16px; cursor: pointer;
+  text-align: left; width: 100%;
+  transition: background 0.2s;
+}
+.btn-om:hover { background: #ffe0b2; }
+.btn-om div p { font-size: 12px; color: #666; margin-top: 2px; }
+.btn-om strong { color: #e65100; font-size: 15px; }
+.btn-om span:last-child { margin-left: auto; font-size: 20px; color: #ff6d00; }
+
+.btn-scolarite {
+  display: flex; align-items: center; gap: 14px;
+  background: #e8eaf6; border: 2px solid #1a237e;
+  border-radius: 12px; padding: 16px; cursor: pointer;
+  text-align: left; width: 100%;
+  transition: background 0.2s;
+}
+.btn-scolarite:hover { background: #c5cae9; }
+.btn-scolarite div p { font-size: 12px; color: #666; margin-top: 2px; }
+.btn-scolarite strong { color: #1a237e; font-size: 15px; }
+.btn-scolarite span:last-child { margin-left: auto; font-size: 20px; color: #1a237e; }
+
+.om-logo { font-size: 28px; }
+
+.om-header {
+  text-align: center; margin-bottom: 20px;
+  padding-bottom: 16px; border-bottom: 2px solid #f5f5f5;
+}
+.om-circle { font-size: 48px; }
+.om-header h2 { color: #e65100; margin: 8px 0 4px; }
+.om-header p { color: #888; font-size: 13px; }
+
+.om-info {
+  background: #fff8e1; border-radius: 8px;
+  padding: 12px 14px; margin: 14px 0;
+}
+.om-info p { font-size: 12px; color: #555; margin-bottom: 4px; }
+
+.btn-om-payer {
+  flex: 1; padding: 12px 24px;
+  background: #ff6d00; color: white;
+  border: none; border-radius: 8px;
+  font-size: 15px; font-weight: 700; cursor: pointer;
+}
+.btn-om-payer:hover { background: #e65100; }
+
+/* SPINNER */
+.spinner {
+  width: 50px; height: 50px;
+  border: 5px solid #f0f0f0;
+  border-top-color: #ff6d00;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 0 auto;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* RECU */
+.recu-box {
+  background: #f9f9f9; border: 1px dashed #bbb;
+  border-radius: 10px; padding: 16px;
+  text-align: left; margin-top: 16px;
+}
+.recu-box p { font-weight: 700; color: #333; margin-bottom: 10px; text-align:center; }
+
+/* ETAPES PAIEMENT */
+.etape-block {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  background: #fafafa;
+  border: 1px solid #e0e0e0;
+  border-radius: 10px;
+  padding: 14px;
+  margin-bottom: 12px;
+}
+.etape-num {
+  width: 28px; height: 28px;
+  background: #e65100; color: white;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: 14px;
+  flex-shrink: 0;
+}
+.etape-label {
+  font-size: 13px; font-weight: 600;
+  color: #333; margin-bottom: 8px;
+}
+.ussd-code {
+  background: #1a237e; color: white;
+  padding: 12px 16px; border-radius: 8px;
+  font-size: 20px; font-weight: 700;
+  letter-spacing: 2px; cursor: pointer;
+  display: flex; justify-content: space-between;
+  align-items: center;
+  font-family: monospace;
+}
+.copier-btn {
+  font-size: 12px; font-weight: 400;
+  background: rgba(255,255,255,0.2);
+  padding: 4px 8px; border-radius: 4px;
+  letter-spacing: 0;
+}
+
+/* FIX NAVBAR POSITION */
+body.dashboard-body {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  margin: 0;
+}
+.navbar {
+  position: relative !important;
+  width: 100%;
+  z-index: 100;
+}
+.dashboard-layout {
+  flex: 1;
+  display: flex;
+}
+
+/* ===== NAVBAR MODERNE ===== */
+.navbar {
+  background: linear-gradient(135deg, #1a237e 0%, #283593 50%, #1565c0 100%) !important;
+  padding: 0 32px !important;
+  height: 62px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  box-shadow: 0 3px 15px rgba(26,35,126,0.4) !important;
+}
+.navbar-brand {
+  font-size: 22px !important;
+  font-weight: 800 !important;
+  letter-spacing: 1px !important;
+  color: white !important;
+}
+.navbar-brand span { color: #90caf9; }
+.navbar-user {
+  display: flex !important;
+  align-items: center !important;
+  gap: 16px !important;
+}
+.navbar-user span {
+  color: rgba(255,255,255,0.9) !important;
+  font-size: 14px !important;
+  background: rgba(255,255,255,0.15) !important;
+  padding: 6px 14px !important;
+  border-radius: 20px !important;
+}
+.btn-logout {
+  background: rgba(255,255,255,0.15) !important;
+  color: white !important;
+  padding: 7px 16px !important;
+  border-radius: 20px !important;
+  text-decoration: none !important;
+  font-size: 13px !important;
+  border: 1px solid rgba(255,255,255,0.3) !important;
+  transition: all 0.2s !important;
+}
+.btn-logout:hover {
+  background: rgba(255,255,255,0.3) !important;
+}
+
+/* ===== SIDEBAR MODERNE ===== */
+.sidebar {
+  width: 240px !important;
+  background: white !important;
+  padding: 16px 0 !important;
+  box-shadow: 3px 0 15px rgba(0,0,0,0.06) !important;
+  border-right: 1px solid #e8eaf6 !important;
+}
+.sidebar ul { list-style: none !important; padding: 8px 12px !important; margin: 0 !important; }
+.sidebar li {
+  padding: 12px 16px !important;
+  cursor: pointer !important;
+  color: #555 !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  border-radius: 10px !important;
+  margin-bottom: 4px !important;
+  transition: all 0.2s !important;
+  border-left: none !important;
+}
+.sidebar li:hover {
+  background: #e8eaf6 !important;
+  color: #1a237e !important;
+  transform: translateX(4px) !important;
+  border-left: none !important;
+}
+.sidebar li.active {
+  background: linear-gradient(135deg, #1a237e, #1565c0) !important;
+  color: white !important;
+  font-weight: 700 !important;
+  border-left: none !important;
+  box-shadow: 0 4px 12px rgba(26,35,126,0.3) !important;
+}
+
+/* ===== STAT CARDS MODERNES ===== */
+.stat-card {
+  border-radius: 14px !important;
+  border-top: none !important;
+  background: white !important;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.08) !important;
+  position: relative !important;
+  overflow: hidden !important;
+}
+.stat-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, #1a237e, #1565c0);
+}
+.stat-card.yellow::before { background: linear-gradient(90deg, #f9a825, #ffca28); }
+.stat-card.green::before  { background: linear-gradient(90deg, #2e7d32, #43a047); }
+.stat-card.red::before    { background: linear-gradient(90deg, #c62828, #e53935); }
+.stat-number { font-size: 36px !important; font-weight: 800 !important; }
+
+/* ===== SECTION CARD ===== */
+.section-card {
+  border-radius: 16px !important;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.07) !important;
+  border: 1px solid #f0f0f0 !important;
+}
+
+/* ===== BTN DEMANDE ===== */
+.btn-demande {
+  border-radius: 12px !important;
+  padding: 20px !important;
+  font-size: 15px !important;
+  border: 2px solid transparent !important;
+  background: linear-gradient(white, white) padding-box,
+              linear-gradient(135deg, #1a237e, #1565c0) border-box !important;
+  color: #1a237e !important;
+  transition: all 0.25s !important;
+}
+.btn-demande:hover {
+  background: linear-gradient(135deg, #1a237e, #1565c0) !important;
+  color: white !important;
+  transform: translateY(-3px) !important;
+  box-shadow: 0 8px 20px rgba(26,35,126,0.3) !important;
+}
+
+/* ===== MAIN CONTENT ===== */
+.main-content { padding: 28px !important; background: #f4f6fb !important; }
+
+/* ============================================================
+   RESPONSIVE — MOBILE & TABLETTE
+   ============================================================ */
+
+@media (max-width: 768px) {
+
+  /* Layout général : sidebar passe au-dessus, en pleine largeur */
+  .dashboard-layout {
+    flex-direction: column;
+  }
+
+  .sidebar {
+    width: 100% !important;
+    box-shadow: none !important;
+    border-right: none !important;
+    border-bottom: 1px solid #e8eaf6 !important;
+    padding: 8px 0 !important;
+  }
+
+  .sidebar ul {
+    display: flex !important;
+    overflow-x: auto !important;
+    padding: 8px !important;
+    gap: 4px !important;
+  }
+
+  .sidebar li {
+    white-space: nowrap !important;
+    flex-shrink: 0 !important;
+    margin-bottom: 0 !important;
+  }
+
+  .sidebar li.active {
+    transform: none !important;
+  }
+
+  .main-content {
+    padding: 16px !important;
+  }
+
+  /* Stats : 2 colonnes au lieu de 4 */
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+
+  .stat-card {
+    padding: 14px;
+  }
+
+  .stat-number {
+    font-size: 26px !important;
+  }
+
+  /* Boutons "nouvelle demande" : 1 colonne */
+  .btn-grid {
+    grid-template-columns: 1fr;
+  }
+
+  /* Navbar : compacte */
+  .navbar {
+    padding: 0 16px !important;
+    height: auto !important;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding-top: 10px !important;
+    padding-bottom: 10px !important;
+  }
+
+  .navbar-brand {
+    font-size: 18px !important;
+  }
+
+  .navbar-user span {
+    font-size: 12px !important;
+    padding: 4px 10px !important;
+  }
+
+  /* Tableau des demandes : transformé en cartes empilées */
+  .demandes-table thead {
+    display: none;
+  }
+
+  .demandes-table, 
+  .demandes-table tbody, 
+  .demandes-table tr, 
+  .demandes-table td {
+    display: block;
+    width: 100%;
+  }
+
+  .demandes-table tr {
+    margin-bottom: 12px;
+    border: 1px solid #f0f0f0;
+    border-radius: 10px;
+    padding: 10px;
+    background: white;
+  }
+
+  .demandes-table td {
+    border-bottom: none;
+    padding: 6px 4px;
+    display: flex;
+    justify-content: space-between;
+    font-size: 13px;
+  }
+
+  .demandes-table td::before {
+    content: attr(data-label);
+    font-weight: 600;
+    color: #888;
+    margin-right: 12px;
+  }
+
+  /* Formulaires et fiches */
+  .fiche-row {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .checkbox-group.flex-wrap {
+    gap: 8px;
+  }
+
+  .form-actions {
+    flex-direction: column;
+  }
+
+  .form-actions button {
+    width: 100%;
+  }
+
+  /* Modal : marge latérale réduite */
+  .modal-box {
+    margin: 0 16px;
+    max-width: calc(100% - 32px);
+  }
+
+  /* Paiement : boutons OM/Scolarité empilés proprement */
+  .btn-om, .btn-scolarite {
+    padding: 12px;
+  }
+
+  .ussd-code {
+    font-size: 16px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+}
+
+@media (max-width: 480px) {
+
+  .login-card {
+    padding: 24px 20px;
+  }
+
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .fiche-header {
+    flex-direction: column;
+    gap: 8px;
+    text-align: center;
+  }
+
+  .fiche-header-left, .fiche-header-right {
+    text-align: center;
+  }
+}
+
+════════════════════════════════════════════════════
+FICHIER : ./app/assets/css/main.css
+════════════════════════════════════════════════════
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: 'Segoe UI', sans-serif;
+  background: linear-gradient(135deg, #1a237e, #0d47a1);
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.login-container {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  padding: 20px;
+}
+
+.login-card {
+  background: white;
+  border-radius: 16px;
+  padding: 40px;
+  width: 100%;
+  max-width: 420px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+}
+
+.login-header {
+  text-align: center;
+  margin-bottom: 32px;
+}
+
+.login-header h1 {
+  font-size: 28px;
+  color: #1a237e;
+  margin-bottom: 6px;
+}
+
+.login-header p {
+  color: #666;
+  font-size: 14px;
+}
+
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 6px;
+  font-weight: 600;
+  color: #333;
+  font-size: 14px;
+}
+
+.form-group input {
+  width: 100%;
+  padding: 12px 16px;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  font-size: 15px;
+  transition: border-color 0.3s;
+  outline: none;
+}
+
+.form-group input:focus {
+  border-color: #1a237e;
+}
+
+.btn-login {
+  width: 100%;
+  padding: 13px;
+  background: #1a237e;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.3s;
+  margin-top: 8px;
+}
+
+.btn-login:hover { background: #0d47a1; }
+
+.error-msg {
+  color: #e53935;
+  text-align: center;
+  margin-top: 12px;
+  font-size: 13px;
+  min-height: 20px;
+}
+
+════════════════════════════════════════════════════
+FICHIER : ./app/assets/js/core/api.js
+════════════════════════════════════════════════════
+const API_BASE = 'https://projet-gestion-demandes-backend.onrender.com/api';
+
+const api = {
+  async post(endpoint, data) {
+    const token = localStorage.getItem('token');
+    const res = await fetch(API_BASE + endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token && { 'Authorization': 'Bearer ' + token })
+      },
+      body: JSON.stringify(data)
+    });
+    return res.json();
+  },
+
+  async get(endpoint) {
+    const token = localStorage.getItem('token');
+    const res = await fetch(API_BASE + endpoint, {
+      headers: { 'Authorization': 'Bearer ' + token }
+    });
+    return res.json();
+  }
+};
+
+// AUTH
+  const authAPI = {
+  login: (data) => api.post('/auth/login', data),
+  register: (data) => api.post('/auth/register', data),
+  logout: () => api.post('/auth/logout', {}),
+  getMe: () => api.get('/auth/me'),
+  changerIdentifiants: (data) => api.post('/auth/changer-identifiants', data)   // ✅ ajouté
+};
+
+// DEMANDES
+const demandesAPI = {
+  getMesDemandes: () => api.get('/demandes/mes-demandes'),
+  creerDemande: (data) => api.post('/demandes', data),
+  getDemandeById: (id) => api.get('/demandes/' + id),
+  soumettreDemande: (id) => api.post('/demandes/' + id + '/soumettre', {})
+};
+
+════════════════════════════════════════════════════
+FICHIER : ./app/assets/js/core/auth.js
+════════════════════════════════════════════════════
+// Connexion
+async function login(email, motDePasse) {
+  try {
+    const data = await authAPI.login({ email: email, mot_de_passe: motDePasse });
+    // ou en raccourci ES6 :
+    //const data = await authAPI.login({ email, mot_de_passe: motDePasse });
+    if (data.token) {
+      localStorage.setItem('token', data.token);
+      localStorage.setItem('user', JSON.stringify(data.user));
+
+      const role = data.user.role.toLowerCase();
+
+      // ✅ Vérifier premiere_connexion (dans data OU dans data.user)
+      if (data.premiere_connexion === true || data.user.premiere_connexion === true) {
+        window.location.href = 'first-login.html?role=' + role;
+        return;
+      }
+
+      redirectByRole(role);
+
+    } else {
+      document.getElementById('errorMsg').textContent = data.message || 'Identifiants incorrects.';
+    }
+  } catch(e) {
+    document.getElementById('errorMsg').textContent = 'Erreur de connexion au serveur.';
+  }
+}
+
+function redirectByRole(role) {
+  const r = role.toLowerCase();
+  if (r === 'etudiant') window.location.href = '../dashboard/etudiant.html';
+  else if (r === 'secretaire') window.location.href = '../dashboard/staff.html?role=secretaire';
+  else if (r === 'sp') window.location.href = '../dashboard/sp.html';
+  else if (r === 'da') window.location.href = '../dashboard/staff.html?role=da';
+  else if (r === 'professeur') window.location.href = '../dashboard/enseignant.html';
+  else if (r === 'directrice') window.location.href = '../dashboard/staff.html?role=directrice';
+  else if (r === 'presidence') window.location.href = '../dashboard/staff.html?role=presidence';
+  else if (r === 'scolarite') window.location.href = '../dashboard/staff.html?role=scolarite';
+  else if (r === 'administrateur') window.location.href = '../dashboard/admin.html';
+}
+
+async function register(formData) {
+  try {
+    const data = await authAPI.register(formData);
+    if (data.success) {
+      window.location.href = 'login.html';
+    } else {
+      alert(data.message || 'Erreur lors de l\'inscription.');
+    }
+  } catch(e) {
+    alert('Erreur de connexion au serveur.');
+  }
+}
+
+function logout() {
+  localStorage.removeItem('token');
+  localStorage.removeItem('user');
+  window.location.href = '../auth/login.html';
+}
+
+function isAuthenticated() {
+  return !!localStorage.getItem('token');
+}
+
+function getCurrentUser() {
+  return JSON.parse(localStorage.getItem('user') || '{}');
+}
+
+const ROLE_LABELS = {
+  etudiant: '👤 Étudiant',
+  secretaire: '👤 Secrétaire',
+  sp: '👤 Secrétaire Permanent (SP)',
+  da: '👤 Directeur Adjoint (DA)',
+  professeur: '👨‍🏫 Professeur',
+  enseignant: '👨‍🏫 Enseignant',
+  directrice: '👤 Directrice',
+  presidence: '👤 Présidence',
+  scolarite: '👤 Chef de Scolarité',
+  administrateur: '🛡️ Administrateur',
+  admin: '🛡️ Administrateur'
+};
+
+function getRoleLabel(role) {
+  if (!role) return '👤 Utilisateur';
+  return ROLE_LABELS[role.toLowerCase()] || ('👤 ' + role);
+}
+
+function resolveCurrentRole() {
+  const urlParams = new URLSearchParams(window.location.search);
+  const roleFromUrl = urlParams.get('role');
+  const user = getCurrentUser();
+  const role = roleFromUrl || user.role;
+
+  if (roleFromUrl && user) {
+    user.role = roleFromUrl;
+    localStorage.setItem('user', JSON.stringify(user));
+  }
+
+  return role ? role.toLowerCase() : '';
+}
+
+function afficherRoleNavbar(elementId) {
+  const el = document.getElementById(elementId);
+  if (el) {
+    el.textContent = getRoleLabel(resolveCurrentRole());
+  }
+}
+
+════════════════════════════════════════════════════
+FICHIER : ./app/assets/js/core/storage.js
+════════════════════════════════════════════════════
+
+════════════════════════════════════════════════════
+FICHIER : ./app/assets/js/modules/demandes.js
+════════════════════════════════════════════════════
+
+════════════════════════════════════════════════════
+FICHIER : ./app/assets/js/modules/notifications.js
+════════════════════════════════════════════════════
+
+════════════════════════════════════════════════════
+FICHIER : ./app/assets/js/modules/workflow.js
+════════════════════════════════════════════════════
+
+════════════════════════════════════════════════════
+FICHIER : ./app/assets/js/ui/dashboard.js
+════════════════════════════════════════════════════
+
+════════════════════════════════════════════════════
+FICHIER : ./app/assets/js/ui/forms.js
+════════════════════════════════════════════════════
+
+════════════════════════════════════════════════════
+FICHIER : ./app/index.html
+════════════════════════════════════════════════════
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>EduRequest — Bienvenue</title>
+  <link rel="stylesheet" href="assets/css/main.css"/>
+  <style>
+    body { font-family: 'Segoe UI', sans-serif; background: linear-gradient(135deg, #1a237e 0%, #1565c0 100%); margin: 0; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+
+    .hero {
+      color: white; text-align: center;
+      padding: 40px 20px 20px;
+    }
+    .hero h1 { font-size: 36px; margin: 0 0 12px; font-weight: 800; }
+    .hero p { font-size: 16px; opacity: 0.85; margin: 0 0 8px; }
+    .hero .sub { font-size: 13px; opacity: 0.65; }
+
+    .main-card {
+      max-width: 420px; margin: 0 auto;
+      background: white; border-radius: 20px;
+      padding: 32px; box-shadow: 0 10px 40px rgba(0,0,0,0.12);
+    }
+
+    .btn-primary {
+      display: block; width: 100%;
+      padding: 15px; margin-bottom: 14px;
+      background: linear-gradient(135deg, #1a237e, #1565c0);
+      color: white; border: none; border-radius: 12px;
+      font-size: 16px; font-weight: 700; cursor: pointer;
+      text-decoration: none; text-align: center;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(26,35,126,0.3); }
+
+    .btn-secondary {
+      display: block; width: 100%;
+      padding: 15px; margin-bottom: 14px;
+      background: white; color: #1a237e;
+      border: 2px solid #1a237e; border-radius: 12px;
+      font-size: 16px; font-weight: 700; cursor: pointer;
+      text-decoration: none; text-align: center;
+      transition: all 0.2s;
+    }
+    .btn-secondary:hover { background: #e8eaf6; }
+
+    .divider { text-align: center; color: #aaa; font-size: 13px; margin: 8px 0 16px; position: relative; }
+    .divider::before, .divider::after {
+      content: ''; position: absolute; top: 50%;
+      width: 40%; height: 1px; background: #e0e0e0;
+    }
+    .divider::before { left: 0; }
+    .divider::after { right: 0; }
+
+    /* DEMO SECTION - juste pour la présentation */
+    .demo-section {
+      max-width: 800px; margin: 30px auto;
+      padding: 0 20px 40px;
+    }
+    .demo-title {
+      text-align: center; color: #1a237e;
+      font-size: 14px; font-weight: 600;
+      margin-bottom: 16px; opacity: 0.7;
+    }
+    .demo-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+    .btn-demo {
+      display: block; padding: 12px 14px;
+      background: white; color: #1a237e;
+      border-radius: 10px; text-decoration: none;
+      font-weight: 600; font-size: 13px;
+      border: 2px solid #e8eaf6;
+      transition: all 0.2s; text-align: center;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    }
+    .btn-demo:hover { background: #1a237e; color: white; border-color: #1a237e; }
+    .btn-demo span { display: block; font-size: 10px; font-weight: 400; color: #888; margin-top: 2px; }
+    .btn-demo:hover span { color: rgba(255,255,255,0.7); }
+    .section-label-demo {
+      font-size: 12px; font-weight: 700; color: #888;
+      text-transform: uppercase; letter-spacing: 1px;
+      margin: 16px 0 8px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- HERO -->
+  <div class="hero">
+    <div style="font-size:52px; margin-bottom:16px;">🎓</div>
+    <h1>EduRequest</h1>
+    <p>Gestion des demandes étudiantes</p>
+    <p class="sub">Université Nazi Boni</p>
+  </div>
+
+  <!-- CARTE PRINCIPALE -->
+  <div class="main-card">
+    <a href="pages/auth/login.html" class="btn-primary">🔑 Se connecter</a>
+    <div class="divider">ou</div>
+    <a href="pages/auth/register.html" class="btn-secondary">📝 Créer un compte étudiant</a>
+    <p style="text-align:center; font-size:12px; color:#aaa; margin:0;">
+      Application sécurisée
+    </p>
+  </div>
+
+  
+  <!-- SECTION DEMO cachée - juste pour présentation -->
+  <div style="max-width:700px; margin:20px auto 40px; padding:0 20px;">
+    <p style="text-align:center; color:rgba(255,255,255,0.5); font-size:12px; margin-bottom:12px;">— Accès rapide démonstration —</p>
+    <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:8px;">
+      <a href="pages/dashboard/sp.html" style="background:rgba(255,255,255,0.1); color:white; padding:10px; border-radius:8px; text-decoration:none; text-align:center; font-size:12px;">👤 SP</a>
+      <a href="pages/dashboard/staff.html?role=da" style="background:rgba(255,255,255,0.1); color:white; padding:10px; border-radius:8px; text-decoration:none; text-align:center; font-size:12px;">👤 DA</a>
+      <a href="pages/dashboard/enseignant.html" style="background:rgba(255,255,255,0.1); color:white; padding:10px; border-radius:8px; text-decoration:none; text-align:center; font-size:12px;">👨‍🏫 Enseignant</a>
+      <a href="pages/dashboard/staff.html?role=directrice" style="background:rgba(255,255,255,0.1); color:white; padding:10px; border-radius:8px; text-decoration:none; text-align:center; font-size:12px;">👤 Directrice</a>
+    </div>
+  </div>
+</body>
+</html>
+════════════════════════════════════════════════════
+FICHIER : ./app/pages/auth/first-login.html
+════════════════════════════════════════════════════
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>EduRequest — Configuration du compte</title>
+  <link rel="stylesheet" href="../../assets/css/main.css"/>
+</head>
+<body>
+  <div class="login-container">
+    <div class="login-card" style="max-width:460px;">
+      <div class="login-header">
+        <div style="font-size:48px;">🔐</div>
+        <h1>Bienvenue !</h1>
+        <p>Configurez votre compte avant de continuer</p>
+      </div>
+
+      <!-- Rôle détecté -->
+      <div id="role-banner" style="background:#e8eaf6; border:2px solid #1a237e; border-radius:8px; padding:12px 16px; margin-bottom:16px; text-align:center;">
+        <p style="font-size:13px; color:#666; margin:0 0 4px;">Vous êtes connecté en tant que</p>
+        <strong id="role-display" style="font-size:18px; color:#1a237e;">Chargement...</strong>
+      </div>
+
+      <div style="background:#fff8e1; border:2px solid #f9a825; border-radius:8px; padding:12px 16px; margin-bottom:20px; font-size:13px; color:#555;">
+        ⚠️ Pour des raisons de sécurité, veuillez définir vos vraies informations avant de continuer.
+      </div>
+
+      <div class="form-group">
+        <label>Nom complet</label>
+        <input type="text" id="nom" placeholder="Ex: Traoré Aminata"/>
+      </div>
+      <div class="form-group">
+        <label>Nouvel email</label>
+        <input type="email" id="newEmail" placeholder="Ex: aminata.traore@esi.bf"/>
+      </div>
+      <div class="form-group">
+        <label>Nouveau mot de passe</label>
+        <input type="password" id="newPassword" placeholder="Minimum 8 caractères"/>
+      </div>
+      <div class="form-group">
+        <label>Confirmer le mot de passe</label>
+        <input type="password" id="confirmPassword" placeholder="Répétez le mot de passe"/>
+      </div>
+
+      <p id="errorMsg" style="color:#c62828; font-size:13px; margin-bottom:10px;"></p>
+
+      <button class="btn-login" onclick="confirmerInfos()">
+        Confirmer et accéder à mon espace
+      </button>
+    </div>
+  </div>
+
+  <script src="../../assets/js/core/api.js"></script>
+  <script src="../../assets/js/core/auth.js"></script>
+  <script>
+    window.addEventListener('DOMContentLoaded', () => {
+      const role = resolveCurrentRole() || 'inconnu';
+      document.getElementById('role-display').textContent = getRoleLabel(role);
+    });
+
+    async function confirmerInfos() {
+      const nom = document.getElementById('nom').value;
+      const newEmail = document.getElementById('newEmail').value;
+      const newPassword = document.getElementById('newPassword').value;
+      const confirmPassword = document.getElementById('confirmPassword').value;
+      const errorMsg = document.getElementById('errorMsg');
+
+      if (!nom || !newEmail || !newPassword || !confirmPassword) {
+        errorMsg.textContent = 'Veuillez remplir tous les champs.';
+        return;
+      }
+      if (newPassword !== confirmPassword) {
+        errorMsg.textContent = 'Les mots de passe ne correspondent pas.';
+        return;
+      }
+      if (newPassword.length < 8) {
+        errorMsg.textContent = 'Le mot de passe doit contenir au moins 8 caractères.';
+        return;
+      }
+
+      try {
+        // ✅ Appel réel au serveur — change le mot de passe EN BASE
+        const data = await authAPI.changerIdentifiants({
+          nouveau_email: newEmail,
+          nouveau_mot_de_passe: newPassword,
+          confirmation_mot_de_passe: confirmPassword
+        });
+
+        if (data.success) {
+          // ✅ Le serveur renvoie un NOUVEAU token — il faut le stocker
+          localStorage.setItem('token', data.token);
+          localStorage.setItem('user', JSON.stringify(data.user));
+
+          redirectByRole(data.user.role);
+        } else {
+          errorMsg.textContent = data.message || 'Erreur lors de la mise à jour.';
+        }
+      } catch (e) {
+        errorMsg.textContent = 'Erreur de connexion au serveur.';
+      }
+    }
+  </script>
+</body>
+</html>
+
+════════════════════════════════════════════════════
+FICHIER : ./app/pages/auth/login.html
+════════════════════════════════════════════════════
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>EduRequest — Connexion</title>
+  <link rel="stylesheet" href="../../assets/css/main.css"/>
+</head>
+<body>
+  <div class="login-container">
+    <div class="login-card">
+      <div class="login-header">
+        <h1>🎓 EduRequest</h1>
+        <p>Gestion des demandes étudiantes</p>
+      </div>
+      <form id="loginForm">
+        <div class="form-group">
+          <label for="matricule">Identifiant</label>
+          <input type="text" id="matricule" placeholder="INE ou Email" required/>
+        </div>
+        <div class="form-group">
+          <label for="password">Mot de passe</label>
+          <input type="password" id="password" placeholder="••••••••" required/>
+        </div>
+        <button type="submit" class="btn-login">Se connecter</button>
+        <p id="errorMsg" class="error-msg"></p>
+        <p style="text-align:center; margin-top:14px; font-size:13px; color:#666;">
+          Pas encore de compte ?
+          <a href="register.html" style="color:#1a237e; font-weight:600;">Créer un compte</a>
+        </p>
+      </form>
+    </div>
+  </div>
+  <script src="../../assets/js/core/api.js"></script>
+  <script src="../../assets/js/core/auth.js"></script>
+  <script>
+    document.getElementById('loginForm').addEventListener('submit', function(e) {
+      e.preventDefault();
+      const email = document.getElementById('matricule').value;
+      const password = document.getElementById('password').value;
+      if (email && password) {
+        login(email, password);
+      } else {
+        document.getElementById('errorMsg').textContent = 'Veuillez remplir tous les champs.';
+      }
+    });
+  </script>
+</body>
+</html>
+
+════════════════════════════════════════════════════
+FICHIER : ./app/pages/auth/register.html
+════════════════════════════════════════════════════
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>EduRequest — Inscription</title>
+  <link rel="stylesheet" href="../../assets/css/main.css"/>
+</head>
+<body>
+  <div class="login-container">
+    <div class="login-card" style="max-width:480px;">
+      <div class="login-header">
+        <h1>🎓 EduRequest</h1>
+        <p>Créer un compte étudiant</p>
+      </div>
+      <form id="registerForm">
+        <div class="form-group">
+          <label>Nom</label>
+          <input type="text" id="nom" placeholder="Ex: Koné" required/>
+        </div>
+        <div class="form-group">
+          <label>Prénom</label>
+          <input type="text" id="prenom" placeholder="Ex: Mamadou" required/>
+        </div>
+        <div class="form-group">
+          <label>INE</label>
+          <input type="text" id="matricule" placeholder="Ex: N20240000001" required/>
+        </div>
+        <div class="form-group">
+          <label>Email</label>
+          <input type="email" id="email" placeholder="Ex: kone@esi.bf" required/>
+        </div>
+        <div class="form-group">
+          <label>Mot de passe</label>
+          <input type="password" id="mot_de_passe" placeholder="••••••••" required/>
+        </div>
+        <div class="form-group">
+          <label>Confirmer le mot de passe</label>
+          <input type="password" id="confirm_password" placeholder="••••••••" required/>
+        </div>
+        <button type="submit" class="btn-login">Créer mon compte</button>
+        <p id="errorMsg" style="color:#c62828; font-size:13px; margin-top:10px; text-align:center;"></p>
+        <div id="successMsg" style="display:none; background:#e8f5e9; border:2px solid #2e7d32; border-radius:8px; padding:14px; text-align:center; margin-top:14px;">
+          <p style="color:#2e7d32; font-weight:700; font-size:15px;">✅ Compte créé avec succès !</p>
+          <p style="color:#555; font-size:13px; margin:6px 0 12px;">Vous pouvez maintenant vous connecter.</p>
+          <a href="login.html" style="background:#2e7d32; color:white; padding:8px 20px; border-radius:8px; text-decoration:none; font-weight:600;">Se connecter</a>
+        </div>
+        <p style="text-align:center; margin-top:14px; font-size:13px; color:#666;">
+          Déjà un compte ? <a href="login.html" style="color:#1a237e; font-weight:600;">Se connecter</a>
+        </p>
+      </form>
+    </div>
+  </div>
+  <script src="../../assets/js/core/api.js"></script>
+  <script src="../../assets/js/core/auth.js"></script>
+  <script>
+    console.log("✅ Script register.html chargé !");
+    document.getElementById('registerForm').addEventListener('submit', async function(e) {
+      e.preventDefault();
+
+      const nom = document.getElementById('nom').value.trim();
+      const prenom = document.getElementById('prenom').value.trim();
+      const matricule = document.getElementById('matricule').value.trim();
+      const email = document.getElementById('email').value.trim();
+      const mot_de_passe = document.getElementById('mot_de_passe').value;
+      const confirm_password = document.getElementById('confirm_password').value;
+
+      if (!nom || !prenom || !matricule || !email || !mot_de_passe) {
+        document.getElementById('errorMsg').textContent = 'Veuillez remplir tous les champs.';
+        return;
+      }
+
+      // Validation INE : commence par N et 11 chiffres
+      if (!/^N[0-9]{11}$/.test(matricule)) {
+        document.getElementById('errorMsg').textContent = "L'INE doit commencer par N et contenir 11 chiffres (ex: N20240000001).";
+        return;
+      }
+
+      if (mot_de_passe !== confirm_password) {
+        document.getElementById('errorMsg').textContent = 'Les mots de passe ne correspondent pas.';
+        return;
+      }
+
+      try {
+        const response = await fetch('https://projet-gestion-demandes-backend.onrender.com/api/auth/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ nom, prenom, matricule, email, mot_de_passe })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+          localStorage.setItem('token', data.token);
+          localStorage.setItem('user', JSON.stringify(data.user));
+          window.location.href = '../dashboard/etudiant.html';
+        } else {
+          document.getElementById('errorMsg').textContent = data.message || 'Erreur lors de l\'inscription.';
+        }
+      } catch (error) {
+        document.getElementById('errorMsg').textContent = 'Erreur de connexion au serveur.';
+      }
+    });
+  </script>
+</body>
+</html>
+════════════════════════════════════════════════════
+FICHIER : ./app/pages/dashboard/admin.html
+════════════════════════════════════════════════════
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>EduRequest — Administration</title>
+  <link rel="stylesheet" href="../../assets/css/main.css"/>
+  <link rel="stylesheet" href="../../assets/css/components.css"/>
+</head>
+<body class="dashboard-body">
+  <nav class="navbar">
+    <div class="navbar-brand">🎓 EduRequest</div>
+    <div class="navbar-user">
+      <span>🛡️ Administrateur</span>
+      <a href="../auth/login.html" class="btn-logout">Déconnexion</a>
+    </div>
+  </nav>
+
+  <div class="dashboard-layout">
+    <aside class="sidebar">
+      <ul>
+        <li class="active">🏠 Tableau de bord</li>
+        <li onclick="filterDemandes('all')">📋 Toutes les demandes</li>
+        <li onclick="filterDemandes('en_attente')">🟡 En attente</li>
+        <li onclick="filterDemandes('validee')">🟢 Validées</li>
+        <li onclick="filterDemandes('rejetee')">🔴 Rejetées</li>
+        <li onclick="location.href='staff.html?role=admin'">👥 Gestion utilisateurs</li>
+      </ul>
+    </aside>
+
+    <main class="main-content">
+
+      <!-- STATS -->
+      <div class="stats-grid">
+        <div class="stat-card">
+          <h3>Total demandes</h3>
+          <p class="stat-number" id="totalDemandes">0</p>
+        </div>
+        <div class="stat-card yellow">
+          <h3>En attente</h3>
+          <p class="stat-number" id="enAttente">0</p>
+        </div>
+        <div class="stat-card green">
+          <h3>Validées</h3>
+          <p class="stat-number" id="validees">0</p>
+        </div>
+        <div class="stat-card red">
+          <h3>Rejetées</h3>
+          <p class="stat-number" id="rejetees">0</p>
+        </div>
+      </div>
+
+      <!-- TABLEAU DES DEMANDES -->
+      <section class="section-card">
+        <h2>📋 Toutes les demandes</h2>
+
+        <table class="demandes-table" id="demandesTable">
+          <thead>
+            <tr>
+              <th>N°</th>
+              <th>Étudiant</th>
+              <th>Type</th>
+              <th>Date</th>
+              <th>Statut</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="demandesBody">
+            <tr>
+              <td colspan="6" style="text-align:center; color:#888; padding:20px;">
+                Chargement des demandes...
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- MODAL DÉTAIL -->
+  <div id="modal" class="modal-overlay" style="display:none;" onclick="fermerModal(event)">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3 id="modal-title">Détail de la demande</h3>
+        <button onclick="document.getElementById('modal').style.display='none'" class="modal-close">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="detail-row"><span>Étudiant :</span><strong id="d-etudiant"></strong></div>
+        <div class="detail-row"><span>Type :</span><strong id="d-type"></strong></div>
+        <div class="detail-row"><span>Date :</span><strong id="d-date"></strong></div>
+        <div class="detail-row"><span>Statut :</span><strong id="d-statut"></strong></div>
+        <div class="detail-row"><span>Description :</span><p id="d-desc" style="margin:6px 0 0; color:#444; font-size:13px;"></p></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-retour" onclick="document.getElementById('modal').style.display='none'">Fermer</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="../../assets/js/core/api.js"></script>
+  <script src="../../assets/js/core/auth.js"></script>
+  <script>
+    // Charger toutes les demandes
+    async function chargerDemandes() {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        window.location.href = '../auth/login.html';
+        return;
+      }
+
+      try {
+        const response = await fetch(API_BASE + '/demandes/mes-demandes', {
+          headers: { 'Authorization': 'Bearer ' + token }
+        });
+        const data = await response.json();
+        const demandes = data.demandes || [];
+
+        // Mettre à jour les stats
+        document.getElementById('totalDemandes').textContent = demandes.length;
+        const enAttente = demandes.filter(d => d.statut === 'en_attente' || d.statut === 'soumise').length;
+        const validees = demandes.filter(d => d.statut === 'validee' || d.statut === 'acceptee').length;
+        const rejetees = demandes.filter(d => d.statut === 'rejetee').length;
+        document.getElementById('enAttente').textContent = enAttente;
+        document.getElementById('validees').textContent = validees;
+        document.getElementById('rejetees').textContent = rejetees;
+
+        // Mettre à jour le tableau
+        const tbody = document.getElementById('demandesBody');
+        if (demandes.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:#888; padding:20px;">Aucune demande pour le moment</td></tr>';
+        } else {
+          tbody.innerHTML = demandes.map((d) => {
+            const statut = d.statut || 'soumise';
+            const badgeClass = statut.includes('accept') ? 'green' : statut.includes('rejet') ? 'red' : 'yellow';
+            const date = d.date_creation ? new Date(d.date_creation).toLocaleDateString('fr-FR') : 'N/A';
+            // staff.html — correction avec data-label
+            return `<tr data-statut="${statut}" data-id="${d.id_demande}">
+              <td data-label="N°">${d.reference || d.id_demande}</td>
+              <td data-label="Étudiant">${d.nom_etudiant || 'Étudiant'}</td>
+              <td data-label="Type">${d.objet || 'N/A'}</td>
+              <td data-label="Date">${date}</td>
+              <td data-label="Statut"><span class="badge ${badgeClass}">${statut}</span></td>
+              <td data-label="Actions" class="actions-cell">
+                <button class="btn-voir" onclick="window.location.href='../demandes/detail.html?id='+${d.id_demande}">👁 Voir</button>
+              </td>
+            </tr>`;
+          }).join('');
+        }
+      } catch(e) {
+        console.error('Erreur chargement demandes:', e);
+        document.getElementById('demandesBody').innerHTML = '<tr><td colspan="6" style="text-align:center; color:#c62828; padding:20px;">Erreur de chargement</td></tr>';
+      }
+    }
+
+    // Voir le détail d'une demande
+    async function voirDetail(id) {
+      try {
+        const token = localStorage.getItem('token');
+        const response = await fetch(`http://localhost:3000/api/demandes/${id}`, {
+          headers: { 'Authorization': 'Bearer ' + token }
+        });
+        const data = await response.json();
+        const demande = data.demande || data;
+
+        document.getElementById('d-etudiant').textContent = demande.nom_etudiant || 'N/A';
+        document.getElementById('d-type').textContent = demande.type_demande || demande.objet || 'N/A';
+        document.getElementById('d-date').textContent = demande.date_creation ? new Date(demande.date_creation).toLocaleDateString('fr-FR') : 'N/A';
+        document.getElementById('d-statut').textContent = demande.statut || 'N/A';
+        document.getElementById('d-desc').textContent = demande.description || 'Aucune description.';
+
+        document.getElementById('modal').style.display = 'flex';
+      } catch(e) {
+        alert('Erreur lors du chargement du détail.');
+      }
+    }
+
+    // Filtrer les demandes
+    function filterDemandes(statut) {
+      const rows = document.querySelectorAll('#demandesBody tr');
+      rows.forEach(row => {
+        if (statut === 'all' || row.dataset.statut === statut) {
+          row.style.display = '';
+        } else {
+          row.style.display = 'none';
+        }
+      });
+    }
+
+    function fermerModal(e) {
+      if (e.target.id === 'modal') {
+        document.getElementById('modal').style.display = 'none';
+      }
+    }
+
+    // Vérifier l'accès admin
+    (function verifierAcces() {
+      const user = getCurrentUser();
+      if (!user || user.role !== 'Administrateur') {
+        window.location.href = '../auth/login.html';
+        return;
+      }
+      chargerDemandes();
+    })();
+  </script>
+</body>
+</html>
+
+════════════════════════════════════════════════════
+FICHIER : ./app/pages/dashboard/enseignant.html
+════════════════════════════════════════════════════
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>EduRequest — Espace Enseignant</title>
+  <link rel="stylesheet" href="../../assets/css/main.css"/>
+  <link rel="stylesheet" href="../../assets/css/components.css"/>
+</head>
+<body class="dashboard-body">
+  <nav class="navbar">
+    <div class="navbar-brand">🎓 EduRequest</div>
+    <div class="navbar-user">
+      <span>👤 Enseignant</span>
+      <a href="../auth/login.html" class="btn-logout">Déconnexion</a>
+    </div>
+  </nav>
+
+  <div class="dashboard-layout">
+    <aside class="sidebar">
+      <ul>
+        <li class="active">🏠 Tableau de bord</li>
+        <li onclick="location.href='#reclamations'">📋 Réclamations reçues</li>
+      </ul>
+    </aside>
+
+    <main class="main-content">
+
+      <!-- STATS -->
+      <div class="stats-grid">
+        <div class="stat-card">
+          <h3>Total reçues</h3>
+          <p class="stat-number">3</p>
+        </div>
+        <div class="stat-card yellow">
+          <h3>En attente</h3>
+          <p class="stat-number">2</p>
+        </div>
+        <div class="stat-card green">
+          <h3>Traitées</h3>
+          <p class="stat-number">1</p>
+        </div>
+      </div>
+
+      <!-- TABLEAU RÉCLAMATIONS -->
+      <section class="section-card" id="reclamations">
+        <h2>📋 Réclamations à traiter</h2>
+        <table class="demandes-table" id="reclamTable">
+          <thead>
+            <tr>
+              <th>N°</th>
+              <th>Étudiant</th>
+              <th>Matière</th>
+              <th>Note actuelle</th>
+              <th>Date</th>
+              <th>Statut</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr data-statut="en_attente">
+              <td>001</td>
+              <td>Koné Mamadou</td>
+              <td>Mathématiques</td>
+              <td><strong>08/20</strong></td>
+              <td>10/06/2026</td>
+              <td><span class="badge yellow">🟡 En attente</span></td>
+              <td>
+                <button class="btn-voir" onclick="ouvrirCorrection(this, '08', 'Koné Mamadou', 'Mathématiques')">
+                  ✏️ Traiter
+                </button>
+              </td>
+            </tr>
+            <tr data-statut="en_attente">
+              <td>002</td>
+              <td>Traoré Fatoumata</td>
+              <td>Algorithmique</td>
+              <td><strong>10/20</strong></td>
+              <td>09/06/2026</td>
+              <td><span class="badge yellow">🟡 En attente</span></td>
+              <td>
+                <button class="btn-voir" onclick="ouvrirCorrection(this, '10', 'Traoré Fatoumata', 'Algorithmique')">
+                  ✏️ Traiter
+                </button>
+              </td>
+            </tr>
+            <tr data-statut="traitee">
+              <td>003</td>
+              <td>Sawadogo Issouf</td>
+              <td>Réseaux</td>
+              <td><strong>12/20</strong></td>
+              <td>08/06/2026</td>
+              <td><span class="badge green">🟢 Traitée</span></td>
+              <td>
+                <button class="btn-voir" onclick="alert('Déjà traitée.')">👁 Voir</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- MODAL CORRECTION NOTE -->
+  <div id="modalCorrection" class="modal-overlay" style="display:none;" onclick="fermerModal(event)">
+    <div class="modal-box" style="max-width:520px;">
+      <div class="modal-header">
+        <h3>✏️ Traitement de la réclamation</h3>
+        <button onclick="document.getElementById('modalCorrection').style.display='none'" class="modal-close">✕</button>
+      </div>
+      <div class="modal-body">
+
+        <div class="fiche-section" style="margin-bottom:14px;">
+          <div class="detail-row"><span>Étudiant :</span><strong id="c-etudiant"></strong></div>
+          <div class="detail-row"><span>Matière :</span><strong id="c-matiere"></strong></div>
+          <div class="detail-row"><span>Note actuelle :</span><strong id="c-note-actuelle" style="color:#c62828;"></strong></div>
+        </div>
+
+        <!-- CHOIX ENSEIGNANT -->
+        <div class="fiche-section">
+          <label class="section-label">Décision de l'enseignant</label>
+          <div class="checkbox-group" style="margin-bottom:16px;">
+            <label>
+              <input type="radio" name="decision" value="modifier" onchange="toggleNoteField(true)"/>
+              ✅ Modifier la note
+            </label>
+            <label>
+              <input type="radio" name="decision" value="maintenir" onchange="toggleNoteField(false)"/>
+              ❌ Maintenir la note actuelle
+            </label>
+          </div>
+
+          <!-- NOUVELLE NOTE (visible si modifier) -->
+          <div id="noteField" style="display:none;">
+            <div class="form-group">
+              <label>Nouvelle note <span style="color:#c62828;">*</span></label>
+              <input type="number" id="nouvelleNote" min="0" max="20"
+                placeholder="Ex: 12" style="font-size:20px; font-weight:700; text-align:center;"/>
+              <p style="font-size:11px; color:#888; margin-top:4px;">Note sur 20</p>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Commentaire <span style="color:#888; font-weight:400;">(obligatoire)</span></label>
+            <textarea id="commentaire" placeholder="Expliquez votre décision..." style="height:100px;"></textarea>
+          </div>
+        </div>
+
+      </div>
+      <div class="modal-footer">
+        <button class="btn-retour" onclick="document.getElementById('modalCorrection').style.display='none'">Annuler</button>
+        <button class="btn-envoyer" onclick="soumettrDecision()">Envoyer au DA</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="../../assets/js/core/api.js"></script>
+  <script src="../../assets/js/core/auth.js"></script>
+  <script>
+    let currentRow = null;
+
+    function ouvrirCorrection(btn, noteActuelle, etudiant, matiere) {
+      currentRow = btn.closest('tr');
+      document.getElementById('c-etudiant').textContent = etudiant;
+      document.getElementById('c-matiere').textContent = matiere;
+      document.getElementById('c-note-actuelle').textContent = noteActuelle + '/20';
+      document.getElementById('nouvelleNote').value = '';
+      document.getElementById('commentaire').value = '';
+      document.querySelectorAll('input[name="decision"]').forEach(r => r.checked = false);
+      document.getElementById('noteField').style.display = 'none';
+      document.getElementById('modalCorrection').style.display = 'flex';
+    }
+
+    function toggleNoteField(show) {
+      document.getElementById('noteField').style.display = show ? 'block' : 'none';
+    }
+
+    function soumettrDecision() {
+      const decision = document.querySelector('input[name="decision"]:checked');
+      const commentaire = document.getElementById('commentaire').value;
+
+      if (!decision) { alert('Choisissez une décision.'); return; }
+      if (!commentaire) { alert('Le commentaire est obligatoire.'); return; }
+
+      if (decision.value === 'modifier') {
+        const note = document.getElementById('nouvelleNote').value;
+        if (!note || note < 0 || note > 20) { alert('Entrez une note valide (0-20).'); return; }
+        // Mettre à jour la note dans le tableau
+        currentRow.querySelectorAll('td')[3].innerHTML = '<strong style="color:#2e7d32;">' + note + '/20</strong>';
+      }
+
+      // Mettre à jour le statut
+      const badge = currentRow.querySelector('.badge');
+      badge.className = 'badge green';
+      badge.textContent = '🟢 Traitée';
+      currentRow.dataset.statut = 'traitee';
+      currentRow.querySelector('button').textContent = '👁 Voir';
+      currentRow.querySelector('button').onclick = () => alert('Déjà traitée.');
+
+      document.getElementById('modalCorrection').style.display = 'none';
+      alert('✅ Décision envoyée au DA avec succès !');
+    }
+
+    function fermerModal(e) {
+      if (e.target.id === 'modalCorrection')
+        document.getElementById('modalCorrection').style.display = 'none';
+    }
+  </script>
+</body>
+</html>
+
+════════════════════════════════════════════════════
+FICHIER : ./app/pages/dashboard/etudiant.html
+════════════════════════════════════════════════════
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>EduRequest — Mon Espace</title>
+  <link rel="stylesheet" href="../../assets/css/main.css"/>
+  <link rel="stylesheet" href="../../assets/css/components.css"/>
+</head>
+<body class="dashboard-body">
+
+  <!-- NAVBAR -->
+  <nav class="navbar">
+    <div class="navbar-brand">🎓 EduRequest</div>
+    <div class="navbar-user">
+      <span id="userName">👤 Étudiant</span>
+      <a href="../auth/login.html" class="btn-logout">Déconnexion</a>
+    </div>
+  </nav>
+
+  <div class="dashboard-layout">
+
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+      <ul>
+        <li class="active">🏠 Tableau de bord</li>
+        <li onclick="showSection('mes-demandes')">📋 Mes demandes</li>
+        <li onclick="showSection('nouvelle-demande')">➕ Nouvelle demande</li>
+      </ul>
+    </aside>
+
+    <!-- CONTENU PRINCIPAL -->
+    <main class="main-content">
+
+      <!-- STATS -->
+      <div class="stats-grid">
+        <div class="stat-card">
+          <h3>Total demandes</h3>
+          <p class="stat-number">3</p>
+        </div>
+        <div class="stat-card yellow">
+          <h3>En attente</h3>
+          <p class="stat-number">1</p>
+        </div>
+        <div class="stat-card green">
+          <h3>Validées</h3>
+          <p class="stat-number">1</p>
+        </div>
+        <div class="stat-card red">
+          <h3>Rejetées</h3>
+          <p class="stat-number">1</p>
+        </div>
+      </div>
+
+      <!-- BOUTONS NOUVELLE DEMANDE -->
+      <section id="nouvelle-demande" class="section-card">
+        <h2>➕ Nouvelle demande</h2>
+        <div class="btn-grid">
+          <a href="../demandes/nouvelle.html?type=reclamation" class="btn-demande">
+            📝 Réclamation de note
+          </a>
+          <a href="../demandes/nouvelle.html?type=derogation" class="btn-demande">
+            📄 Dérogation
+          </a>
+          <a href="../demandes/nouvelle.html?type=duplicata" class="btn-demande">
+            📑 Duplicata
+          </a>
+          <a href="../demandes/nouvelle.html?type=attestation" class="btn-demande">
+            🎓 Attestation
+          </a>
+        </div>
+      </section>
+
+      <!-- TABLEAU DES DEMANDES -->
+      <section id="mes-demandes" class="section-card">
+        <h2>📋 Mes demandes</h2>
+        <table class="demandes-table">
+          <thead>
+            <tr>
+              <th>N°</th>
+              <th>Type</th>
+              <th>Date</th>
+              <th>Statut</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>1</td>
+              <td>Réclamation</td>
+              <td>10/06/2026</td>
+              <td><span class="badge yellow">🟡 En attente</span></td>
+              <td><a href="../demandes/detail.html" class="btn-detail">Voir</a></td>
+            </tr>
+            <tr>
+              <td>2</td>
+              <td>Attestation</td>
+              <td>08/06/2026</td>
+              <td><span class="badge green">🟢 Validée</span></td>
+              <td><a href="../demandes/detail.html" class="btn-detail">Voir</a></td>
+            </tr>
+            <tr>
+              <td>3</td>
+              <td>Duplicata</td>
+              <td>05/06/2026</td>
+              <td><span class="badge red">🔴 Rejetée</span></td>
+              <td><a href="../demandes/detail.html" class="btn-detail">Voir</a></td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+    </main>
+  </div>
+
+  <script>
+    function showSection(id) {
+      document.getElementById(id).scrollIntoView({behavior: 'smooth'});
+    }
+  </script>
+  <script src="../../assets/js/core/api.js"></script>
+  <script src="../../assets/js/core/auth.js"></script>
+  <script>
+    // Charger les vraies demandes depuis le backend
+    async function chargerDemandes() {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+
+      try {
+        const response = await fetch(API_BASE + '/demandes/mes-demandes', {
+          headers: { 'Authorization': 'Bearer ' + token }
+        });
+        const data = await response.json();
+
+        const demandes = data.demandes || data || [];
+        if (Array.isArray(demandes)) {
+          // Mettre à jour les stats
+          document.querySelector('.stat-card:nth-child(1) .stat-number').textContent = demandes.length;
+          const enAttente = demandes.filter(d => d.statut === 'en_attente').length;
+          const validees = demandes.filter(d => d.statut === 'validee').length;
+          const rejetees = demandes.filter(d => d.statut === 'rejetee').length;
+          document.querySelector('.stat-card.yellow .stat-number').textContent = enAttente;
+          document.querySelector('.stat-card.green .stat-number').textContent = validees;
+          document.querySelector('.stat-card.red .stat-number').textContent = rejetees;
+
+          // Mettre à jour le tableau
+          const tbody = document.querySelector('.demandes-table tbody');
+          if (demandes.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#888; padding:20px;">Aucune demande pour le moment</td></tr>';
+          } else {
+            tbody.innerHTML = demandes.map((d, i) => {
+              const statut = d.statut || 'Soumise';
+              const badgeClass = statut.toLowerCase().includes('accept') ? 'green' : statut.toLowerCase().includes('rejet') ? 'red' : 'yellow';
+              const date = d.date_creation ? new Date(d.date_creation).toLocaleDateString('fr-FR') : 'N/A';
+              const type = d.type_demande || d.objet || 'Demande';
+              // APRÈS — avec data-label pour le mode mobile
+              return `<tr>
+                  <td data-label="N°">${i+1}</td>
+                  <td data-label="Type">${type}</td>
+                  <td data-label="Date">${date}</td>
+                  <td data-label="Statut"><span class="badge ${badgeClass}">${statut}</span></td>
+                  <td data-label="Action"><a href="../demandes/detail.html?id=${d.id_demande}" class="btn-detail">Voir</a></td>
+              </tr>`;
+            }).join('');
+          }
+        }
+      } catch(e) {
+        console.error('Erreur chargement demandes:', e);
+      }
+    }
+
+    chargerDemandes();
+  </script>
+</body>
+</html>
+
+════════════════════════════════════════════════════
+FICHIER : ./app/pages/dashboard/sp.html
+════════════════════════════════════════════════════
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>EduRequest — Secrétaire Permanent</title>
+  <link rel="stylesheet" href="../../assets/css/main.css"/>
+  <link rel="stylesheet" href="../../assets/css/components.css"/>
+</head>
+<body class="dashboard-body">
+  <nav class="navbar">
+    <div class="navbar-brand">🎓 EduRequest</div>
+    <div class="navbar-user">
+      <span>👤 Secrétaire Permanent (SP)</span>
+      <a href="../auth/login.html" class="btn-logout">Déconnexion</a>
+    </div>
+  </nav>
+
+  <div class="dashboard-layout">
+    <aside class="sidebar">
+      <ul>
+        <li class="active">🏠 Tableau de bord</li>
+        <li onclick="filterDemandes('all')">📋 Toutes</li>
+        <li onclick="filterDemandes('en_attente')">🟡 En attente</li>
+        <li onclick="filterDemandes('validee')">🟢 Validées</li>
+        <li onclick="filterDemandes('rejetee')">🔴 Rejetées</li>
+      </ul>
+    </aside>
+
+    <main class="main-content">
+
+      <div class="stats-grid">
+        <div class="stat-card">
+          <h3>Total reçues</h3>
+          <p class="stat-number">4</p>
+        </div>
+        <div class="stat-card yellow">
+          <h3>En attente</h3>
+          <p class="stat-number">2</p>
+        </div>
+        <div class="stat-card green">
+          <h3>Transmises</h3>
+          <p class="stat-number">2</p>
+        </div>
+      </div>
+
+      <section class="section-card">
+        <h2>📋 Demandes Attestation & Duplicata</h2>
+        <p style="font-size:13px; color:#888; margin-bottom:16px;">
+          Le SP examine les demandes d'attestation et de duplicata transmises par la secrétaire.
+        </p>
+        <table class="demandes-table" id="demandesTable">
+          <thead>
+            <tr>
+              <th>N°</th>
+              <th>Étudiant</th>
+              <th>Type</th>
+              <th>Date</th>
+              <th>Statut</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr data-statut="en_attente">
+              <td>001</td>
+              <td>Koné Mamadou</td>
+              <td>Attestation</td>
+              <td>10/06/2026</td>
+              <td><span class="badge yellow">🟡 En attente</span></td>
+              <td class="actions-cell">
+                <button class="btn-voir" onclick="voirDetail(this)">👁 Voir</button>
+                <button class="btn-valider" onclick="changerStatut(this,'validee')">✅ Transmettre au DA</button>
+                <button class="btn-rejeter" onclick="changerStatut(this,'rejetee')">❌ Rejeter</button>
+                <button class="btn-complement" onclick="demanderComplement(this)">📝 Complément</button>
+              </td>
+            </tr>
+            <tr data-statut="en_attente">
+              <td>002</td>
+              <td>Traoré Fatoumata</td>
+              <td>Duplicata</td>
+              <td>09/06/2026</td>
+              <td><span class="badge yellow">🟡 En attente</span></td>
+              <td class="actions-cell">
+                <button class="btn-voir" onclick="voirDetail(this)">👁 Voir</button>
+                <button class="btn-valider" onclick="changerStatut(this,'validee')">✅ Transmettre au DA</button>
+                <button class="btn-rejeter" onclick="changerStatut(this,'rejetee')">❌ Rejeter</button>
+                <button class="btn-complement" onclick="demanderComplement(this)">📝 Complément</button>
+              </td>
+            </tr>
+            <tr data-statut="validee">
+              <td>003</td>
+              <td>Sawadogo Issouf</td>
+              <td>Attestation</td>
+              <td>08/06/2026</td>
+              <td><span class="badge green">🟢 Transmise au DA</span></td>
+              <td class="actions-cell">
+                <button class="btn-voir" onclick="voirDetail(this)">👁 Voir</button>
+              </td>
+            </tr>
+            <tr data-statut="rejetee">
+              <td>004</td>
+              <td>Coulibaly Mariam</td>
+              <td>Duplicata</td>
+              <td>07/06/2026</td>
+              <td><span class="badge red">🔴 Rejetée</span></td>
+              <td class="actions-cell">
+                <button class="btn-voir" onclick="voirDetail(this)">👁 Voir</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- MODAL DÉTAIL -->
+  <div id="modal" class="modal-overlay" style="display:none;" onclick="fermerModal(event)">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3>Détail de la demande</h3>
+        <button onclick="document.getElementById('modal').style.display='none'" class="modal-close">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="detail-row"><span>Étudiant :</span><strong id="d-etudiant"></strong></div>
+        <div class="detail-row"><span>Type :</span><strong id="d-type"></strong></div>
+        <div class="detail-row"><span>Date :</span><strong id="d-date"></strong></div>
+        <div class="detail-row"><span>Statut :</span><strong id="d-statut"></strong></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-retour" onclick="document.getElementById('modal').style.display='none'">Fermer</button>
+        <a href="../demandes/detail.html?role=sp&type=attestation" class="btn-envoyer" style="text-decoration:none;">
+          Voir détail complet
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL COMPLÉMENT -->
+  <div id="modalComplement" class="modal-overlay" style="display:none;" onclick="fermerModalComplement(event)">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3>📝 Demander un complément</h3>
+        <button onclick="document.getElementById('modalComplement').style.display='none'" class="modal-close">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Message à l'étudiant</label>
+          <textarea id="complementMsg" placeholder="Précisez ce que l'étudiant doit compléter..."></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-retour" onclick="document.getElementById('modalComplement').style.display='none'">Annuler</button>
+        <button class="btn-envoyer" onclick="envoyerComplement()">Envoyer</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="../../assets/js/core/api.js"></script>
+  <script src="../../assets/js/core/auth.js"></script>
+  <script>
+    function filterDemandes(statut) {
+      document.querySelectorAll('#demandesTable tbody tr').forEach(row => {
+        row.style.display = (statut === 'all' || row.dataset.statut === statut) ? '' : 'none';
+      });
+    }
+    function voirDetail(btn) {
+      const row = btn.closest('tr');
+      const cells = row.querySelectorAll('td');
+      document.getElementById('d-etudiant').textContent = cells[1].textContent;
+      document.getElementById('d-type').textContent = cells[2].textContent;
+      document.getElementById('d-date').textContent = cells[3].textContent;
+      document.getElementById('d-statut').textContent = cells[4].textContent.trim();
+      document.getElementById('modal').style.display = 'flex';
+    }
+    function changerStatut(btn, statut) {
+      const row = btn.closest('tr');
+      const badge = row.querySelector('.badge');
+      row.dataset.statut = statut;
+      if (statut === 'validee') {
+        badge.className = 'badge green';
+        badge.textContent = '🟢 Transmise au DA';
+      } else {
+        badge.className = 'badge red';
+        badge.textContent = '🔴 Rejetée';
+      }
+      row.querySelectorAll('.btn-valider, .btn-rejeter, .btn-complement').forEach(b => b.remove());
+    }
+    function demanderComplement(btn) {
+      document.getElementById('modalComplement').style.display = 'flex';
+    }
+    function envoyerComplement() {
+      alert('Message envoyé à l\'étudiant !');
+      document.getElementById('modalComplement').style.display = 'none';
+    }
+    function fermerModal(e) {
+      if (e.target.id === 'modal') document.getElementById('modal').style.display = 'none';
+    }
+    function fermerModalComplement(e) {
+      if (e.target.id === 'modalComplement') document.getElementById('modalComplement').style.display = 'none';
+    }
+  </script>
+</body>
+</html>
+
+════════════════════════════════════════════════════
+FICHIER : ./app/pages/dashboard/staff.html
+════════════════════════════════════════════════════
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>EduRequest — Administration</title>
+  <link rel="stylesheet" href="../../assets/css/main.css"/>
+  <link rel="stylesheet" href="../../assets/css/components.css"/>
+</head>
+<body class="dashboard-body">
+
+  <nav class="navbar">
+    <div class="navbar-brand">🎓 EduRequest</div>
+    <div class="navbar-user">
+      <span id="roleLabel">👤 Chargement...</span>
+      <a href="../auth/login.html" class="btn-logout">Déconnexion</a>
+    </div>
+  </nav>
+
+  <div class="dashboard-layout">
+    <aside class="sidebar">
+      <ul>
+        <li class="active">🏠 Tableau de bord</li>
+        <li onclick="filterDemandes('all')">📋 Toutes les demandes</li>
+        <li onclick="filterDemandes('en_attente')">🟡 En attente</li>
+        <li onclick="filterDemandes('validee')">🟢 Validées</li>
+        <li onclick="filterDemandes('rejetee')">🔴 Rejetées</li>
+      </ul>
+    </aside>
+
+    <main class="main-content">
+
+      <!-- STATS -->
+      <div class="stats-grid">
+        <div class="stat-card">
+          <h3>Total reçues</h3>
+          <p class="stat-number">6</p>
+        </div>
+        <div class="stat-card yellow">
+          <h3>En attente</h3>
+          <p class="stat-number">3</p>
+        </div>
+        <div class="stat-card green">
+          <h3>Validées</h3>
+          <p class="stat-number">2</p>
+        </div>
+        <div class="stat-card red">
+          <h3>Rejetées</h3>
+          <p class="stat-number">1</p>
+        </div>
+      </div>
+
+      <!-- TABLEAU DES DEMANDES -->
+      <section class="section-card">
+        <h2>📋 Demandes reçues</h2>
+
+        <table class="demandes-table" id="demandesTable">
+          <thead>
+            <tr>
+              <th>N°</th>
+              <th>Étudiant</th>
+              <th>Type</th>
+              <th>Date</th>
+              <th>Statut</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr data-statut="en_attente">
+              <td>001</td>
+              <td>Koné Mamadou</td>
+              <td>Réclamation</td>
+              <td>10/06/2026</td>
+              <td><span class="badge yellow">🟡 En attente</span></td>
+              <td class="actions-cell">
+                <button class="btn-voir" onclick="voirDetail(this)">👁 Voir</button>
+                <button class="btn-valider" onclick="changerStatut(this,'validee')">✅ Valider</button>
+                <button class="btn-rejeter" onclick="changerStatut(this,'rejetee')">❌ Rejeter</button>
+                <button class="btn-complement" onclick="demanderComplement(this)">📝 Complément</button>
+              </td>
+            </tr>
+            <tr data-statut="en_attente">
+              <td>002</td>
+              <td>Traoré Fatoumata</td>
+              <td>Dérogation</td>
+              <td>09/06/2026</td>
+              <td><span class="badge yellow">🟡 En attente</span></td>
+              <td class="actions-cell">
+                <button class="btn-voir" onclick="voirDetail(this)">👁 Voir</button>
+                <button class="btn-valider" onclick="changerStatut(this,'validee')">✅ Valider</button>
+                <button class="btn-rejeter" onclick="changerStatut(this,'rejetee')">❌ Rejeter</button>
+                <button class="btn-complement" onclick="demanderComplement(this)">📝 Complément</button>
+              </td>
+            </tr>
+            <tr data-statut="en_attente">
+              <td>003</td>
+              <td>Sawadogo Issouf</td>
+              <td>Attestation</td>
+              <td>08/06/2026</td>
+              <td><span class="badge yellow">🟡 En attente</span></td>
+              <td class="actions-cell">
+                <button class="btn-voir" onclick="voirDetail(this)">👁 Voir</button>
+                <button class="btn-valider" onclick="changerStatut(this,'validee')">✅ Valider</button>
+                <button class="btn-rejeter" onclick="changerStatut(this,'rejetee')">❌ Rejeter</button>
+                <button class="btn-complement" onclick="demanderComplement(this)">📝 Complément</button>
+              </td>
+            </tr>
+            <tr data-statut="validee">
+              <td>004</td>
+              <td>Coulibaly Mariam</td>
+              <td>Duplicata</td>
+              <td>07/06/2026</td>
+              <td><span class="badge green">🟢 Validée</span></td>
+              <td class="actions-cell">
+                <button class="btn-voir" onclick="voirDetail(this)">👁 Voir</button>
+              </td>
+            </tr>
+            <tr data-statut="validee">
+              <td>005</td>
+              <td>Diallo Seydou</td>
+              <td>Attestation</td>
+              <td>06/06/2026</td>
+              <td><span class="badge green">🟢 Validée</span></td>
+              <td class="actions-cell">
+                <button class="btn-voir" onclick="voirDetail(this)">👁 Voir</button>
+              </td>
+            </tr>
+            <tr data-statut="rejetee">
+              <td>006</td>
+              <td>Ouédraogo Aminata</td>
+              <td>Réclamation</td>
+              <td>05/06/2026</td>
+              <td><span class="badge red">🔴 Rejetée</span></td>
+              <td class="actions-cell">
+                <button class="btn-voir" onclick="voirDetail(this)">👁 Voir</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- MODAL DÉTAIL -->
+  <div id="modal" class="modal-overlay" style="display:none;" onclick="fermerModal(event)">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3 id="modal-title">Détail de la demande</h3>
+        <button onclick="document.getElementById('modal').style.display='none'" class="modal-close">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="detail-row"><span>Étudiant :</span><strong id="d-etudiant"></strong></div>
+        <div class="detail-row"><span>Type :</span><strong id="d-type"></strong></div>
+        <div class="detail-row"><span>Date :</span><strong id="d-date"></strong></div>
+        <div class="detail-row"><span>Statut :</span><strong id="d-statut"></strong></div>
+        <div class="detail-row"><span>Description :</span><p id="d-desc" style="margin:6px 0 0; color:#444; font-size:13px;">Demande de révision de la note obtenue en Mathématiques lors de la session normale 2025-2026.</p></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-retour" onclick="document.getElementById('modal').style.display='none'">Fermer</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL COMPLÉMENT -->
+  <div id="modalComplement" class="modal-overlay" style="display:none;" onclick="fermerModalComplement(event)">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3>📝 Demander un complément</h3>
+        <button onclick="document.getElementById('modalComplement').style.display='none'" class="modal-close">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Message à l'étudiant</label>
+          <textarea id="complementMsg" placeholder="Précisez ce que l'étudiant doit compléter..." style="height:120px;"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-retour" onclick="document.getElementById('modalComplement').style.display='none'">Annuler</button>
+        <button class="btn-envoyer" onclick="envoyerComplement()">Envoyer</button>
+      </div>
+    </div>
+  </div>
+  <script src="../../assets/js/core/api.js"></script>
+  <script src="../../assets/js/core/auth.js"></script>
+  <script>
+    window.addEventListener('DOMContentLoaded', () => {
+      if (!isAuthenticated()) {
+        window.location.href = '../auth/login.html';
+        return;
+      }
+      afficherRoleNavbar('roleLabel');
+    });
+
+    async function chargerDemandesStaff() {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+      try {
+        const response = await fetch(API_BASE + '/demandes/mes-demandes', {
+          headers: { 'Authorization': 'Bearer ' + token }
+        });
+        const data = await response.json();
+        const demandes = data.demandes || [];
+
+        document.querySelector('.stat-card:nth-child(1) .stat-number').textContent = demandes.length;
+        const enAttente = demandes.filter(d => d.statut === 'soumise' || d.statut === 'en_cours_de_traitement').length;
+        const validees = demandes.filter(d => d.statut === 'acceptee').length;
+        const rejetees = demandes.filter(d => d.statut === 'rejetee').length;
+        document.querySelector('.stat-card.yellow .stat-number').textContent = enAttente;
+        document.querySelector('.stat-card.green .stat-number').textContent = validees;
+        document.querySelector('.stat-card.red .stat-number').textContent = rejetees;
+
+        const tbody = document.getElementById('demandesTable').querySelector('tbody');
+        if (demandes.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:#888; padding:20px;">Aucune demande pour le moment</td></tr>';
+        } else {
+          tbody.innerHTML = demandes.map((d) => {
+            const statut = d.statut || 'soumise';
+            const badgeClass = statut.includes('accept') ? 'green' : statut.includes('rejet') ? 'red' : 'yellow';
+            const date = d.date_creation ? new Date(d.date_creation).toLocaleDateString('fr-FR') : 'N/A';
+            const etape = d.etape_courante || '';
+            const peutTraiter = statut !== 'rejetee' && statut !== 'terminee' && statut !== 'cloturee';
+            return `<tr data-statut="${statut}" data-id="${d.id_demande}">
+              <td data-label="N°">${d.reference || d.id_demande}</td>
+              <td data-label="Étudiant">${d.nom_etudiant || 'Étudiant'}</td>
+              <td data-label="Type">${d.objet || 'N/A'}</td>
+              <td data-label="Date">${date}</td>
+              <td data-label="Statut"><span class="badge ${badgeClass}">${statut}</span></td>
+              <td data-label="Actions" class="actions-cell">
+                <button class="btn-voir" onclick="window.location.href='../demandes/detail.html?id=${d.id_demande}'">👁 Voir</button>
+                ${peutTraiter ? `
+                  <button class="btn-valider" onclick="transmettreDemande(${d.id_demande})">→ Transmettre</button>
+                  <button class="btn-rejeter" onclick="rejeterDemande(${d.id_demande})">✗ Rejeter</button>
+                ` : ''}
+              </td>
+            </tr>`;
+          }).join('');
+        }
+      } catch(e) {
+        console.error('Erreur chargement demandes staff:', e);
+      }
+    }
+    chargerDemandesStaff();
+
+    async function transmettreDemande(idDemande) {
+      const commentaire = prompt('Commentaire (optionnel) avant de transmettre :') || '';
+
+      try {
+        const token = localStorage.getItem('token');
+        const response = await fetch(API_BASE + '/workflow/' + idDemande + '/valider', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + token
+          },
+          body: JSON.stringify({ commentaire })
+        });
+
+        const data = await response.json();
+
+        if (!data.success) {
+          alert('Erreur : ' + (data.message || 'Impossible de transmettre la demande.'));
+          return;
+        }
+
+        if (data.data.termine) {
+          alert('Demande clôturée — fin du circuit de validation.');
+        } else {
+          alert('Demande transmise à l\'étape : ' + data.data.nextEtape);
+        }
+
+        chargerDemandesStaff();
+
+      } catch (e) {
+        console.error('Erreur transmission:', e);
+        alert('Erreur de connexion au serveur.');
+      }
+    }
+
+    async function rejeterDemande(idDemande) {
+      const motif = prompt('Motif du rejet (obligatoire) :');
+      if (!motif) {
+        alert('Le motif est obligatoire pour rejeter une demande.');
+        return;
+      }
+
+      try {
+        const token = localStorage.getItem('token');
+        const response = await fetch(API_BASE + '/workflow/' + idDemande + '/rejeter', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + token
+          },
+          body: JSON.stringify({ motif })
+        });
+
+        const data = await response.json();
+
+        if (!data.success) {
+          alert('Erreur : ' + (data.message || 'Impossible de rejeter la demande.'));
+          return;
+        }
+
+        alert('Demande rejetée.');
+        chargerDemandesStaff();
+
+      } catch (e) {
+        console.error('Erreur rejet:', e);
+        alert('Erreur de connexion au serveur.');
+      }
+    }
+
+    function filterDemandes(statut) {
+      const rows = document.querySelectorAll('#demandesTable tbody tr');
+      rows.forEach(row => {
+        if (statut === 'all' || row.dataset.statut === statut) {
+          row.style.display = '';
+        } else {
+          row.style.display = 'none';
+        }
+      });
+    }
+
+    function voirDetail(btn) {
+      const row = btn.closest('tr');
+      const cells = row.querySelectorAll('td');
+      document.getElementById('d-etudiant').textContent = cells[1].textContent;
+      document.getElementById('d-type').textContent = cells[2].textContent;
+      document.getElementById('d-date').textContent = cells[3].textContent;
+      document.getElementById('d-statut').textContent = cells[4].textContent.trim();
+      document.getElementById('modal').style.display = 'flex';
+    }
+
+    function changerStatut(btn, nouveauStatut) {
+      const row = btn.closest('tr');
+      const badge = row.querySelector('.badge');
+      row.dataset.statut = nouveauStatut;
+      if (nouveauStatut === 'validee') {
+        badge.className = 'badge green';
+        badge.textContent = '🟢 Validée';
+      } else {
+        badge.className = 'badge red';
+        badge.textContent = '🔴 Rejetée';
+      }
+      // Cacher les boutons d'action
+      row.querySelectorAll('.btn-valider, .btn-rejeter, .btn-complement').forEach(b => b.remove());
+    }
+
+    let complementRow = null;
+    function demanderComplement(btn) {
+      complementRow = btn.closest('tr');
+      document.getElementById('modalComplement').style.display = 'flex';
+    }
+
+    function envoyerComplement() {
+      alert('Message envoyé à l\'étudiant !');
+      document.getElementById('modalComplement').style.display = 'none';
+      document.getElementById('complementMsg').value = '';
+    }
+
+    function fermerModal(e) {
+      if (e.target.id === 'modal') document.getElementById('modal').style.display = 'none';
+    }
+    function fermerModalComplement(e) {
+      if (e.target.id === 'modalComplement') document.getElementById('modalComplement').style.display = 'none';
+    }
+  </script>
+</body>
+</html>
+
+════════════════════════════════════════════════════
+FICHIER : ./app/pages/demandes/detail.html
+════════════════════════════════════════════════════
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>EduRequest — Détail demande</title>
+  <link rel="stylesheet" href="../../assets/css/main.css"/>
+  <link rel="stylesheet" href="../../assets/css/components.css"/>
+</head>
+<body class="dashboard-body">
+  <nav class="navbar">
+    <div class="navbar-brand">🎓 EduRequest</div>
+    <div class="navbar-user">
+      <span>👤 Étudiant</span>
+      <a href="../auth/login.html" class="btn-logout">Déconnexion</a>
+    </div>
+  </nav>
+
+  <div class="dashboard-layout">
+    <aside class="sidebar">
+      <ul>
+        <li onclick="location.href='../dashboard/etudiant.html'">🏠 Tableau de bord</li>
+        <li class="active">📋 Mes demandes</li>
+        <li onclick="location.href='nouvelle.html'">➕ Nouvelle demande</li>
+      </ul>
+    </aside>
+
+    <main class="main-content">
+      <div class="section-card" style="max-width:720px; margin:0 auto;">
+
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px;">
+          <h2>📋 Détail de la demande</h2>
+          <span class="badge yellow" style="font-size:14px; padding:6px 16px;">🟡 En attente</span>
+        </div>
+
+        <!-- INFORMATIONS GÉNÉRALES -->
+        <div class="fiche-section">
+          <label class="section-label">Informations générales</label>
+          <div class="detail-row"><span>N° demande :</span><strong>#001</strong></div>
+          <div class="detail-row"><span>Type :</span><strong>Réclamation de note</strong></div>
+          <div class="detail-row"><span>Année universitaire :</span><strong>2025-2026</strong></div>
+          <div class="detail-row"><span>Date soumission :</span><strong>10/06/2026</strong></div>
+          <div class="detail-row"><span>Étudiant :</span><strong>Koné Mamadou</strong></div>
+          <div class="detail-row"><span>INE :</span><strong>N00222020241</strong></div>
+          <div class="detail-row"><span>Téléphone :</span><strong>+226 70 00 00 00</strong></div>
+          <div class="detail-row"><span>Filière :</span><strong>Informatique</strong></div>
+          <div class="detail-row"><span>Option :</span><strong>Génie Logiciel</strong></div>
+          <div class="detail-row"><span>Niveau :</span><strong>L2</strong></div>
+          <div class="detail-row"><span>Semestre :</span><strong>S3</strong></div>
+          <div class="detail-row"><span>Session :</span><strong>Normale</strong></div>
+        </div>
+
+        <!-- PIÈCES JUSTIFICATIVES -->
+        <div class="fiche-section">
+          <label class="section-label">📎 Pièces justificatives jointes</label>
+          <div class="checkbox-group flex-wrap">
+            <label style="color:#2e7d32;"><input type="checkbox" checked disabled/> Relevés de notes</label>
+            <label style="color:#2e7d32;"><input type="checkbox" checked disabled/> Copies</label>
+            <label style="color:#aaa;"><input type="checkbox" disabled/> Attestation d'inscription</label>
+            <label style="color:#aaa;"><input type="checkbox" disabled/> Autres</label>
+          </div>
+        </div>
+
+        <!-- CORRESPONDANT -->
+        <div class="fiche-section">
+          <label class="section-label">Correspondant concerné</label>
+          <div class="checkbox-group flex-wrap">
+            <label style="color:#2e7d32;"><input type="checkbox" checked disabled/> Directeur</label>
+            <label style="color:#2e7d32;"><input type="checkbox" checked disabled/> Enseignant</label>
+            <label style="color:#aaa;"><input type="checkbox" disabled/> Directrice adjointe</label>
+            <label style="color:#aaa;"><input type="checkbox" disabled/> Coordonnateur</label>
+            <label style="color:#aaa;"><input type="checkbox" disabled/> Chef de service Scolarité</label>
+          </div>
+        </div>
+
+        <!-- MOTIFS -->
+        <div class="fiche-section">
+          <label class="section-label">Motifs de la demande</label>
+          <div class="checkbox-group flex-wrap">
+            <label style="color:#2e7d32;"><input type="checkbox" checked disabled/> Rectification de note</label>
+            <label style="color:#2e7d32;"><input type="checkbox" checked disabled/> Note non répertoriée</label>
+            <label style="color:#aaa;"><input type="checkbox" disabled/> Comptabilité des notes sur la copie</label>
+            <label style="color:#aaa;"><input type="checkbox" disabled/> Annulation de note</label>
+            <label style="color:#aaa;"><input type="checkbox" disabled/> Rectification du nom</label>
+          </div>
+        </div>
+
+        <!-- ECUES CONCERNÉS -->
+        <div class="fiche-section">
+          <label class="section-label">ECUES concernés</label>
+          <div class="detail-row"><span>ECUE 1 :</span><strong>Algorithmique</strong></div>
+          <div class="detail-row"><span>ECUE 2 :</span><strong>Mathématiques</strong></div>
+        </div>
+
+        <!-- DESCRIPTION -->
+        <div class="fiche-section">
+          <label class="section-label">Description du problème</label>
+          <p style="font-size:13px; color:#444; line-height:1.6; margin:0;">
+            J'ai remarqué une erreur dans le calcul de ma note finale. La somme des points
+            sur ma copie donne 12/20 mais la note reportée est 08/20. Je demande une vérification.
+          </p>
+        </div>
+
+        <!-- COPIE PDF -->
+        <div class="fiche-section" style="background:#e8eaf6;">
+          <label class="section-label">📄 Copie jointe</label>
+          <a href="#" style="color:#1a237e; font-weight:600; font-size:14px;">
+            📄 copie_maths.pdf — Cliquez pour voir
+          </a>
+        </div>
+
+        <!-- TIMELINE -->
+        <div class="fiche-section">
+          <label class="section-label">📌 Suivi du traitement</label>
+          <div class="timeline">
+            <div class="timeline-item done">
+              <div class="timeline-dot green"></div>
+              <div class="timeline-content">
+                <strong>✅ Demande soumise</strong>
+                <span>10/06/2026 — par l'étudiant</span>
+              </div>
+            </div>
+            <div class="timeline-item done">
+              <div class="timeline-dot green"></div>
+              <div class="timeline-content">
+                <strong>✅ Reçue par la Secrétaire</strong>
+                <span>10/06/2026 — Transmise au DA</span>
+              </div>
+            </div>
+            <div class="timeline-item current">
+              <div class="timeline-dot yellow"></div>
+              <div class="timeline-content">
+                <strong>🟡 Examen par le DA</strong>
+                <span>En attente de traitement</span>
+              </div>
+            </div>
+            <div class="timeline-item pending">
+              <div class="timeline-dot grey"></div>
+              <div class="timeline-content">
+                <strong>Transmission à l'Enseignant</strong>
+                <span>En attente</span>
+              </div>
+            </div>
+            <div class="timeline-item pending">
+              <div class="timeline-dot grey"></div>
+              <div class="timeline-content">
+                <strong>Retour DA (décision finale)</strong>
+                <span>En attente</span>
+              </div>
+            </div>
+            <div class="timeline-item pending">
+              <div class="timeline-dot grey"></div>
+              <div class="timeline-content">
+                <strong>Exécution par la Scolarité</strong>
+                <span>En attente</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ZONE ACTIONS STAFF -->
+        <div class="fiche-section" id="actions-staff" style="background:#f9f9f9;">
+          <label class="section-label">⚡ Actions</label>
+          <div class="actions-cell" style="gap:10px; flex-wrap:wrap;">
+            <button class="btn-valider" style="padding:10px 20px; font-size:14px;" onclick="changerStatut('validee')">✅ Valider</button>
+            <button class="btn-rejeter" style="padding:10px 20px; font-size:14px;" onclick="changerStatut('rejetee')">❌ Rejeter</button>
+            <button class="btn-complement" style="padding:10px 20px; font-size:14px;" onclick="demanderComplement()">📝 Demander complément</button>
+          </div>
+          <div id="complement-box" style="display:none; margin-top:14px;">
+            <div class="form-group">
+              <label>Message à l'étudiant</label>
+              <textarea id="msg-complement" placeholder="Précisez ce que l'étudiant doit compléter..."></textarea>
+            </div>
+            <button class="btn-envoyer" onclick="envoyerComplement()">Envoyer le message</button>
+          </div>
+        </div>
+
+        <!-- BOUTON RETOUR DYNAMIQUE -->
+        <div style="margin-top:16px;">
+          <button class="btn-retour" onclick="history.back()">← Retour</button>
+        </div>
+
+      </div>
+    </main>
+  </div>
+  <script src="../../assets/js/core/api.js"></script>
+  <script src="../../assets/js/core/auth.js"></script>
+  <script>
+    // Récupérer les paramètres de l'URL
+    const urlP = new URLSearchParams(window.location.search);
+    const typeD = urlP.get('type') || 'reclamation';
+
+    const titres = {
+      reclamation: '📝 Réclamation de note',
+      attestation: '🎓 Demande d\'attestation',
+      duplicata: '📑 Demande de duplicata',
+      derogation: '📄 Demande de dérogation'
+    };
+
+    const timelines = {
+      reclamation: ['✅ Demande soumise', '✅ Reçue par la Secrétaire', '🟡 Examen par le DA', 'Transmission à l\'Enseignant', 'Retour DA (décision finale)', 'Exécution par la Scolarité'],
+      attestation: ['✅ Demande soumise', '✅ Reçue par la Secrétaire', '🟡 Examen par le SP', 'Transmission au DA', 'Décision Directrice', 'Exécution par la Scolarité'],
+      duplicata: ['✅ Demande soumise', '✅ Reçue par la Secrétaire', '🟡 Examen par le SP', 'Transmission au DA', 'Décision Directrice', 'Exécution par la Scolarité'],
+      derogation: ['✅ Demande soumise', '✅ Reçue par la Secrétaire', '🟡 Examen par le SP', 'Transmission au DA', 'Décision finale', 'Exécution']
+    };
+
+    window.addEventListener('DOMContentLoaded', function() {
+      // Changer le badge type
+      const typeBadge = document.querySelector('.detail-row strong');
+      if (typeBadge) typeBadge.textContent = titres[typeD] || titres['reclamation'];
+
+      // Adapter la timeline
+      const tl = timelines[typeD] || timelines['reclamation'];
+      const contents = document.querySelectorAll('.timeline-content strong');
+      contents.forEach((el, i) => {
+        if (tl[i]) el.textContent = tl[i];
+      });
+
+      // Cacher section enseignant si pas réclamation
+      if (typeD !== 'reclamation') {
+        document.querySelectorAll('.detail-row').forEach(row => {
+          const label = row.querySelector('span');
+          if (label && ['Matière :', 'Enseignant :', 'Note obtenue :'].includes(label.textContent)) {
+            row.style.display = 'none';
+          }
+        });
+      }
+
+      // Cacher les actions si c'est un étudiant
+      const role = urlP.get('role') || 'etudiant';
+      if (role === 'etudiant') {
+        const actionsStaff = document.getElementById('actions-staff');
+        if (actionsStaff) actionsStaff.style.display = 'none';
+      }
+    });
+
+    function changerStatut(statut) {
+      const badge = document.querySelector('.badge');
+      if (statut === 'validee') {
+        badge.className = 'badge green';
+        badge.textContent = '🟢 Validée';
+      } else {
+        badge.className = 'badge red';
+        badge.textContent = '🔴 Rejetée';
+      }
+      const actionsStaff = document.getElementById('actions-staff');
+      if (actionsStaff) actionsStaff.style.display = 'none';
+      alert(statut === 'validee' ? '✅ Demande validée !' : '❌ Demande rejetée !');
+    }
+
+    function demanderComplement() {
+      const box = document.getElementById('complement-box');
+      if (box) {
+        box.style.display = box.style.display === 'none' ? 'block' : 'none';
+      }
+    }
+
+    function envoyerComplement() {
+      const msg = document.getElementById('msg-complement');
+      if (!msg || !msg.value) {
+        alert('Écrivez un message.');
+        return;
+      }
+      alert('📝 Message envoyé à l\'étudiant !');
+      const box = document.getElementById('complement-box');
+      if (box) box.style.display = 'none';
+      if (msg) msg.value = '';
+    }
+  </script>
+</body>
+</html>
+
+════════════════════════════════════════════════════
+FICHIER : ./app/pages/demandes/nouvelle.html
+════════════════════════════════════════════════════
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>EduRequest — Nouvelle demande</title>
+  <link rel="stylesheet" href="../../assets/css/main.css"/>
+  <link rel="stylesheet" href="../../assets/css/components.css"/>
+</head>
+<body class="dashboard-body">
+
+  <nav class="navbar">
+    <div class="navbar-brand">🎓 EduRequest</div>
+    <div class="navbar-user">
+      <span>👤 Étudiant</span>
+      <a href="../auth/login.html" class="btn-logout">Déconnexion</a>
+    </div>
+  </nav>
+
+  <div class="dashboard-layout">
+    <aside class="sidebar">
+      <ul>
+        <li onclick="location.href='../dashboard/etudiant.html'">🏠 Tableau de bord</li>
+        <li onclick="location.href='../dashboard/etudiant.html'">📋 Mes demandes</li>
+        <li class="active">➕ Nouvelle demande</li>
+      </ul>
+    </aside>
+
+    <main class="main-content">
+      <div class="section-card" style="max-width:720px; margin:0 auto;">
+
+        <h2 id="form-title">➕ Nouvelle demande</h2>
+
+        <!-- CHOIX DU TYPE -->
+        <div id="choix-type">
+          <p style="color:#666; margin-bottom:18px;">Choisissez le type de demande :</p>
+          <div class="btn-grid">
+            <button class="btn-demande" onclick="afficherFormulaire('reclamation')">📝 Réclamation de note</button>
+            <button class="btn-demande" onclick="afficherFormulaire('derogation')">📄 Dérogation</button>
+            <button class="btn-demande" onclick="afficherFormulaire('duplicata')">📑 Duplicata</button>
+            <button class="btn-demande" onclick="afficherFormulaire('attestation')">🎓 Attestation</button>
+          </div>
+        </div>
+
+        <!-- ===== FORMULAIRE RÉCLAMATION (fiche officielle ESI) ===== -->
+        <div id="form-reclamation" class="formulaire" style="display:none;">
+
+          <div class="fiche-header">
+            <div class="fiche-header-left">
+              <p>MINISTÈRE DE L'ENSEIGNEMENT SUPÉRIEUR</p>
+              <p>DE LA RECHERCHE ET DE L'INNOVATION</p>
+              <p>SECRÉTARIAT GÉNÉRAL</p>
+              <p><strong>UNIVERSITÉ NAZI BONI</strong></p>
+              <p>ÉCOLE SUPÉRIEURE D'INFORMATIQUE</p>
+            </div>
+            <div class="fiche-header-center"><img src="../../assets/images/logo-esi.png" alt="Logo ESI" style="width:70px; height:70px; object-fit:contain;"/></div>
+            <div class="fiche-header-right">
+              <p>BURKINA FASO</p>
+              <p><em>La Patrie ou la Mort, nous Vaincrons</em></p>
+            </div>
+          </div>
+
+          <h3 class="fiche-titre">FICHE DE RÉCLAMATION</h3>
+
+          <!-- Infos générales -->
+          <div class="fiche-row">
+            <div class="form-group flex-1">
+              <label>Année universitaire concernée</label>
+              <input type="text" placeholder="Ex: 2025-2026"/>
+            </div>
+            <div class="form-group flex-1">
+              <label>INE</label>
+              <input type="text" placeholder="Numéro INE"/>
+            </div>
+          </div>
+
+          <div class="fiche-row">
+            <div class="form-group flex-2">
+              <label>Nom et prénom(s)</label>
+              <input type="text" placeholder="Votre nom complet"/>
+            </div>
+            <div class="form-group flex-1">
+              <label>Tél</label>
+              <input type="tel" placeholder="+226 XX XX XX XX"/>
+            </div>
+          </div>
+
+          <div class="fiche-row">
+            <div class="form-group flex-1">
+              <label>Filière</label>
+              <input type="text" placeholder="Ex: Informatique"/>
+            </div>
+            <div class="form-group flex-1">
+              <label>Option</label>
+              <input type="text" placeholder="Ex: GL"/>
+            </div>
+            <div class="form-group flex-1">
+              <label>Niveau</label>
+              <select>
+                <option>L1</option><option>L2</option><option>L3</option>
+                <option>M1</option><option>M2</option>
+              </select>
+            </div>
+            <div class="form-group flex-1">
+              <label>Semestre</label>
+              <select>
+                <option>S1</option><option>S2</option>
+                <option>S3</option><option>S4</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Session -->
+          <div class="fiche-section">
+            <div class="fiche-row" style="align-items:flex-start; gap:40px;">
+              <div>
+                <label class="section-label">Session</label>
+                <div class="checkbox-group">
+                  <label><input type="checkbox"/> Normale</label>
+                  <label><input type="checkbox"/> Rattrapage</label>
+                </div>
+              </div>
+              <div style="flex:1;">
+                <label class="section-label">Pièces justificatives jointes</label>
+                <div class="checkbox-group flex-wrap">
+                  <label><input type="checkbox"/> Relevés de notes</label>
+                  <label><input type="checkbox"/> Attestation d'inscription</label>
+                  <label><input type="checkbox"/> Copies</label>
+                  <label><input type="checkbox"/> Autres</label>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Correspondant -->
+          <div class="fiche-section">
+            <label class="section-label">Correspondant</label>
+            <div class="checkbox-group flex-wrap">
+              <label><input type="checkbox"/> Directeur</label>
+              <label><input type="checkbox"/> Directrice adjointe</label>
+              <label><input type="checkbox"/> Coordonnateur</label>
+              <label><input type="checkbox"/> Enseignant</label>
+              <label><input type="checkbox"/> Chef de service de la Scolarité</label>
+            </div>
+          </div>
+
+          <!-- Motifs -->
+          <div class="fiche-section">
+            <label class="section-label">Motifs de la demande</label>
+            <div class="checkbox-group flex-wrap">
+              <label><input type="checkbox"/> Comptabilité des notes sur la copie</label>
+              <label><input type="checkbox"/> Rectification de note</label>
+              <label><input type="checkbox"/> Note non répertoriée</label>
+              <label><input type="checkbox"/> Annulation de note</label>
+              <label><input type="checkbox"/> Rectification du nom</label>
+              <label><input type="checkbox"/> Rectification de n° matricule</label>
+              <label><input type="checkbox"/> Rectification du lieu de naissance</label>
+              <label><input type="checkbox"/> Rectification de la date de naissance</label>
+              <label><input type="checkbox"/> Insertion du nom sur le PV</label>
+            </div>
+            <div class="form-group" style="margin-top:10px;">
+              <label>Autres (à préciser)</label>
+              <input type="text" placeholder="Précisez si autre motif"/>
+            </div>
+          </div>
+
+          <!-- ECUES -->
+          <div class="fiche-section">
+            <label class="section-label">ECUES concernés (mentionnez les intitulés des ECUES)</label>
+            <div class="form-group">
+              <input type="text" placeholder="ECUE 1"/>
+            </div>
+            <div class="form-group">
+              <input type="text" placeholder="ECUE 2"/>
+            </div>
+            <div class="form-group">
+              <input type="text" placeholder="ECUE 3"/>
+            </div>
+          </div>
+
+          <!-- Description -->
+          <div class="fiche-section">
+            <div class="form-group">
+              <label class="section-label">Description du problème <em>(Si nécessaire)</em></label>
+              <textarea placeholder="Décrivez votre problème en détail..." style="height:100px;"></textarea>
+            </div>
+          </div>
+
+          <!-- Upload copie -->
+          <div class="fiche-section upload-section">
+            <label class="section-label">📎 Joindre votre copie (PDF obligatoire)</label>
+            <div class="upload-box" id="uploadBox" onclick="document.getElementById('copieFile').click()">
+              <div class="upload-icon">📄</div>
+              <p>Cliquez pour sélectionner votre copie en PDF</p>
+              <span id="fileName" style="color:#1a237e; font-weight:600;"></span>
+              <input type="file" id="copieFile" accept=".pdf" style="display:none"
+                onchange="document.getElementById('fileName').textContent = this.files[0]?.name || ''"/>
+            </div>
+          </div>
+
+          <div class="form-actions">
+            <button class="btn-retour" onclick="retour()">← Retour</button>
+            <button class="btn-envoyer" onclick="envoyer()">Envoyer la réclamation</button>
+          </div>
+        </div>
+
+        <!-- FORMULAIRE DÉROGATION -->
+        <div id="form-derogation" class="formulaire" style="display:none;">
+          <h3 style="margin-bottom:18px; color:#1a237e;">📄 Demande de dérogation</h3>
+          <div class="form-group">
+            <label>Objet de la dérogation</label>
+            <input type="text" placeholder="Ex: Autorisation d'absence"/>
+          </div>
+          <div class="form-group">
+            <label>Motif</label>
+            <textarea placeholder="Expliquez votre motif..."></textarea>
+          </div>
+          <div class="form-group">
+            <label>Pièce jointe</label>
+            <input type="file" accept=".pdf,.jpg,.png"/>
+          </div>
+          <div class="form-actions">
+            <button class="btn-retour" onclick="retour()">← Retour</button>
+            <button class="btn-envoyer" onclick="envoyer()">Envoyer la demande</button>
+          </div>
+        </div>
+
+        <!-- FORMULAIRE DUPLICATA (Fiche officielle ESI) -->
+        <div id="form-duplicata" class="formulaire" style="display:none;">
+
+          <div class="fiche-header">
+            <div class="fiche-header-left">
+              <p>MINISTÈRE DE L'ENSEIGNEMENT SUPÉRIEUR</p>
+              <p>DE LA RECHERCHE ET DE L'INNOVATION</p>
+              <p>SECRÉTARIAT GÉNÉRAL</p>
+              <p><strong>UNIVERSITÉ NAZI BONI</strong></p>
+              <p>ÉCOLE SUPÉRIEURE D'INFORMATIQUE</p>
+            </div>
+            <div class="fiche-header-center"><img src="../../assets/images/logo-esi.png" alt="Logo ESI" style="width:70px; height:70px; object-fit:contain;"/></div>
+            <div class="fiche-header-right">
+              <p>BURKINA FASO</p>
+              <p><em>La Patrie ou la Mort, nous Vaincrons</em></p>
+            </div>
+          </div>
+
+          <h3 class="fiche-titre">FICHE DE DEMANDE DE DOCUMENTS ACADÉMIQUES</h3>
+
+          <div class="frais-banner">
+            💰 Frais de traitement : <strong>10 000 FCFA</strong>
+          </div>
+
+          <div class="fiche-row">
+            <div class="form-group flex-2">
+              <label>Année universitaire concernée</label>
+              <input type="text" placeholder="Ex: 2025-2026"/>
+            </div>
+            <div class="form-group flex-1">
+              <label>INE</label>
+              <input type="text" placeholder="Numéro INE"/>
+            </div>
+          </div>
+
+          <div class="fiche-row">
+            <div class="form-group flex-2">
+              <label>Nom et prénom(s)</label>
+              <input type="text" placeholder="Votre nom complet"/>
+            </div>
+            <div class="form-group flex-1">
+              <label>Tél</label>
+              <input type="tel" placeholder="+226 XX XX XX XX"/>
+            </div>
+          </div>
+
+          <div class="fiche-row">
+            <div class="form-group flex-1">
+              <label>Niveau</label>
+              <select>
+                <option>L1</option><option>L2</option><option>L3</option>
+                <option>M1</option><option>M2</option>
+              </select>
+            </div>
+            <div class="form-group flex-1">
+              <label>Semestre</label>
+              <select>
+                <option>S1</option><option>S2</option>
+                <option>S3</option><option>S4</option>
+              </select>
+            </div>
+            <div class="form-group flex-1">
+              <label>Session</label>
+              <select>
+                <option>Normale</option>
+                <option>Rattrapage</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="fiche-section">
+            <label class="section-label">Pièces justificatives jointes</label>
+            <div class="checkbox-group flex-wrap">
+              <label><input type="checkbox"/> Relevés de notes</label>
+              <label><input type="checkbox"/> Attestation d'inscription</label>
+              <label><input type="checkbox"/> Autres</label>
+            </div>
+          </div>
+
+          <div class="fiche-section">
+            <label class="section-label">Correspondant</label>
+            <div class="checkbox-group flex-wrap">
+              <label><input type="checkbox"/> Directeur</label>
+              <label><input type="checkbox"/> Directrice adjointe</label>
+              <label><input type="checkbox"/> Coordonnateur</label>
+              <label><input type="checkbox"/> Responsable des stages</label>
+              <label><input type="checkbox"/> Chef Scolarité</label>
+            </div>
+          </div>
+
+          <div class="fiche-section">
+            <label class="section-label">Document demandé</label>
+            <div class="checkbox-group">
+              <label><input type="radio" name="doc-duplicata" value="Relevés de notes"/> Relevés de notes</label>
+              <label><input type="radio" name="doc-duplicata" value="Certificat de scolarité"/> Certificat de scolarité</label>
+              <label><input type="radio" name="doc-duplicata" value="Attestation provisoire"/> Attestation provisoire</label>
+              <label><input type="radio" name="doc-duplicata" value="Attestation de niveau"/> Attestation de niveau</label>
+              <label><input type="radio" name="doc-duplicata" value="Correction"/> Correction (préciser la correction)</label>
+              <label><input type="radio" name="doc-duplicata" value="Autres"/> Autres (à préciser)</label>
+            </div>
+            <div class="form-group" style="margin-top:10px;">
+              <input type="text" id="docDupPrecision" placeholder="Précisez si autre document..."/>
+            </div>
+          </div>
+
+          <div class="frais-banner">
+            💰 Frais de traitement : <strong>10 000 FCFA</strong>
+          </div>
+
+          <div class="fiche-section">
+            <div class="form-group">
+              <label class="section-label">Description de la demande <em>(Si nécessaire)</em></label>
+              <textarea id="docDupDescription" placeholder="Décrivez votre demande..."></textarea>
+            </div>
+          </div>
+
+          <div class="form-actions">
+            <button class="btn-retour" onclick="retour()">← Retour</button>
+            <button class="btn-envoyer" onclick="envoyer()">Envoyer la demande</button>
+          </div>
+        </div>
+
+        <!-- FORMULAIRE ATTESTATION -->
+
+        <!-- FORMULAIRE ATTESTATION -->
+        <div id="form-attestation" class="formulaire" style="display:none;">
+          <h3 style="margin-bottom:18px; color:#1a237e;">🎓 Demande d'attestation</h3>
+          <div class="form-group">
+            <label>Type d'attestation</label>
+            <select>
+              <option value="">-- Choisir --</option>
+              <option>Attestation d'inscription</option>
+              <option>Attestation de fréquentation</option>
+              <option>Attestation de réussite</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Nombre d'exemplaires <span style="color:#888; font-size:12px;">(3 maximum)</span></label>
+            <div style="display:flex; gap:12px;">
+              <label style="display:flex; align-items:center; gap:6px; cursor:pointer;">
+                <input type="radio" name="exemplaires" value="1" checked/> 1 exemplaire
+              </label>
+              <label style="display:flex; align-items:center; gap:6px; cursor:pointer;">
+                <input type="radio" name="exemplaires" value="2"/> 2 exemplaires
+              </label>
+              <label style="display:flex; align-items:center; gap:6px; cursor:pointer;">
+                <input type="radio" name="exemplaires" value="3"/> 3 exemplaires
+              </label>
+            </div>
+          </div>
+          <div class="form-actions">
+            <button class="btn-retour" onclick="retour()">← Retour</button>
+            <button class="btn-envoyer" onclick="envoyer()">Envoyer la demande</button>
+          </div>
+        </div>
+
+        <!-- CONFIRMATION -->
+        <div id="confirmation" style="display:none; text-align:center; padding:40px 0;">
+          <div style="font-size:60px;">✅</div>
+          <h3 style="color:#2e7d32; margin:16px 0 8px;">Demande envoyée !</h3>
+          <p style="color:#666; margin-bottom:24px;">Votre demande a été soumise avec succès.</p>
+          <a href="../dashboard/etudiant.html" class="btn-envoyer" style="text-decoration:none;">
+            Retour au tableau de bord
+          </a>
+        </div>
+
+      </div>
+    </main>
+  </div>
+  <script src="../../assets/js/core/api.js"></script>
+  <script>
+    function payerDuplicata() {
+      const checked = document.querySelector('input[name="doc-duplicata"]:checked');
+      if (!checked) { alert('Veuillez sélectionner un document.'); return; }
+
+      let documentDemande = checked.value;
+      if (documentDemande === 'Correction' || documentDemande === 'Autres') {
+        const precision = document.getElementById('docDupPrecision')?.value || '';
+        documentDemande = documentDemande + (precision ? ' - ' + precision : '');
+      }
+
+      const exemplaires = document.querySelector('input[name="exemplaires"]:checked')?.value || '1';
+      const description = document.getElementById('docDupDescription')?.value || '';
+
+      const params = new URLSearchParams({
+        montant: 10000,
+        document: documentDemande,
+        exemplaires: exemplaires,
+        description: description
+      });
+
+      window.location.href = 'paiement.html?' + params.toString();
+    }
+
+    function afficherFormulaire(type) {
+      document.getElementById('choix-type').style.display = 'none';
+      document.getElementById('form-' + type).style.display = 'block';
+      document.getElementById('form-title').textContent = '';
+    }
+
+    // Ouvrir automatiquement si type dans URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const typeURL = urlParams.get('type');
+    if (typeURL) afficherFormulaire(typeURL);
+    function retour() {
+      document.querySelectorAll('.formulaire').forEach(f => f.style.display = 'none');
+      document.getElementById('choix-type').style.display = 'block';
+      document.getElementById('form-title').textContent = '➕ Nouvelle demande';
+    }
+    async function envoyer() {
+      const typeActif = document.querySelector('.formulaire[style*="block"]')?.id;
+      
+      if (typeActif === 'form-duplicata') {
+        payerDuplicata();
+        return;
+      }
+
+      // Déterminer le type de demande
+      const typeMap = {
+        'form-reclamation': 'reclamation',
+        'form-derogation': 'derogation',
+        'form-attestation': 'attestation'
+      };
+      const type_demande = typeMap[typeActif] || 'autre';
+
+      // Récupérer les champs selon le type
+      let objet = '';
+      let description = '';
+
+      if (typeActif === 'form-reclamation') {
+        const matiere = document.querySelector('#form-reclamation input[placeholder*="Math"]')?.value || '';
+        const motif = document.querySelector('#form-reclamation textarea')?.value || '';
+        objet = 'Réclamation de note - ' + matiere;
+        description = motif;
+      } else if (typeActif === 'form-derogation') {
+        objet = document.querySelector('#form-derogation input')?.value || 'Dérogation';
+        description = document.querySelector('#form-derogation textarea')?.value || '';
+      } else if (typeActif === 'form-attestation') {
+        objet = document.querySelector('#form-attestation select')?.value || 'Attestation';
+        description = objet;
+      }
+
+      // Envoyer au backend
+      try {
+        const token = localStorage.getItem('token');
+        const response = await fetch(API_BASE + '/demandes', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + token
+          },
+          body: JSON.stringify({ type_demande, objet, description })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+          document.querySelectorAll('.formulaire').forEach(f => f.style.display = 'none');
+          document.getElementById('confirmation').style.display = 'block';
+        } else {
+          alert('Erreur : ' + (data.message || 'Une erreur est survenue'));
+        }
+      } catch(e) {
+        alert('Erreur de connexion au serveur.');
+      }
+    }
+  </script>
+</body>
+</html>
+
+════════════════════════════════════════════════════
+FICHIER : ./app/pages/demandes/paiement.html
+════════════════════════════════════════════════════
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>EduRequest — Paiement</title>
+  <link rel="stylesheet" href="../../assets/css/main.css"/>
+  <link rel="stylesheet" href="../../assets/css/components.css"/>
+</head>
+<body class="dashboard-body">
+  <nav class="navbar">
+    <div class="navbar-brand">🎓 EduRequest</div>
+    <div class="navbar-user">
+      <span>👤 Étudiant</span>
+      <a href="../auth/login.html" class="btn-logout">Déconnexion</a>
+    </div>
+  </nav>
+
+  <div class="dashboard-layout">
+    <aside class="sidebar">
+      <ul>
+        <li onclick="location.href='../dashboard/etudiant.html'">🏠 Tableau de bord</li>
+        <li class="active">📋 Mes demandes</li>
+        <li onclick="location.href='nouvelle.html'">➕ Nouvelle demande</li>
+      </ul>
+    </aside>
+
+    <main class="main-content">
+      <div style="max-width:500px; margin:0 auto;">
+
+        <!-- ETAPE 1 : CHOIX -->
+        <div id="etape-choix" class="section-card">
+          <h2 style="margin-bottom:6px;">💳 Paiement des frais</h2>
+          <p style="color:#666; font-size:13px; margin-bottom:20px;">Demande de documents académiques</p>
+          <div class="frais-recap">
+            <div class="frais-recap-row"><span>Type</span><strong>Documents académiques</strong></div>
+            <div class="frais-recap-row"><span>Étudiant</span><strong>Koné Mamadou</strong></div>
+            <div class="frais-recap-row"><span>Document</span><strong id="doc-label">1 document</strong></div>
+            <div class="frais-recap-row total"><span>Montant</span><strong id="montant-label" style="color:#e65100;">10 000 FCFA</strong></div>
+          </div>
+          <p style="font-size:13px; color:#555; margin-bottom:14px;">Choisissez votre mode de paiement :</p>
+          <div style="display:flex; flex-direction:column; gap:12px;">
+            <button class="btn-om" onclick="afficherOM()">
+              <img src="../../assets/images/logo-om.png" alt="Orange Money" style="width:48px; height:48px; object-fit:contain;"/>
+              <div>
+                <strong>Orange Money</strong>
+                <p>Payer via votre compte Orange Money</p>
+              </div>
+              <span>›</span>
+            </button>
+
+          </div>
+        </div>
+
+        <!-- ETAPE 2 : ORANGE MONEY -->
+        <div id="etape-ussd" class="section-card" style="display:none;">
+          <div class="om-header">
+            <img src="../../assets/images/logo-om.png" alt="Orange Money" style="width:80px; object-fit:contain; margin-bottom:8px;"/>
+            <h2 style="color:#e65100;">Orange Money</h2>
+            <p style="color:#888; font-size:13px;">Paiement sécurisé — <span id="montant-om">10 000 FCFA</span></p>
+          </div>
+
+          <div class="etape-block">
+            <div class="etape-num">1</div>
+            <div>
+              <p class="etape-label">Composez ce code sur votre téléphone Orange :</p>
+              <div class="ussd-code" onclick="copierCode()">
+                <span id="ussd-display">*144*4*6*10000#</span>
+                <span class="copier-btn" id="copierTxt">📋 Copier</span>
+              </div>
+              <p style="font-size:11px; color:#888; margin-top:6px;">Cliquez sur le code pour copier</p>
+            </div>
+          </div>
+
+          <div class="etape-block">
+            <div class="etape-num">2</div>
+            <div style="flex:1;">
+              <p class="etape-label">Entrez votre numéro Orange Money :</p>
+              <div style="display:flex; align-items:center; gap:8px;">
+                <span style="background:#f5f5f5; padding:10px 12px; border-radius:7px; border:2px solid #e0e0e0; font-weight:600; color:#333;">+226</span>
+                <input type="tel" id="numOM" placeholder="XX XX XX XX" maxlength="8" style="flex:1;"
+                  oninput="this.value=this.value.replace(/[^0-9]/g,'')"/>
+              </div>
+            </div>
+          </div>
+
+          <div class="etape-block">
+            <div class="etape-num">3</div>
+            <div style="flex:1;">
+              <p class="etape-label">Entrez le code OTP reçu par SMS :</p>
+              <input type="text" id="codeOTP" placeholder="Ex: 123456" maxlength="6"
+                style="width:100%; letter-spacing:6px; font-size:20px; font-weight:700; text-align:center;"
+                oninput="this.value=this.value.replace(/[^0-9]/g,'')"/>
+              <p style="font-size:11px; color:#888; margin-top:6px;">Code à 6 chiffres reçu sur votre téléphone</p>
+            </div>
+          </div>
+
+          <div class="om-info">
+            <p>🔒 Paiement sécurisé par Orange Money Burkina Faso</p>
+            <p>⏱️ Le code OTP expire dans 5 minutes</p>
+          </div>
+
+          <p id="om-error" style="color:#c62828; font-size:13px; margin-bottom:10px; display:none;">
+            ⚠️ Veuillez remplir tous les champs correctement.
+          </p>
+
+          <div class="form-actions">
+            <button class="btn-retour" onclick="retourChoix()">← Retour</button>
+            <button class="btn-om-payer" onclick="confirmerPaiement()">
+              Confirmer — <span id="montant-btn">10 000 FCFA</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- ETAPE 3 : CHARGEMENT -->
+        <div id="etape-loading" class="section-card" style="display:none; text-align:center; padding:40px;">
+          <div class="spinner"></div>
+          <h3 style="margin:20px 0 8px; color:#e65100;">Vérification en cours...</h3>
+          <p style="color:#666; font-size:13px;">Validation de votre paiement Orange Money</p>
+        </div>
+
+        <!-- ETAPE 4 : SUCCÈS -->
+        <div id="etape-succes" class="section-card" style="display:none; text-align:center; padding:40px;">
+          <div style="font-size:64px;">✅</div>
+          <h3 style="color:#2e7d32; margin:16px 0 8px;">Paiement confirmé !</h3>
+          <p style="color:#666; font-size:13px; margin-bottom:20px;">
+            Votre paiement de <strong id="montant-recu">10 000 FCFA</strong> a été effectué avec succès.
+          </p>
+          <div class="recu-box">
+            <p>🧾 Reçu de paiement</p>
+            <div class="frais-recap-row"><span>Référence</span><strong id="refPaiement">#OM001</strong></div>
+            <div class="frais-recap-row"><span>Date</span><strong id="date-recu"></strong></div>
+            <div class="frais-recap-row"><span>Montant</span><strong id="montant-recu2">10 000 FCFA</strong></div>
+            <div class="frais-recap-row"><span>Statut</span><strong style="color:#2e7d32;">✅ Payé</strong></div>
+          </div>
+          <a href="../dashboard/etudiant.html" class="btn-envoyer"
+            style="text-decoration:none; display:inline-block; margin-top:20px;">
+            Retour au tableau de bord
+          </a>
+        </div>
+
+        <!-- ETAPE SCOLARITE -->
+        <div id="etape-scolarite" class="section-card" style="display:none; text-align:center; padding:32px;">
+          <div style="font-size:48px;">🏫</div>
+          <h3 style="color:#1a237e; margin:16px 0 8px;">Paiement à la scolarité</h3>
+          <p style="color:#666; font-size:13px; margin-bottom:20px; line-height:1.6;">
+            Présentez-vous au bureau de la <strong>scolarité</strong> avec ce bon pour effectuer votre paiement.
+          </p>
+          <div class="recu-box">
+            <p>📋 Bon de demande</p>
+            <div class="frais-recap-row"><span>Référence</span><strong id="ref-scolarite">#ESI001</strong></div>
+            <div class="frais-recap-row"><span>Montant</span><strong id="montant-scolarite">10 000 FCFA</strong></div>
+            <div class="frais-recap-row"><span>Date limite</span><strong id="date-limite"></strong></div>
+          </div>
+          <a href="../dashboard/etudiant.html" class="btn-envoyer"
+            style="text-decoration:none; display:inline-block; margin-top:20px;">
+            Retour au tableau de bord
+          </a>
+        </div>
+
+      </div>
+    </main>
+  </div>
+
+  <script src="../../assets/js/core/api.js"></script>
+  <script src="../../assets/js/core/auth.js"></script>
+  <script>
+    // Lire montant depuis URL
+    const urlP = new URLSearchParams(window.location.search);
+    const montant = parseInt(urlP.get('montant')) || 10000;
+    const ussdCode = '*144*4*6*' + montant + '#';
+
+    // Date du jour
+    const today = new Date();
+    const dateStr = today.toLocaleDateString('fr-FR');
+    const dateLimite = new Date(today.setDate(today.getDate() + 7)).toLocaleDateString('fr-FR');
+    const montantStr = montant.toLocaleString('fr-FR') + ' FCFA';
+
+    // Mettre à jour tous les affichages au chargement
+    window.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('montant-label').textContent = montantStr;
+      document.getElementById('montant-om').textContent = montantStr;
+      document.getElementById('montant-btn').textContent = montantStr;
+      document.getElementById('montant-recu').textContent = montantStr;
+      document.getElementById('montant-recu2').textContent = montantStr;
+      document.getElementById('montant-scolarite').textContent = montantStr;
+      document.getElementById('ussd-display').textContent = ussdCode;
+      document.getElementById('date-recu').textContent = dateStr;
+      document.getElementById('date-limite').textContent = dateLimite;
+      document.getElementById('refPaiement').textContent = '#OM' + Date.now().toString().slice(-8);
+      document.getElementById('ref-scolarite').textContent = '#ESI' + Date.now().toString().slice(-8);
+    });
+
+    function afficherOM() {
+      document.getElementById('etape-choix').style.display = 'none';
+      document.getElementById('etape-ussd').style.display = 'block';
+    }
+    function afficherScolarite() {
+      document.getElementById('etape-choix').style.display = 'none';
+      document.getElementById('etape-scolarite').style.display = 'block';
+    }
+    function retourChoix() {
+      document.getElementById('etape-ussd').style.display = 'none';
+      document.getElementById('etape-choix').style.display = 'block';
+    }
+    function copierCode() {
+      navigator.clipboard.writeText(ussdCode);
+      document.getElementById('copierTxt').textContent = '✅ Copié !';
+      setTimeout(() => document.getElementById('copierTxt').textContent = '📋 Copier', 2000);
+    }
+    async function confirmerPaiement() {
+      const num = document.getElementById('numOM').value;
+      const otp = document.getElementById('codeOTP').value;
+      const err = document.getElementById('om-error');
+      if (num.length < 8 || otp.length < 6) {
+        err.style.display = 'block';
+        return;
+      }
+      err.style.display = 'none';
+      document.getElementById('etape-ussd').style.display = 'none';
+      document.getElementById('etape-loading').style.display = 'block';
+
+      try {
+        const documentDemande = urlP.get('document') || 'Document non précisé';
+        const exemplaires = urlP.get('exemplaires') || '1';
+        const description = urlP.get('description') || '';
+
+        const token = localStorage.getItem('token');
+        const response = await fetch(API_BASE + '/demandes', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + token
+          },
+          body: JSON.stringify({
+            type_demande: 'duplicata',
+            objet: 'Duplicata - ' + documentDemande,
+            description: (description + ' (' + exemplaires + ' exemplaire(s))').trim()
+          })
+        });
+
+        const data = await response.json();
+
+        if (!data.success) {
+          throw new Error(data.message || 'Erreur lors de la création de la demande');
+        }
+
+        setTimeout(() => {
+          document.getElementById('etape-loading').style.display = 'none';
+          document.getElementById('etape-succes').style.display = 'block';
+        }, 1500);
+
+      } catch (e) {
+        console.error('Erreur:', e);
+        document.getElementById('etape-loading').style.display = 'none';
+        err.textContent = '⚠️ Erreur lors de la création de la demande : ' + e.message;
+        err.style.display = 'block';
+        document.getElementById('etape-ussd').style.display = 'block';
+      }
+    }
+  </script>
+</body>
+</html>
+
+════════════════════════════════════════════════════
+FICHIER : ./app/pages/demandes/suivi.html
+════════════════════════════════════════════════════
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>EduRequest — Suivi des demandes</title>
+  <link rel="stylesheet" href="../../assets/css/main.css"/>
+  <link rel="stylesheet" href="../../assets/css/components.css"/>
+</head>
+<body class="dashboard-body">
+  <nav class="navbar">
+    <div class="navbar-brand">🎓 EduRequest</div>
+    <div class="navbar-user">
+      <span>👤 Étudiant</span>
+      <a href="../auth/login.html" class="btn-logout">Déconnexion</a>
+    </div>
+  </nav>
+  <div class="dashboard-layout">
+    <aside class="sidebar">
+      <ul>
+        <li onclick="location.href='../dashboard/etudiant.html'">🏠 Tableau de bord</li>
+        <li class="active">📋 Mes demandes</li>
+        <li onclick="location.href='nouvelle.html'">➕ Nouvelle demande</li>
+      </ul>
+    </aside>
+    <main class="main-content">
+      <div class="section-card">
+        <h2>📋 Suivi de mes demandes</h2>
+        <div style="margin:16px 0; display:flex; gap:10px; flex-wrap:wrap;">
+          <button class="btn-filter active-filter" onclick="filtrer('all',this)">Toutes</button>
+          <button class="btn-filter" onclick="filtrer('en_attente',this)">🟡 En attente</button>
+          <button class="btn-filter" onclick="filtrer('validee',this)">🟢 Validées</button>
+          <button class="btn-filter" onclick="filtrer('rejetee',this)">🔴 Rejetées</button>
+        </div>
+        <table class="demandes-table" id="suiviTable">
+          <thead>
+            <tr><th>N°</th><th>Type</th><th>Date</th><th>Statut</th><th>Étape actuelle</th><th>Action</th></tr>
+          </thead>
+          <tbody>
+            <tr data-statut="en_attente">
+              <td>001</td><td>Réclamation</td><td>10/06/2026</td>
+              <td><span class="badge yellow">🟡 En attente</span></td>
+              <td>Examen SP</td>
+              <td><a href="detail.html" class="btn-detail">Voir détail</a></td>
+            </tr>
+            <tr data-statut="validee">
+              <td>002</td><td>Attestation</td><td>08/06/2026</td>
+              <td><span class="badge green">🟢 Validée</span></td>
+              <td>Terminé</td>
+              <td><a href="detail.html" class="btn-detail">Voir détail</a></td>
+            </tr>
+            <tr data-statut="rejetee">
+              <td>003</td><td>Duplicata</td><td>05/06/2026</td>
+              <td><span class="badge red">🔴 Rejetée</span></td>
+              <td>Terminé</td>
+              <td><a href="detail.html" class="btn-detail">Voir détail</a></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </main>
+  </div>
+
+  <script src="../../assets/js/core/api.js"></script>
+  <script src="../../assets/js/core/auth.js"></script>
+  <script>
+    function filtrer(statut, btn) {
+      document.querySelectorAll('.btn-filter').forEach(b => b.classList.remove('active-filter'));
+      btn.classList.add('active-filter');
+      document.querySelectorAll('#suiviTable tbody tr').forEach(row => {
+        row.style.display = (statut === 'all' || row.dataset.statut === statut) ? '' : 'none';
+      });
+    }
+  </script>
+</body>
+</html>
+
+════════════════════════════════════════════════════
+FICHIER : ./architecture_complete.txt
+════════════════════════════════════════════════════
 
 ════════════════════════════════════════════════════
 FICHIER : ./postman/globals/workspace.globals.yaml
