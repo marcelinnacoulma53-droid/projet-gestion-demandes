@@ -184,6 +184,14 @@
   <script src="../../assets/js/core/api.js"></script>
   <script src="../../assets/js/core/auth.js"></script>
   <script>
+    window.addEventListener('DOMContentLoaded', () => {
+      if (!isAuthenticated()) {
+        window.location.href = '../auth/login.html';
+        return;
+      }
+      afficherRoleNavbar('roleLabel');
+    });
+
     async function chargerDemandesStaff() {
       const token = localStorage.getItem('token');
       if (!token) return;
@@ -210,7 +218,8 @@
             const statut = d.statut || 'soumise';
             const badgeClass = statut.includes('accept') ? 'green' : statut.includes('rejet') ? 'red' : 'yellow';
             const date = d.date_creation ? new Date(d.date_creation).toLocaleDateString('fr-FR') : 'N/A';
-            // staff.html — correction avec data-label
+            const etape = d.etape_courante || '';
+            const peutTraiter = statut !== 'rejetee' && statut !== 'terminee' && statut !== 'cloturee';
             return `<tr data-statut="${statut}" data-id="${d.id_demande}">
               <td data-label="N°">${d.reference || d.id_demande}</td>
               <td data-label="Étudiant">${d.nom_etudiant || 'Étudiant'}</td>
@@ -218,7 +227,11 @@
               <td data-label="Date">${date}</td>
               <td data-label="Statut"><span class="badge ${badgeClass}">${statut}</span></td>
               <td data-label="Actions" class="actions-cell">
-                <button class="btn-voir" onclick="window.location.href='../demandes/detail.html?id='+${d.id_demande}">👁 Voir</button>
+                <button class="btn-voir" onclick="window.location.href='../demandes/detail.html?id=${d.id_demande}'">👁 Voir</button>
+                ${peutTraiter ? `
+                  <button class="btn-valider" onclick="transmettreDemande(${d.id_demande})">→ Transmettre</button>
+                  <button class="btn-rejeter" onclick="rejeterDemande(${d.id_demande})">✗ Rejeter</button>
+                ` : ''}
               </td>
             </tr>`;
           }).join('');
@@ -228,6 +241,75 @@
       }
     }
     chargerDemandesStaff();
+
+    async function transmettreDemande(idDemande) {
+      const commentaire = prompt('Commentaire (optionnel) avant de transmettre :') || '';
+
+      try {
+        const token = localStorage.getItem('token');
+        const response = await fetch(API_BASE + '/workflow/' + idDemande + '/valider', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + token
+          },
+          body: JSON.stringify({ commentaire })
+        });
+
+        const data = await response.json();
+
+        if (!data.success) {
+          alert('Erreur : ' + (data.message || 'Impossible de transmettre la demande.'));
+          return;
+        }
+
+        if (data.data.termine) {
+          alert('Demande clôturée — fin du circuit de validation.');
+        } else {
+          alert('Demande transmise à l\'étape : ' + data.data.nextEtape);
+        }
+
+        chargerDemandesStaff();
+
+      } catch (e) {
+        console.error('Erreur transmission:', e);
+        alert('Erreur de connexion au serveur.');
+      }
+    }
+
+    async function rejeterDemande(idDemande) {
+      const motif = prompt('Motif du rejet (obligatoire) :');
+      if (!motif) {
+        alert('Le motif est obligatoire pour rejeter une demande.');
+        return;
+      }
+
+      try {
+        const token = localStorage.getItem('token');
+        const response = await fetch(API_BASE + '/workflow/' + idDemande + '/rejeter', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + token
+          },
+          body: JSON.stringify({ motif })
+        });
+
+        const data = await response.json();
+
+        if (!data.success) {
+          alert('Erreur : ' + (data.message || 'Impossible de rejeter la demande.'));
+          return;
+        }
+
+        alert('Demande rejetée.');
+        chargerDemandesStaff();
+
+      } catch (e) {
+        console.error('Erreur rejet:', e);
+        alert('Erreur de connexion au serveur.');
+      }
+    }
 
     function filterDemandes(statut) {
       const rows = document.querySelectorAll('#demandesTable tbody tr');

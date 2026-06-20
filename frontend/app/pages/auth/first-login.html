@@ -53,32 +53,9 @@
   <script src="../../assets/js/core/api.js"></script>
   <script src="../../assets/js/core/auth.js"></script>
   <script>
-    const roles_labels = {
-      secretaire: '👤 Secrétaire',
-      sp: '👤 Secrétaire Permanent (SP)',
-      da: '👤 Directeur Adjoint (DA)',
-      enseignant: '👨‍🏫 Enseignant',
-      professeur: '👨‍🏫 Professeur',
-      directrice: '👤 Directrice',
-      presidence: '👤 Présidence',
-      scolarite: '👤 Chef de Scolarité',
-      admin: '🛡️ Administrateur'
-    };
-
     window.addEventListener('DOMContentLoaded', () => {
-      // Récupérer le rôle depuis l'URL
-      const urlParams = new URLSearchParams(window.location.search);
-      const roleURL = urlParams.get('role');
-      const user = getCurrentUser();
-      const role = roleURL || user.role || 'inconnu';
-
-      // Sauvegarder le rôle dans localStorage si présent dans l'URL
-      if (roleURL) {
-        user.role = roleURL;
-        localStorage.setItem('user', JSON.stringify(user));
-      }
-
-      document.getElementById('role-display').textContent = roles_labels[role] || role;
+      const role = resolveCurrentRole() || 'inconnu';
+      document.getElementById('role-display').textContent = getRoleLabel(role);
     });
 
     async function confirmerInfos() {

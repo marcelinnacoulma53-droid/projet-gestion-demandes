@@ -58,10 +58,10 @@ const traitementRepo = {
             VALUES (
                 $1, 
                 $2, 
-                (SELECT id_decision FROM decisions WHERE libelle = $3),
+                (SELECT id_decision FROM decisions WHERE libelle ILIKE $3),
                 $4, 
-                $5, 
-                $6, 
+                (SELECT id_etape FROM etapes_workflow WHERE libelle ILIKE $5),
+                (SELECT id_etape FROM etapes_workflow WHERE libelle ILIKE $6),
                 NOW()
             )
             RETURNING *

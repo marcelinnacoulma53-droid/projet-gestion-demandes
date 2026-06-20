@@ -9,6 +9,7 @@ const userRepo = require('../../db/repositories/user.repo');
 // ✅ IMPORT DES SERVICES DE MEMBRE 3
 const permissionService = require('../../core/services/permission.service');
 const visibilityRules = require('../../core/rules/visibility.rules'); 
+const workflowRules = require('../../core/rules/workflow.rules');
 // ============================================================
 // 1. CRÉER UNE DEMANDE
 // ============================================================
@@ -50,6 +51,9 @@ const createDemande = async (req, res, next) => {
         );
         const id_statut = statutInfo.rows[0]?.id_statut;
 
+        const premiereEtape = workflowRules.getFirstStep(type_demande.toLowerCase());
+        const id_etape_courante = await demandeRepo.getEtapeId(premiereEtape);
+
         const reference = generateReference(type_demande);
         const nouvelleDemande = await demandeRepo.create({
             reference: reference,
@@ -58,7 +62,7 @@ const createDemande = async (req, res, next) => {
             objet: objet,
             description: description || '',
             id_statut: id_statut,
-            id_etape_courante: null
+            id_etape_courante: id_etape_courante
         });
 
         res.status(201).json({
@@ -220,8 +224,10 @@ const soumettreDemande = async (req, res, next) => {
             });
         }
 
+        const id_statut_soumise = await demandeRepo.getStatutId('Soumise');
+
         const demandeSoumise = await demandeRepo.update(demandeId, {
-            statut: 'soumise',
+            id_statut: id_statut_soumise,
             date_soumission: new Date()
         });
 

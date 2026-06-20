@@ -12,7 +12,7 @@ const workflowRules = {
             reclamation: {
                 'secretaire': 'da',
                 'da': 'professeur',
-                'professeur': 'da',
+                'professeur': 'da_final',
                 'da_final': 'scolarite'
             },
             derogation: {

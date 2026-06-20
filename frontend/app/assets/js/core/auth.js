@@ -65,3 +65,43 @@ function isAuthenticated() {
 function getCurrentUser() {
   return JSON.parse(localStorage.getItem('user') || '{}');
 }
+
+const ROLE_LABELS = {
+  etudiant: '👤 Étudiant',
+  secretaire: '👤 Secrétaire',
+  sp: '👤 Secrétaire Permanent (SP)',
+  da: '👤 Directeur Adjoint (DA)',
+  professeur: '👨‍🏫 Professeur',
+  enseignant: '👨‍🏫 Enseignant',
+  directrice: '👤 Directrice',
+  presidence: '👤 Présidence',
+  scolarite: '👤 Chef de Scolarité',
+  administrateur: '🛡️ Administrateur',
+  admin: '🛡️ Administrateur'
+};
+
+function getRoleLabel(role) {
+  if (!role) return '👤 Utilisateur';
+  return ROLE_LABELS[role.toLowerCase()] || ('👤 ' + role);
+}
+
+function resolveCurrentRole() {
+  const urlParams = new URLSearchParams(window.location.search);
+  const roleFromUrl = urlParams.get('role');
+  const user = getCurrentUser();
+  const role = roleFromUrl || user.role;
+
+  if (roleFromUrl && user) {
+    user.role = roleFromUrl;
+    localStorage.setItem('user', JSON.stringify(user));
+  }
+
+  return role ? role.toLowerCase() : '';
+}
+
+function afficherRoleNavbar(elementId) {
+  const el = document.getElementById(elementId);
+  if (el) {
+    el.textContent = getRoleLabel(resolveCurrentRole());
+  }
+}

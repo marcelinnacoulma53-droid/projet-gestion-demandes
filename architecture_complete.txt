@@ -1,5 +1,64 @@
 
 ════════════════════════════════════════════════════
+FICHIER : ./.github/copilot-instructions.md
+════════════════════════════════════════════════════
+# Repo-specific Copilot instructions
+
+This file gives concise, actionable guidance to coding agents working on this repository.
+
+1) Big picture
+- Backend: `backend/` — Express app started from `backend/server.js` which loads `backend/src/app.js`.
+- API base path: `/api/*` (routes registered in `backend/src/app.js`).
+- Frontend: static files under `frontend/app/` (no JS build step; pages are plain HTML+vanilla JS).
+- Database: PostgreSQL. Connection pool in `backend/src/config/database.js`. Schema in `database/schema.sql`.
+
+2) How the backend is organized (common pattern)
+- Routes: `backend/src/api/routes/*.js` (register endpoints and map to controllers).
+- Controllers: `backend/src/api/controllers/*` (HTTP layer, input validation, call services).
+- Services: `backend/src/core/services/*` (business logic, orchestrates repos and rules).
+- Repositories: `backend/src/db/repositories/*` (direct DB queries using the exported `pool`).
+- Middlewares: `backend/src/middlewares/*` (auth, role checks, validation, error handling).
+
+3) Common developer workflows / commands
+- Run backend (dev):
+  - `cd backend && npm install` (first time)
+  - `cd backend && npm run dev` (requires `nodemon`) — restarts on change
+  - `cd backend && npm start` (production / simple run)
+- Frontend: open `frontend/app/index.html` in a browser or serve the folder via a simple static server (e.g. `npx http-server frontend/app`).
+
+4) Environment & secrets
+- Uses `.env` read by `dotenv`. Important vars used in code:
+  - `PORT` — server port (defaults to 3000)
+  - `JWT_SECRET` — used by `backend/src/config/auth.js`
+  - `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME` — DB connection
+
+5) Conventions & patterns to follow (concrete)
+- When adding an API endpoint:
+  1. Add a controller in `backend/src/api/controllers/`.
+  2. Add a route file in `backend/src/api/routes/` or update an existing one.
+  3. Register the route in `backend/src/app.js` (`app.use('/api/your', yourRoutes)`).
+  4. Put DB access in a repo (`backend/src/db/repositories/`) and call it from a service (`backend/src/core/services/`).
+- Error handling: throw errors with a `statusCode` property when you want a specific HTTP status; the global handler in `backend/src/middlewares/error.middleware.js` formats responses.
+- Authentication: JWT tokens (see `backend/src/config/auth.js`) — expect `Authorization: Bearer <token>` header.
+- File uploads: `multer` is used; uploaded files placed in `uploads/`.
+
+6) Integration points & important files
+- `backend/server.js` — process entrypoint
+- `backend/src/app.js` — route registration and global middlewares
+- `backend/src/config/database.js` — Postgres pool + DB defaults
+- `database/schema.sql` — canonical DB schema to setup test/dev DB
+- `backend/src/utils/generateReference.js` and `backend/src/utils/constants.js` — project helpers used across services
+
+7) Tests & CI
+- Tests folder exists under `tests/` but currently empty. No CI config found — run local scripts above for validation.
+
+8) What to avoid / known patterns
+- Do not add DB queries directly in controllers; keep them in repository modules.
+- Logging uses simple `console` statements (no structured logger). Keep messages clear and short.
+
+If any part of this instruction is unclear or you want more detail (examples of adding a route, a service, or a DB migration), tell me which area to expand and I will iterate.
+
+════════════════════════════════════════════════════
 FICHIER : ./.gitignore
 ════════════════════════════════════════════════════
 # Logs
@@ -177,6 +236,12 @@ FICHIER : ./architecture_complete.txt
 ════════════════════════════════════════════════════
 
 ════════════════════════════════════════════════════
+FICHIER : ./backend/generer_hash.js
+════════════════════════════════════════════════════
+const bcrypt = require('bcryptjs');
+bcrypt.hash('Admin2026!', 10).then(hash => console.log(hash));
+
+════════════════════════════════════════════════════
 FICHIER : ./backend/package.json
 ════════════════════════════════════════════════════
 {
@@ -321,7 +386,8 @@ const login = async (req, res) => {
 
     try {
         // ✅ VRAI appel (plus de simulation) - Cherche l'utilisateur par email avec son rôle
-        const user = await userRepo.findByEmailWithRole(email);
+        // APRÈS
+        const user = await userRepo.findByIdentifiantWithRole(email);
 
         if (!user) {
             return res.status(401).json({ message: 'Email ou mot de passe incorrect' });
@@ -342,7 +408,7 @@ const login = async (req, res) => {
         const token = jwt.sign(
             { 
                 userId: user.id_utilisateur, 
-                role: user.role_libelle 
+                role: user.role_libelle.toLowerCase()
             },
             authConfig.jwtSecret,
             { expiresIn: authConfig.jwtExpire }
@@ -369,7 +435,7 @@ const login = async (req, res) => {
             user: {
                 id: user.id_utilisateur,
                 email: user.email,
-                role: user.role_libelle,
+                role: user.role_libelle.toLowerCase(), 
                 premiere_connexion: user.premiere_connexion
             }
         });
@@ -534,8 +600,9 @@ const changerIdentifiants = async (req, res, next) => {
         // Récupérer le rôle pour le nouveau token
         const roleResult = await userRepo.findByEmailWithRole(nouveau_email);
         
+        // APRÈS (corrigé) :
         const newToken = jwt.sign(
-            { userId: userId, role: roleResult?.role_libelle || 'staff' },
+            { userId: userId, role: (roleResult?.role_libelle || 'staff').toLowerCase() },  // ✅
             authConfig.jwtSecret,
             { expiresIn: authConfig.jwtExpire }
         );
@@ -547,7 +614,7 @@ const changerIdentifiants = async (req, res, next) => {
             user: {
                 id: userId,
                 email: nouveau_email,
-                role: roleResult?.role_libelle || 'staff'
+                role: (roleResult?.role_libelle || 'staff').toLowerCase()   // ✅
             }
         });
 
@@ -1276,7 +1343,7 @@ router.post('/changer-identifiants',
 // Route pour créer un compte staff (admin uniquement) avec validation
 router.post('/admin/staff', 
     authenticate, 
-    checkRole(['admin']),
+    checkRole(['administrateur']),   // ✅ corrigé pour matcher le vrai rôle en base
     validate(['nom', 'prenom', 'email', 'mot_de_passe', 'role']),
     validateEmail,
     authController.createStaff
@@ -3224,6 +3291,34 @@ async function findByEmailWithRole(email) {
     return result.rows[0] || null;
 }
 
+// =======================================
+// Trouver un utilisateur par EMAIL ou MATRICULE, avec son rôle
+// Utilisé pour le login (étudiants peuvent utiliser l'un ou l'autre)
+// =======================================
+async function findByIdentifiantWithRole(identifiant) {
+
+    const result = await db.query(
+        `
+        SELECT 
+            u.id_utilisateur,
+            u.email,
+            u.mot_de_passe,
+            u.actif,
+            u.id_role,
+            u.premiere_connexion,
+            r.libelle AS role_libelle
+        FROM utilisateurs u
+        LEFT JOIN roles r
+            ON u.id_role = r.id_role
+        LEFT JOIN etudiants e
+            ON e.id_utilisateur = u.id_utilisateur
+        WHERE u.email = $1 OR e.matricule = $1
+        `,
+        [identifiant]
+    );
+
+    return result.rows[0] || null;
+}
 
 // =======================================
 // Trouver un utilisateur par ID
@@ -3327,6 +3422,7 @@ async function update(id_utilisateur, updates) {
 module.exports = {
     findByEmail,
     findByEmailWithRole,
+    findByIdentifiantWithRole,   // ✅ ajouté
     findById,
     create,
     findEtudiantByUserId,
@@ -4058,6 +4154,30 @@ FICHIER : ./docs/workflow.md
 ════════════════════════════════════════════════════
 
 ════════════════════════════════════════════════════
+FICHIER : ./frontend/app/.gitignore
+════════════════════════════════════════════════════
+.vercel
+
+════════════════════════════════════════════════════
+FICHIER : ./frontend/app/.vercel/README.txt
+════════════════════════════════════════════════════
+> Why do I have a folder named ".vercel" in my project?
+The ".vercel" folder is created when you link a directory to a Vercel project.
+
+> What does the "project.json" file contain?
+The "project.json" file contains:
+- The ID of the Vercel project that you linked ("projectId")
+- The ID of the user or team your Vercel project is owned by ("orgId")
+
+> Should I commit the ".vercel" folder?
+No, you should not share the ".vercel" folder with anyone.
+Upon creation, it will be automatically added to your ".gitignore" file.
+
+════════════════════════════════════════════════════
+FICHIER : ./frontend/app/.vercel/project.json
+════════════════════════════════════════════════════
+{"projectId":"prj_ga3JmUk8NWuPDfNMnGthjvnez1ap","orgId":"team_OVKu3qBw5A4W3aSdH2Se7lbY","projectName":"projet-gestion-demandes"}
+════════════════════════════════════════════════════
 FICHIER : ./frontend/app/assets/css/components.css
 ════════════════════════════════════════════════════
 .dashboard-body { background: #f0f2f5; margin: 0; font-family: 'Segoe UI', sans-serif; }
@@ -4774,6 +4894,177 @@ body.dashboard-body {
 /* ===== MAIN CONTENT ===== */
 .main-content { padding: 28px !important; background: #f4f6fb !important; }
 
+/* ============================================================
+   RESPONSIVE — MOBILE & TABLETTE
+   ============================================================ */
+
+@media (max-width: 768px) {
+
+  /* Layout général : sidebar passe au-dessus, en pleine largeur */
+  .dashboard-layout {
+    flex-direction: column;
+  }
+
+  .sidebar {
+    width: 100% !important;
+    box-shadow: none !important;
+    border-right: none !important;
+    border-bottom: 1px solid #e8eaf6 !important;
+    padding: 8px 0 !important;
+  }
+
+  .sidebar ul {
+    display: flex !important;
+    overflow-x: auto !important;
+    padding: 8px !important;
+    gap: 4px !important;
+  }
+
+  .sidebar li {
+    white-space: nowrap !important;
+    flex-shrink: 0 !important;
+    margin-bottom: 0 !important;
+  }
+
+  .sidebar li.active {
+    transform: none !important;
+  }
+
+  .main-content {
+    padding: 16px !important;
+  }
+
+  /* Stats : 2 colonnes au lieu de 4 */
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+
+  .stat-card {
+    padding: 14px;
+  }
+
+  .stat-number {
+    font-size: 26px !important;
+  }
+
+  /* Boutons "nouvelle demande" : 1 colonne */
+  .btn-grid {
+    grid-template-columns: 1fr;
+  }
+
+  /* Navbar : compacte */
+  .navbar {
+    padding: 0 16px !important;
+    height: auto !important;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding-top: 10px !important;
+    padding-bottom: 10px !important;
+  }
+
+  .navbar-brand {
+    font-size: 18px !important;
+  }
+
+  .navbar-user span {
+    font-size: 12px !important;
+    padding: 4px 10px !important;
+  }
+
+  /* Tableau des demandes : transformé en cartes empilées */
+  .demandes-table thead {
+    display: none;
+  }
+
+  .demandes-table, 
+  .demandes-table tbody, 
+  .demandes-table tr, 
+  .demandes-table td {
+    display: block;
+    width: 100%;
+  }
+
+  .demandes-table tr {
+    margin-bottom: 12px;
+    border: 1px solid #f0f0f0;
+    border-radius: 10px;
+    padding: 10px;
+    background: white;
+  }
+
+  .demandes-table td {
+    border-bottom: none;
+    padding: 6px 4px;
+    display: flex;
+    justify-content: space-between;
+    font-size: 13px;
+  }
+
+  .demandes-table td::before {
+    content: attr(data-label);
+    font-weight: 600;
+    color: #888;
+    margin-right: 12px;
+  }
+
+  /* Formulaires et fiches */
+  .fiche-row {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .checkbox-group.flex-wrap {
+    gap: 8px;
+  }
+
+  .form-actions {
+    flex-direction: column;
+  }
+
+  .form-actions button {
+    width: 100%;
+  }
+
+  /* Modal : marge latérale réduite */
+  .modal-box {
+    margin: 0 16px;
+    max-width: calc(100% - 32px);
+  }
+
+  /* Paiement : boutons OM/Scolarité empilés proprement */
+  .btn-om, .btn-scolarite {
+    padding: 12px;
+  }
+
+  .ussd-code {
+    font-size: 16px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+}
+
+@media (max-width: 480px) {
+
+  .login-card {
+    padding: 24px 20px;
+  }
+
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .fiche-header {
+    flex-direction: column;
+    gap: 8px;
+    text-align: center;
+  }
+
+  .fiche-header-left, .fiche-header-right {
+    text-align: center;
+  }
+}
+
 ════════════════════════════════════════════════════
 FICHIER : ./frontend/app/assets/css/main.css
 ════════════════════════════════════════════════════
@@ -4899,11 +5190,12 @@ const api = {
 };
 
 // AUTH
-const authAPI = {
+  const authAPI = {
   login: (data) => api.post('/auth/login', data),
   register: (data) => api.post('/auth/register', data),
   logout: () => api.post('/auth/logout', {}),
-  getMe: () => api.get('/auth/me')
+  getMe: () => api.get('/auth/me'),
+  changerIdentifiants: (data) => api.post('/auth/changer-identifiants', data)   // ✅ ajouté
 };
 
 // DEMANDES
@@ -5215,7 +5507,7 @@ FICHIER : ./frontend/app/pages/auth/first-login.html
       document.getElementById('role-display').textContent = roles_labels[role] || role;
     });
 
-    function confirmerInfos() {
+    async function confirmerInfos() {
       const nom = document.getElementById('nom').value;
       const newEmail = document.getElementById('newEmail').value;
       const newPassword = document.getElementById('newPassword').value;
@@ -5235,13 +5527,26 @@ FICHIER : ./frontend/app/pages/auth/first-login.html
         return;
       }
 
-      const user = getCurrentUser();
-      user.nom = nom;
-      user.email = newEmail;
-      user.firstLogin = false;
-      localStorage.setItem('user', JSON.stringify(user));
+      try {
+        // ✅ Appel réel au serveur — change le mot de passe EN BASE
+        const data = await authAPI.changerIdentifiants({
+          nouveau_email: newEmail,
+          nouveau_mot_de_passe: newPassword,
+          confirmation_mot_de_passe: confirmPassword
+        });
 
-      redirectByRole(user.role);
+        if (data.success) {
+          // ✅ Le serveur renvoie un NOUVEAU token — il faut le stocker
+          localStorage.setItem('token', data.token);
+          localStorage.setItem('user', JSON.stringify(data.user));
+
+          redirectByRole(data.user.role);
+        } else {
+          errorMsg.textContent = data.message || 'Erreur lors de la mise à jour.';
+        }
+      } catch (e) {
+        errorMsg.textContent = 'Erreur de connexion au serveur.';
+      }
     }
   </script>
 </body>
@@ -5524,7 +5829,7 @@ FICHIER : ./frontend/app/pages/dashboard/admin.html
       }
 
       try {
-        const response = await fetch('http://localhost:3000/api/demandes/mes-demandes', {
+        const response = await fetch(API_BASE + '/demandes/mes-demandes', {
           headers: { 'Authorization': 'Bearer ' + token }
         });
         const data = await response.json();
@@ -5548,14 +5853,15 @@ FICHIER : ./frontend/app/pages/dashboard/admin.html
             const statut = d.statut || 'soumise';
             const badgeClass = statut.includes('accept') ? 'green' : statut.includes('rejet') ? 'red' : 'yellow';
             const date = d.date_creation ? new Date(d.date_creation).toLocaleDateString('fr-FR') : 'N/A';
+            // staff.html — correction avec data-label
             return `<tr data-statut="${statut}" data-id="${d.id_demande}">
-              <td>${d.reference || d.id_demande}</td>
-              <td>${d.nom_etudiant || 'Étudiant'}</td>
-              <td>${d.objet || 'N/A'}</td>
-              <td>${date}</td>
-              <td><span class="badge ${badgeClass}">${statut}</span></td>
-              <td class="actions-cell">
-                <button class="btn-voir" onclick="voirDetail(${d.id_demande})">👁 Voir</button>
+              <td data-label="N°">${d.reference || d.id_demande}</td>
+              <td data-label="Étudiant">${d.nom_etudiant || 'Étudiant'}</td>
+              <td data-label="Type">${d.objet || 'N/A'}</td>
+              <td data-label="Date">${date}</td>
+              <td data-label="Statut"><span class="badge ${badgeClass}">${statut}</span></td>
+              <td data-label="Actions" class="actions-cell">
+                <button class="btn-voir" onclick="window.location.href='../demandes/detail.html?id='+${d.id_demande}">👁 Voir</button>
               </td>
             </tr>`;
           }).join('');
@@ -5992,12 +6298,13 @@ FICHIER : ./frontend/app/pages/dashboard/etudiant.html
               const badgeClass = statut.toLowerCase().includes('accept') ? 'green' : statut.toLowerCase().includes('rejet') ? 'red' : 'yellow';
               const date = d.date_creation ? new Date(d.date_creation).toLocaleDateString('fr-FR') : 'N/A';
               const type = d.type_demande || d.objet || 'Demande';
+              // APRÈS — avec data-label pour le mode mobile
               return `<tr>
-                <td>${i+1}</td>
-                <td>${type}</td>
-                <td>${date}</td>
-                <td><span class="badge ${badgeClass}">${statut}</span></td>
-                <td><a href="../demandes/detail.html?id=${d.id_demande}" class="btn-detail">Voir</a></td>
+                  <td data-label="N°">${i+1}</td>
+                  <td data-label="Type">${type}</td>
+                  <td data-label="Date">${date}</td>
+                  <td data-label="Statut"><span class="badge ${badgeClass}">${statut}</span></td>
+                  <td data-label="Action"><a href="../demandes/detail.html?id=${d.id_demande}" class="btn-detail">Voir</a></td>
               </tr>`;
             }).join('');
           }
@@ -6435,14 +6742,15 @@ FICHIER : ./frontend/app/pages/dashboard/staff.html
             const statut = d.statut || 'soumise';
             const badgeClass = statut.includes('accept') ? 'green' : statut.includes('rejet') ? 'red' : 'yellow';
             const date = d.date_creation ? new Date(d.date_creation).toLocaleDateString('fr-FR') : 'N/A';
+            // staff.html — correction avec data-label
             return `<tr data-statut="${statut}" data-id="${d.id_demande}">
-              <td>${d.reference || d.id_demande}</td>
-              <td>${d.nom_etudiant || 'Étudiant'}</td>
-              <td>${d.objet || 'N/A'}</td>
-              <td>${date}</td>
-              <td><span class="badge ${badgeClass}">${statut}</span></td>
-              <td class="actions-cell">
-                <button class="btn-voir" onclick="window.location.href=\'../demandes/detail.html?id=\'+${d.id_demande}">👁 Voir</button>
+              <td data-label="N°">${d.reference || d.id_demande}</td>
+              <td data-label="Étudiant">${d.nom_etudiant || 'Étudiant'}</td>
+              <td data-label="Type">${d.objet || 'N/A'}</td>
+              <td data-label="Date">${date}</td>
+              <td data-label="Statut"><span class="badge ${badgeClass}">${statut}</span></td>
+              <td data-label="Actions" class="actions-cell">
+                <button class="btn-voir" onclick="window.location.href='../demandes/detail.html?id='+${d.id_demande}">👁 Voir</button>
               </td>
             </tr>`;
           }).join('');
@@ -7109,15 +7417,15 @@ FICHIER : ./frontend/app/pages/demandes/nouvelle.html
           <div class="fiche-section">
             <label class="section-label">Document demandé</label>
             <div class="checkbox-group">
-              <label><input type="radio" name="doc-duplicata"/> Relevés de notes</label>
-              <label><input type="radio" name="doc-duplicata"/> Certificat de scolarité</label>
-              <label><input type="radio" name="doc-duplicata"/> Attestation provisoire</label>
-              <label><input type="radio" name="doc-duplicata"/> Attestation de niveau</label>
-              <label><input type="radio" name="doc-duplicata"/> Correction (préciser la correction)</label>
-              <label><input type="radio" name="doc-duplicata"/> Autres (à préciser)</label>
+              <label><input type="radio" name="doc-duplicata" value="Relevés de notes"/> Relevés de notes</label>
+              <label><input type="radio" name="doc-duplicata" value="Certificat de scolarité"/> Certificat de scolarité</label>
+              <label><input type="radio" name="doc-duplicata" value="Attestation provisoire"/> Attestation provisoire</label>
+              <label><input type="radio" name="doc-duplicata" value="Attestation de niveau"/> Attestation de niveau</label>
+              <label><input type="radio" name="doc-duplicata" value="Correction"/> Correction (préciser la correction)</label>
+              <label><input type="radio" name="doc-duplicata" value="Autres"/> Autres (à préciser)</label>
             </div>
             <div class="form-group" style="margin-top:10px;">
-              <input type="text" placeholder="Précisez si autre document..."/>
+              <input type="text" id="docDupPrecision" placeholder="Précisez si autre document..."/>
             </div>
           </div>
 
@@ -7128,7 +7436,7 @@ FICHIER : ./frontend/app/pages/demandes/nouvelle.html
           <div class="fiche-section">
             <div class="form-group">
               <label class="section-label">Description de la demande <em>(Si nécessaire)</em></label>
-              <textarea placeholder="Décrivez votre demande..."></textarea>
+              <textarea id="docDupDescription" placeholder="Décrivez votre demande..."></textarea>
             </div>
           </div>
 
@@ -7137,6 +7445,8 @@ FICHIER : ./frontend/app/pages/demandes/nouvelle.html
             <button class="btn-envoyer" onclick="envoyer()">Envoyer la demande</button>
           </div>
         </div>
+
+        <!-- FORMULAIRE ATTESTATION -->
 
         <!-- FORMULAIRE ATTESTATION -->
         <div id="form-attestation" class="formulaire" style="display:none;">
@@ -7188,7 +7498,24 @@ FICHIER : ./frontend/app/pages/demandes/nouvelle.html
     function payerDuplicata() {
       const checked = document.querySelector('input[name="doc-duplicata"]:checked');
       if (!checked) { alert('Veuillez sélectionner un document.'); return; }
-      window.location.href = 'paiement.html?montant=10000&docs=1';
+
+      let documentDemande = checked.value;
+      if (documentDemande === 'Correction' || documentDemande === 'Autres') {
+        const precision = document.getElementById('docDupPrecision')?.value || '';
+        documentDemande = documentDemande + (precision ? ' - ' + precision : '');
+      }
+
+      const exemplaires = document.querySelector('input[name="exemplaires"]:checked')?.value || '1';
+      const description = document.getElementById('docDupDescription')?.value || '';
+
+      const params = new URLSearchParams({
+        montant: 10000,
+        document: documentDemande,
+        exemplaires: exemplaires,
+        description: description
+      });
+
+      window.location.href = 'paiement.html?' + params.toString();
     }
 
     function afficherFormulaire(type) {
@@ -7210,7 +7537,7 @@ FICHIER : ./frontend/app/pages/demandes/nouvelle.html
       const typeActif = document.querySelector('.formulaire[style*="block"]')?.id;
       
       if (typeActif === 'form-duplicata') {
-        window.location.href = 'paiement.html';
+        payerDuplicata();
         return;
       }
 
@@ -7480,7 +7807,7 @@ FICHIER : ./frontend/app/pages/demandes/paiement.html
       document.getElementById('copierTxt').textContent = '✅ Copié !';
       setTimeout(() => document.getElementById('copierTxt').textContent = '📋 Copier', 2000);
     }
-    function confirmerPaiement() {
+    async function confirmerPaiement() {
       const num = document.getElementById('numOM').value;
       const otp = document.getElementById('codeOTP').value;
       const err = document.getElementById('om-error');
@@ -7491,10 +7818,44 @@ FICHIER : ./frontend/app/pages/demandes/paiement.html
       err.style.display = 'none';
       document.getElementById('etape-ussd').style.display = 'none';
       document.getElementById('etape-loading').style.display = 'block';
-      setTimeout(() => {
+
+      try {
+        const documentDemande = urlP.get('document') || 'Document non précisé';
+        const exemplaires = urlP.get('exemplaires') || '1';
+        const description = urlP.get('description') || '';
+
+        const token = localStorage.getItem('token');
+        const response = await fetch(API_BASE + '/demandes', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + token
+          },
+          body: JSON.stringify({
+            type_demande: 'duplicata',
+            objet: 'Duplicata - ' + documentDemande,
+            description: (description + ' (' + exemplaires + ' exemplaire(s))').trim()
+          })
+        });
+
+        const data = await response.json();
+
+        if (!data.success) {
+          throw new Error(data.message || 'Erreur lors de la création de la demande');
+        }
+
+        setTimeout(() => {
+          document.getElementById('etape-loading').style.display = 'none';
+          document.getElementById('etape-succes').style.display = 'block';
+        }, 1500);
+
+      } catch (e) {
+        console.error('Erreur:', e);
         document.getElementById('etape-loading').style.display = 'none';
-        document.getElementById('etape-succes').style.display = 'block';
-      }, 3000);
+        err.textContent = '⚠️ Erreur lors de la création de la demande : ' + e.message;
+        err.style.display = 'block';
+        document.getElementById('etape-ussd').style.display = 'block';
+      }
     }
   </script>
 </body>
@@ -7593,3 +7954,21 @@ FICHIER : ./tests/integration/.gitkeep
 ════════════════════════════════════════════════════
 FICHIER : ./tests/unit/.gitkeep
 ════════════════════════════════════════════════════
+
+════════════════════════════════════════════════════
+FICHIER : ./vercel.json
+════════════════════════════════════════════════════
+{
+  "builds": [
+    {
+      "src": "frontend/app/**",
+      "use": "@vercel/static"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "/frontend/app/$1"
+    }
+  ]
+}

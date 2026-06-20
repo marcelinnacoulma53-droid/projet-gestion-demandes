@@ -32,12 +32,12 @@ const visibilityRules = {
             
             // SP : seulement dérogations et duplicatas
             if (role === 'sp') {
-                return await demandeRepo.findByType(['derogation', 'duplicata']);
+                return await demandeRepo.findByTypeLibelles(['Derogation', 'Duplicata']);
             }
             
             // DA : réclamations, duplicatas, attestations
             if (role === 'da') {
-                return await demandeRepo.findByType(['reclamation', 'duplicata', 'attestation']);
+                return await demandeRepo.findByTypeLibelles(['Reclamation', 'Duplicata', 'Attestation']);
             }
             
             // Secrétaire, directrice, présidence, scolarité : voir tout
