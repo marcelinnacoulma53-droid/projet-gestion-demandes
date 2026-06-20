@@ -318,15 +318,15 @@
           <div class="fiche-section">
             <label class="section-label">Document demandé</label>
             <div class="checkbox-group">
-              <label><input type="radio" name="doc-duplicata"/> Relevés de notes</label>
-              <label><input type="radio" name="doc-duplicata"/> Certificat de scolarité</label>
-              <label><input type="radio" name="doc-duplicata"/> Attestation provisoire</label>
-              <label><input type="radio" name="doc-duplicata"/> Attestation de niveau</label>
-              <label><input type="radio" name="doc-duplicata"/> Correction (préciser la correction)</label>
-              <label><input type="radio" name="doc-duplicata"/> Autres (à préciser)</label>
+              <label><input type="radio" name="doc-duplicata" value="Relevés de notes"/> Relevés de notes</label>
+              <label><input type="radio" name="doc-duplicata" value="Certificat de scolarité"/> Certificat de scolarité</label>
+              <label><input type="radio" name="doc-duplicata" value="Attestation provisoire"/> Attestation provisoire</label>
+              <label><input type="radio" name="doc-duplicata" value="Attestation de niveau"/> Attestation de niveau</label>
+              <label><input type="radio" name="doc-duplicata" value="Correction"/> Correction (préciser la correction)</label>
+              <label><input type="radio" name="doc-duplicata" value="Autres"/> Autres (à préciser)</label>
             </div>
             <div class="form-group" style="margin-top:10px;">
-              <input type="text" placeholder="Précisez si autre document..."/>
+              <input type="text" id="docDupPrecision" placeholder="Précisez si autre document..."/>
             </div>
           </div>
 
@@ -337,7 +337,7 @@
           <div class="fiche-section">
             <div class="form-group">
               <label class="section-label">Description de la demande <em>(Si nécessaire)</em></label>
-              <textarea placeholder="Décrivez votre demande..."></textarea>
+              <textarea id="docDupDescription" placeholder="Décrivez votre demande..."></textarea>
             </div>
           </div>
 
@@ -346,6 +346,8 @@
             <button class="btn-envoyer" onclick="envoyer()">Envoyer la demande</button>
           </div>
         </div>
+
+        <!-- FORMULAIRE ATTESTATION -->
 
         <!-- FORMULAIRE ATTESTATION -->
         <div id="form-attestation" class="formulaire" style="display:none;">
@@ -397,7 +399,24 @@
     function payerDuplicata() {
       const checked = document.querySelector('input[name="doc-duplicata"]:checked');
       if (!checked) { alert('Veuillez sélectionner un document.'); return; }
-      window.location.href = 'paiement.html?montant=10000&docs=1';
+
+      let documentDemande = checked.value;
+      if (documentDemande === 'Correction' || documentDemande === 'Autres') {
+        const precision = document.getElementById('docDupPrecision')?.value || '';
+        documentDemande = documentDemande + (precision ? ' - ' + precision : '');
+      }
+
+      const exemplaires = document.querySelector('input[name="exemplaires"]:checked')?.value || '1';
+      const description = document.getElementById('docDupDescription')?.value || '';
+
+      const params = new URLSearchParams({
+        montant: 10000,
+        document: documentDemande,
+        exemplaires: exemplaires,
+        description: description
+      });
+
+      window.location.href = 'paiement.html?' + params.toString();
     }
 
     function afficherFormulaire(type) {
@@ -419,7 +438,7 @@
       const typeActif = document.querySelector('.formulaire[style*="block"]')?.id;
       
       if (typeActif === 'form-duplicata') {
-        window.location.href = 'paiement.html';
+        payerDuplicata();
         return;
       }
 

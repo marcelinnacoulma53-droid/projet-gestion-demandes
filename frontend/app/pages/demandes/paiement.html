@@ -208,7 +208,7 @@
       document.getElementById('copierTxt').textContent = '✅ Copié !';
       setTimeout(() => document.getElementById('copierTxt').textContent = '📋 Copier', 2000);
     }
-    function confirmerPaiement() {
+    async function confirmerPaiement() {
       const num = document.getElementById('numOM').value;
       const otp = document.getElementById('codeOTP').value;
       const err = document.getElementById('om-error');
@@ -219,10 +219,44 @@
       err.style.display = 'none';
       document.getElementById('etape-ussd').style.display = 'none';
       document.getElementById('etape-loading').style.display = 'block';
-      setTimeout(() => {
+
+      try {
+        const documentDemande = urlP.get('document') || 'Document non précisé';
+        const exemplaires = urlP.get('exemplaires') || '1';
+        const description = urlP.get('description') || '';
+
+        const token = localStorage.getItem('token');
+        const response = await fetch(API_BASE + '/demandes', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + token
+          },
+          body: JSON.stringify({
+            type_demande: 'duplicata',
+            objet: 'Duplicata - ' + documentDemande,
+            description: (description + ' (' + exemplaires + ' exemplaire(s))').trim()
+          })
+        });
+
+        const data = await response.json();
+
+        if (!data.success) {
+          throw new Error(data.message || 'Erreur lors de la création de la demande');
+        }
+
+        setTimeout(() => {
+          document.getElementById('etape-loading').style.display = 'none';
+          document.getElementById('etape-succes').style.display = 'block';
+        }, 1500);
+
+      } catch (e) {
+        console.error('Erreur:', e);
         document.getElementById('etape-loading').style.display = 'none';
-        document.getElementById('etape-succes').style.display = 'block';
-      }, 3000);
+        err.textContent = '⚠️ Erreur lors de la création de la demande : ' + e.message;
+        err.style.display = 'block';
+        document.getElementById('etape-ussd').style.display = 'block';
+      }
     }
   </script>
 </body>
