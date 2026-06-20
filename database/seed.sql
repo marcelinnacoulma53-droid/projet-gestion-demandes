@@ -106,7 +106,7 @@ FROM roles WHERE libelle = 'Secretaire'
 ON CONFLICT (email) DO NOTHING;
 
 -- Personnel associé à la secrétaire
-INSERT INTO personnel (id_utilisateur, fonction, service)
+INSERT INTO personnel_administratif (id_utilisateur, fonction, service)
 SELECT id_utilisateur, 'Secrétaire', 'Scolarité'
 FROM utilisateurs WHERE email = 'secretaire@esi.bf'
 ON CONFLICT DO NOTHING;

@@ -62,13 +62,14 @@ async function findByEtudiant(id_etudiant) {
     const result = await db.query(
         `
         SELECT
-            id_demande,
-            reference,
-            objet,
-            s.libelle AS statut
-        FROM demandes d
-        LEFT JOIN statuts s
-            ON d.id_statut = s.id_statut
+            d.id_demande,
+            d.reference,
+            d.objet,
+            d.description,
+            d.date_creation,
+            LOWER(s.libelle) AS statut,
+            LOWER(td.libelle) AS type_demande,
+            LOWER(ew.libelle) AS etape_courante
         WHERE d.id_etudiant = $1
         ORDER BY d.date_creation DESC
         `,
