@@ -210,14 +210,15 @@
             const statut = d.statut || 'soumise';
             const badgeClass = statut.includes('accept') ? 'green' : statut.includes('rejet') ? 'red' : 'yellow';
             const date = d.date_creation ? new Date(d.date_creation).toLocaleDateString('fr-FR') : 'N/A';
+            // staff.html — correction avec data-label
             return `<tr data-statut="${statut}" data-id="${d.id_demande}">
-              <td>${d.reference || d.id_demande}</td>
-              <td>${d.nom_etudiant || 'Étudiant'}</td>
-              <td>${d.objet || 'N/A'}</td>
-              <td>${date}</td>
-              <td><span class="badge ${badgeClass}">${statut}</span></td>
-              <td class="actions-cell">
-                <button class="btn-voir" onclick="window.location.href=\'../demandes/detail.html?id=\'+${d.id_demande}">👁 Voir</button>
+              <td data-label="N°">${d.reference || d.id_demande}</td>
+              <td data-label="Étudiant">${d.nom_etudiant || 'Étudiant'}</td>
+              <td data-label="Type">${d.objet || 'N/A'}</td>
+              <td data-label="Date">${date}</td>
+              <td data-label="Statut"><span class="badge ${badgeClass}">${statut}</span></td>
+              <td data-label="Actions" class="actions-cell">
+                <button class="btn-voir" onclick="window.location.href='../demandes/detail.html?id='+${d.id_demande}">👁 Voir</button>
               </td>
             </tr>`;
           }).join('');
