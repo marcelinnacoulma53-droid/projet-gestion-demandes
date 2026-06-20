@@ -81,7 +81,7 @@
       document.getElementById('role-display').textContent = roles_labels[role] || role;
     });
 
-    function confirmerInfos() {
+    async function confirmerInfos() {
       const nom = document.getElementById('nom').value;
       const newEmail = document.getElementById('newEmail').value;
       const newPassword = document.getElementById('newPassword').value;
@@ -101,13 +101,26 @@
         return;
       }
 
-      const user = getCurrentUser();
-      user.nom = nom;
-      user.email = newEmail;
-      user.firstLogin = false;
-      localStorage.setItem('user', JSON.stringify(user));
+      try {
+        // ✅ Appel réel au serveur — change le mot de passe EN BASE
+        const data = await authAPI.changerIdentifiants({
+          nouveau_email: newEmail,
+          nouveau_mot_de_passe: newPassword,
+          confirmation_mot_de_passe: confirmPassword
+        });
 
-      redirectByRole(user.role);
+        if (data.success) {
+          // ✅ Le serveur renvoie un NOUVEAU token — il faut le stocker
+          localStorage.setItem('token', data.token);
+          localStorage.setItem('user', JSON.stringify(data.user));
+
+          redirectByRole(data.user.role);
+        } else {
+          errorMsg.textContent = data.message || 'Erreur lors de la mise à jour.';
+        }
+      } catch (e) {
+        errorMsg.textContent = 'Erreur de connexion au serveur.';
+      }
     }
   </script>
 </body>

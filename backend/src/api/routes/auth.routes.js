@@ -60,7 +60,7 @@ router.post('/changer-identifiants',
 // Route pour créer un compte staff (admin uniquement) avec validation
 router.post('/admin/staff', 
     authenticate, 
-    checkRole(['admin']),
+    checkRole(['administrateur']),   // ✅ corrigé pour matcher le vrai rôle en base
     validate(['nom', 'prenom', 'email', 'mot_de_passe', 'role']),
     validateEmail,
     authController.createStaff

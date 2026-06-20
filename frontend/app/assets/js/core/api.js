@@ -24,11 +24,12 @@ const api = {
 };
 
 // AUTH
-const authAPI = {
+  const authAPI = {
   login: (data) => api.post('/auth/login', data),
   register: (data) => api.post('/auth/register', data),
   logout: () => api.post('/auth/logout', {}),
-  getMe: () => api.get('/auth/me')
+  getMe: () => api.get('/auth/me'),
+  changerIdentifiants: (data) => api.post('/auth/changer-identifiants', data)   // ✅ ajouté
 };
 
 // DEMANDES
