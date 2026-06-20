@@ -70,6 +70,10 @@ async function findByEtudiant(id_etudiant) {
             LOWER(s.libelle) AS statut,
             LOWER(td.libelle) AS type_demande,
             LOWER(ew.libelle) AS etape_courante
+        FROM demandes d
+        LEFT JOIN statuts s ON d.id_statut = s.id_statut
+        LEFT JOIN types_demande td ON d.id_type_demande = td.id_type_demande
+        LEFT JOIN etapes_workflow ew ON d.id_etape_courante = ew.id_etape
         WHERE d.id_etudiant = $1
         ORDER BY d.date_creation DESC
         `,
