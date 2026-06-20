@@ -711,3 +711,174 @@ body.dashboard-body {
 
 /* ===== MAIN CONTENT ===== */
 .main-content { padding: 28px !important; background: #f4f6fb !important; }
+
+/* ============================================================
+   RESPONSIVE — MOBILE & TABLETTE
+   ============================================================ */
+
+@media (max-width: 768px) {
+
+  /* Layout général : sidebar passe au-dessus, en pleine largeur */
+  .dashboard-layout {
+    flex-direction: column;
+  }
+
+  .sidebar {
+    width: 100% !important;
+    box-shadow: none !important;
+    border-right: none !important;
+    border-bottom: 1px solid #e8eaf6 !important;
+    padding: 8px 0 !important;
+  }
+
+  .sidebar ul {
+    display: flex !important;
+    overflow-x: auto !important;
+    padding: 8px !important;
+    gap: 4px !important;
+  }
+
+  .sidebar li {
+    white-space: nowrap !important;
+    flex-shrink: 0 !important;
+    margin-bottom: 0 !important;
+  }
+
+  .sidebar li.active {
+    transform: none !important;
+  }
+
+  .main-content {
+    padding: 16px !important;
+  }
+
+  /* Stats : 2 colonnes au lieu de 4 */
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+
+  .stat-card {
+    padding: 14px;
+  }
+
+  .stat-number {
+    font-size: 26px !important;
+  }
+
+  /* Boutons "nouvelle demande" : 1 colonne */
+  .btn-grid {
+    grid-template-columns: 1fr;
+  }
+
+  /* Navbar : compacte */
+  .navbar {
+    padding: 0 16px !important;
+    height: auto !important;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding-top: 10px !important;
+    padding-bottom: 10px !important;
+  }
+
+  .navbar-brand {
+    font-size: 18px !important;
+  }
+
+  .navbar-user span {
+    font-size: 12px !important;
+    padding: 4px 10px !important;
+  }
+
+  /* Tableau des demandes : transformé en cartes empilées */
+  .demandes-table thead {
+    display: none;
+  }
+
+  .demandes-table, 
+  .demandes-table tbody, 
+  .demandes-table tr, 
+  .demandes-table td {
+    display: block;
+    width: 100%;
+  }
+
+  .demandes-table tr {
+    margin-bottom: 12px;
+    border: 1px solid #f0f0f0;
+    border-radius: 10px;
+    padding: 10px;
+    background: white;
+  }
+
+  .demandes-table td {
+    border-bottom: none;
+    padding: 6px 4px;
+    display: flex;
+    justify-content: space-between;
+    font-size: 13px;
+  }
+
+  .demandes-table td::before {
+    content: attr(data-label);
+    font-weight: 600;
+    color: #888;
+    margin-right: 12px;
+  }
+
+  /* Formulaires et fiches */
+  .fiche-row {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .checkbox-group.flex-wrap {
+    gap: 8px;
+  }
+
+  .form-actions {
+    flex-direction: column;
+  }
+
+  .form-actions button {
+    width: 100%;
+  }
+
+  /* Modal : marge latérale réduite */
+  .modal-box {
+    margin: 0 16px;
+    max-width: calc(100% - 32px);
+  }
+
+  /* Paiement : boutons OM/Scolarité empilés proprement */
+  .btn-om, .btn-scolarite {
+    padding: 12px;
+  }
+
+  .ussd-code {
+    font-size: 16px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+}
+
+@media (max-width: 480px) {
+
+  .login-card {
+    padding: 24px 20px;
+  }
+
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .fiche-header {
+    flex-direction: column;
+    gap: 8px;
+    text-align: center;
+  }
+
+  .fiche-header-left, .fiche-header-right {
+    text-align: center;
+  }
+}

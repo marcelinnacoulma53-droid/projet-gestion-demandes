@@ -153,12 +153,13 @@
               const badgeClass = statut.toLowerCase().includes('accept') ? 'green' : statut.toLowerCase().includes('rejet') ? 'red' : 'yellow';
               const date = d.date_creation ? new Date(d.date_creation).toLocaleDateString('fr-FR') : 'N/A';
               const type = d.type_demande || d.objet || 'Demande';
+              // APRÈS — avec data-label pour le mode mobile
               return `<tr>
-                <td>${i+1}</td>
-                <td>${type}</td>
-                <td>${date}</td>
-                <td><span class="badge ${badgeClass}">${statut}</span></td>
-                <td><a href="../demandes/detail.html?id=${d.id_demande}" class="btn-detail">Voir</a></td>
+                  <td data-label="N°">${i+1}</td>
+                  <td data-label="Type">${type}</td>
+                  <td data-label="Date">${date}</td>
+                  <td data-label="Statut"><span class="badge ${badgeClass}">${statut}</span></td>
+                  <td data-label="Action"><a href="../demandes/detail.html?id=${d.id_demande}" class="btn-detail">Voir</a></td>
               </tr>`;
             }).join('');
           }
