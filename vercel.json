@@ -7,6 +7,10 @@
   ],
   "routes": [
     {
+      "src": "/",
+      "dest": "/frontend/app/index.html"
+    },
+    {
       "src": "/(.*)",
       "dest": "/frontend/app/$1"
     }

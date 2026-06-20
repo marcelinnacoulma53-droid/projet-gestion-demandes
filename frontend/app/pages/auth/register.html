@@ -82,13 +82,7 @@
       }
 
       try {
-        const response = await fetch('https://projet-gestion-demandes-backend.onrender.com/api/auth/register', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ nom, prenom, matricule, email, mot_de_passe })
-        });
-
-        const data = await response.json();
+        const data = await authAPI.register({ nom, prenom, matricule, email, mot_de_passe });
 
         if (data.success) {
           localStorage.setItem('token', data.token);

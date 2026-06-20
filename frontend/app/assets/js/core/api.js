@@ -1,63 +1,73 @@
-// Choisir le backend :
-// Décommente LOCAL pour tester en local, commente RENDER pour le déploiement
-// const API_BASE = 'http://localhost:3000/api';
-const API_BASE = 'https://projet-gestion-demandes-backend.onrender.com/api';
+const API_BASE = window.API_BASE || 'https://projet-gestion-demandes-backend.onrender.com/api';
+
+async function parseApiResponse(res) {
+  const contentType = res.headers.get('content-type') || '';
+  const data = contentType.includes('application/json')
+    ? await res.json()
+    : { message: await res.text() };
+
+  if (!res.ok) {
+    return {
+      success: false,
+      status: res.status,
+      message: data.message || 'Erreur serveur'
+    };
+  }
+
+  return data;
+}
+
+function authHeaders(includeJson = false) {
+  const token = localStorage.getItem('token');
+  return {
+    ...(includeJson && { 'Content-Type': 'application/json' }),
+    ...(token && { 'Authorization': 'Bearer ' + token })
+  };
+}
 
 const api = {
   async post(endpoint, data) {
-    const token = localStorage.getItem('token');
     const res = await fetch(API_BASE + endpoint, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(token && { 'Authorization': 'Bearer ' + token })
-      },
+      headers: authHeaders(true),
       body: JSON.stringify(data)
     });
-    return res.json();
+    return parseApiResponse(res);
   },
 
   async get(endpoint) {
-    const token = localStorage.getItem('token');
     const res = await fetch(API_BASE + endpoint, {
-      headers: { 'Authorization': 'Bearer ' + token }
+      headers: authHeaders()
     });
-    return res.json();
+    return parseApiResponse(res);
   },
 
   async put(endpoint, data) {
-    const token = localStorage.getItem('token');
     const res = await fetch(API_BASE + endpoint, {
       method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(token && { 'Authorization': 'Bearer ' + token })
-      },
+      headers: authHeaders(true),
       body: JSON.stringify(data)
     });
-    return res.json();
+    return parseApiResponse(res);
   },
 
   async del(endpoint) {
-    const token = localStorage.getItem('token');
     const res = await fetch(API_BASE + endpoint, {
       method: 'DELETE',
-      headers: { 'Authorization': 'Bearer ' + token }
+      headers: authHeaders()
     });
-    return res.json();
+    return parseApiResponse(res);
   }
 };
 
-// AUTH
-  const authAPI = {
+const authAPI = {
   login: (data) => api.post('/auth/login', data),
   register: (data) => api.post('/auth/register', data),
   logout: () => api.post('/auth/logout', {}),
   getMe: () => api.get('/auth/me'),
-  changerIdentifiants: (data) => api.post('/auth/changer-identifiants', data)   // ✅ ajouté
+  changerIdentifiants: (data) => api.post('/auth/changer-identifiants', data)
 };
 
-// DEMANDES
 const demandesAPI = {
   getMesDemandes: () => api.get('/demandes/mes-demandes'),
   creerDemande: (data) => api.post('/demandes', data),
@@ -66,14 +76,12 @@ const demandesAPI = {
   updateBrouillon: (id, data) => api.put('/demandes/' + id + '/brouillon', data)
 };
 
-// WORKFLOW
 const workflowAPI = {
   valider: (id, data) => api.post('/workflow/' + id + '/valider', data),
   rejeter: (id, data) => api.post('/workflow/' + id + '/rejeter', data),
   getHistorique: (id) => api.get('/workflow/' + id + '/historique')
 };
 
-// NOTIFICATIONS
 const notificationsAPI = {
   getMesNotifications: () => api.get('/notifications'),
   marquerLu: (id) => api.put('/notifications/' + id + '/lu', {}),
@@ -81,7 +89,6 @@ const notificationsAPI = {
   supprimer: (id) => api.del('/notifications/' + id)
 };
 
-// DOCUMENTS
 const documentsAPI = {
   telecharger: (id) => api.get('/documents/' + id),
   supprimer: (id) => api.del('/documents/' + id)

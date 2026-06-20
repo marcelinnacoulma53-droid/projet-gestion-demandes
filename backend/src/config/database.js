@@ -1,29 +1,33 @@
-// ============================================================
-// CONNEXION À LA BASE DE DONNÉES POSTGRESQL
-// Ce fichier crée et exporte un pool de connexions
-// ============================================================
-
 const { Pool } = require('pg');
 require('dotenv').config();
 
-// Création d'un pool de connexions
-const pool = new Pool({
+const useSsl = process.env.DB_SSL
+    ? process.env.DB_SSL === 'true'
+    : Boolean(process.env.DATABASE_URL) && process.env.NODE_ENV === 'production';
+
+const poolConfig = process.env.DATABASE_URL ? {
+    connectionString: process.env.DATABASE_URL,
+} : {
     host: process.env.DB_HOST || 'localhost',
     port: process.env.DB_PORT || 5432,
     user: process.env.DB_USER || 'postgres',
-    password: process.env.DB_PASSWORD,
+    password: process.env.DB_PASSWORD || '',
     database: process.env.DB_NAME || 'gestion_demandes',
-    max: 20,
+};
+
+const pool = new Pool({
+    ...poolConfig,
+    ...(useSsl && { ssl: { rejectUnauthorized: false } }),
+    max: Number(process.env.DB_POOL_MAX) || 20,
     idleTimeoutMillis: 30000,
 });
 
-// Test de connexion (pour vérifier que tout fonctionne)
 pool.query('SELECT NOW()')
     .then(result => {
-        console.log("✅ Connexion PostgreSQL réussie :", result.rows[0]);
+        console.log('Connexion PostgreSQL reussie :', result.rows[0]);
     })
     .catch(error => {
-        console.error("❌ Erreur PostgreSQL :", error.message);
+        console.error('Erreur PostgreSQL :', error.code || error.message || error);
     });
 
 module.exports = pool;
