@@ -121,7 +121,7 @@ const login = async (req, res) => {
         const token = jwt.sign(
             { 
                 userId: user.id_utilisateur, 
-                role: user.role_libelle 
+                role: user.role_libelle.toLowerCase()
             },
             authConfig.jwtSecret,
             { expiresIn: authConfig.jwtExpire }
@@ -148,7 +148,7 @@ const login = async (req, res) => {
             user: {
                 id: user.id_utilisateur,
                 email: user.email,
-                role: user.role_libelle,
+                role: user.role_libelle.toLowerCase(), 
                 premiere_connexion: user.premiere_connexion
             }
         });
@@ -313,8 +313,9 @@ const changerIdentifiants = async (req, res, next) => {
         // Récupérer le rôle pour le nouveau token
         const roleResult = await userRepo.findByEmailWithRole(nouveau_email);
         
+        // APRÈS (corrigé) :
         const newToken = jwt.sign(
-            { userId: userId, role: roleResult?.role_libelle || 'staff' },
+            { userId: userId, role: (roleResult?.role_libelle || 'staff').toLowerCase() },  // ✅
             authConfig.jwtSecret,
             { expiresIn: authConfig.jwtExpire }
         );
@@ -326,7 +327,7 @@ const changerIdentifiants = async (req, res, next) => {
             user: {
                 id: userId,
                 email: nouveau_email,
-                role: roleResult?.role_libelle || 'staff'
+                role: (roleResult?.role_libelle || 'staff').toLowerCase()   // ✅
             }
         });
 
