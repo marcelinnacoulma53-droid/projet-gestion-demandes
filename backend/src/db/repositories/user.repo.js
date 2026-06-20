@@ -51,6 +51,34 @@ async function findByEmailWithRole(email) {
     return result.rows[0] || null;
 }
 
+// =======================================
+// Trouver un utilisateur par EMAIL ou MATRICULE, avec son rôle
+// Utilisé pour le login (étudiants peuvent utiliser l'un ou l'autre)
+// =======================================
+async function findByIdentifiantWithRole(identifiant) {
+
+    const result = await db.query(
+        `
+        SELECT 
+            u.id_utilisateur,
+            u.email,
+            u.mot_de_passe,
+            u.actif,
+            u.id_role,
+            u.premiere_connexion,
+            r.libelle AS role_libelle
+        FROM utilisateurs u
+        LEFT JOIN roles r
+            ON u.id_role = r.id_role
+        LEFT JOIN etudiants e
+            ON e.id_utilisateur = u.id_utilisateur
+        WHERE u.email = $1 OR e.matricule = $1
+        `,
+        [identifiant]
+    );
+
+    return result.rows[0] || null;
+}
 
 // =======================================
 // Trouver un utilisateur par ID
@@ -154,6 +182,7 @@ async function update(id_utilisateur, updates) {
 module.exports = {
     findByEmail,
     findByEmailWithRole,
+    findByIdentifiantWithRole,   // ✅ ajouté
     findById,
     create,
     findEtudiantByUserId,

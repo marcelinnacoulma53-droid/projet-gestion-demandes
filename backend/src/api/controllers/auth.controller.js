@@ -100,7 +100,8 @@ const login = async (req, res) => {
 
     try {
         // ✅ VRAI appel (plus de simulation) - Cherche l'utilisateur par email avec son rôle
-        const user = await userRepo.findByEmailWithRole(email);
+        // APRÈS
+        const user = await userRepo.findByIdentifiantWithRole(email);
 
         if (!user) {
             return res.status(401).json({ message: 'Email ou mot de passe incorrect' });
