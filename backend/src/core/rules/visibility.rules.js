@@ -21,12 +21,14 @@ const visibilityRules = {
             // Étudiant : seulement ses propres demandes
             if (role === 'etudiant') {
                 const etudiant = await etudiantRepo.findByUserId(id_utilisateur);
+                if (!etudiant) return [];
                 return await demandeRepo.findByEtudiant(etudiant.id_etudiant);
             }
             
             // Professeur : seulement les réclamations qui le concernent
             if (role === 'professeur') {
                 const professeur = await professeurRepo.findByUserId(id_utilisateur);
+                if (!professeur) return [];
                 return await demandeRepo.findByProfesseur(professeur.id_professeur);
             }
             

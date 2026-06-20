@@ -199,10 +199,10 @@
     // Rôle dynamique dans la navbar
     afficherRoleNavbar('roleLabel');
 
-    // Vérifier l'accès admin
+    // Vérifier l'accès admin via le token JWT
     (function verifierAcces() {
-      const user = getCurrentUser();
-      if (!user || !user.role || user.role.toLowerCase() !== 'administrateur') {
+      const role = getRoleFromToken();
+      if (!role || role.toLowerCase() !== 'administrateur') {
         window.location.href = '../auth/login.html';
         return;
       }

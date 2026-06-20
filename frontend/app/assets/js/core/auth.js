@@ -22,6 +22,8 @@ async function login(email, motDePasse) {
       document.getElementById('errorMsg').textContent = data.message || 'Identifiants incorrects.';
     }
   } catch(e) {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
     document.getElementById('errorMsg').textContent = 'Erreur de connexion au serveur.';
   }
 }
@@ -62,6 +64,17 @@ function isAuthenticated() {
   return !!localStorage.getItem('token');
 }
 
+function getRoleFromToken() {
+  const token = localStorage.getItem('token');
+  if (!token) return null;
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    return payload.role || null;
+  } catch(e) {
+    return null;
+  }
+}
+
 function getCurrentUser() {
   try {
     const val = localStorage.getItem('user');
@@ -95,14 +108,7 @@ function getRoleLabel(role) {
 function resolveCurrentRole() {
   const urlParams = new URLSearchParams(window.location.search);
   const roleFromUrl = urlParams.get('role');
-  const user = getCurrentUser();
-  const role = roleFromUrl || (user ? user.role : null);
-
-  if (roleFromUrl && user) {
-    user.role = roleFromUrl;
-    localStorage.setItem('user', JSON.stringify(user));
-  }
-
+  const role = roleFromUrl || getRoleFromToken();
   return role ? role.toLowerCase() : '';
 }
 
