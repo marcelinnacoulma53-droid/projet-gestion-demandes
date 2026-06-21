@@ -13,13 +13,24 @@ const workflowRules = require('../../core/rules/workflow.rules');
 // ============================================================
 // 1. CRÉER UNE DEMANDE
 // ============================================================
-// demande.controller.js — createDemande corrigé
 
-const db = require('../../db/connection'); // ⚠️ à ajouter en haut du fichier si absent
+const db = require('../../db/connection');
 
 const createDemande = async (req, res, next) => {
     const userId = req.user.userId;
-    const { type_demande, objet, description } = req.body;
+    const {
+        type_demande, objet, description, statut,
+        annee_universitaire, correspondant,
+        // Réclamation
+        id_matiere, id_semestre, id_professeur, session,
+        description_reclamation, motif_ids, motif_labels, motif_autres,
+        // Dérogation
+        motif,
+        // Duplicata
+        id_type_document_academique, nombre_exemplaires,
+        // Attestation
+        id_type_attestation
+    } = req.body;
 
     if (!type_demande || !objet) {
         return res.status(400).json({ 
@@ -33,8 +44,7 @@ const createDemande = async (req, res, next) => {
             return res.status(404).json({ message: 'Étudiant non trouvé' });
         }
 
-        // ✅ Le front envoie "reclamation" (minuscule), la base a "Reclamation"
-        // On normalise avec ILIKE pour ignorer la casse
+        // Résoudre le type de demande
         const typeInfo = await db.query(
             'SELECT id_type_demande FROM types_demande WHERE libelle ILIKE $1',
             [type_demande]
@@ -44,10 +54,11 @@ const createDemande = async (req, res, next) => {
         }
         const id_type_demande = typeInfo.rows[0].id_type_demande;
 
-        // ✅ Toute nouvelle demande démarre au statut "Brouillon"
+        // Statut
+        const statutLibelle = (statut && statut !== 'brouillon') ? 'Soumise' : 'Brouillon';
         const statutInfo = await db.query(
             'SELECT id_statut FROM statuts WHERE libelle = $1',
-            ['Brouillon']
+            [statutLibelle]
         );
         const id_statut = statutInfo.rows[0]?.id_statut;
 
@@ -62,13 +73,118 @@ const createDemande = async (req, res, next) => {
             objet: objet,
             description: description || '',
             id_statut: id_statut,
-            id_etape_courante: id_etape_courante
+            id_etape_courante: id_etape_courante,
+            annee_universitaire: annee_universitaire || null,
+            correspondant: correspondant || null
         });
+
+        const demandeId = nouvelleDemande.id_demande;
+
+        // ✅ Résoudre les libellés → IDs
+        const typeCle = type_demande.toLowerCase();
+
+        if (typeCle === 'reclamation') {
+            // Résoudre id_matiere (string → ID)
+            let resolvedMatiere = parseInt(id_matiere, 10);
+            if (isNaN(resolvedMatiere) && id_matiere && typeof id_matiere === 'string') {
+                const row = await db.query(
+                    'SELECT id_matiere FROM matieres WHERE libelle ILIKE $1 LIMIT 1',
+                    [id_matiere]
+                );
+                resolvedMatiere = row.rows[0]?.id_matiere || null;
+            }
+
+            // Résoudre id_semestre (string → ID)
+            let resolvedSemestre = parseInt(id_semestre, 10);
+            if (isNaN(resolvedSemestre) && id_semestre && typeof id_semestre === 'string') {
+                const row = await db.query(
+                    'SELECT id_semestre FROM semestres WHERE libelle ILIKE $1 LIMIT 1',
+                    [id_semestre]
+                );
+                resolvedSemestre = row.rows[0]?.id_semestre || null;
+            }
+
+            await demandeRepo.createReclamation(demandeId, {
+                id_matiere: resolvedMatiere,
+                id_semestre: resolvedSemestre,
+                id_professeur: id_professeur || null,
+                session: session || null,
+                description_reclamation: description_reclamation || description || ''
+            });
+
+            // Résoudre motif_labels → motif_ids
+            let resolvedMotifIds = motif_ids || [];
+            if (motif_labels && motif_labels.length > 0) {
+                const motifRows = await db.query(
+                    'SELECT id_motif FROM motifs WHERE libelle = ANY($1)',
+                    [motif_labels]
+                );
+                const found = motifRows.rows.map(r => r.id_motif);
+                resolvedMotifIds = [...new Set([...resolvedMotifIds, ...found])];
+            }
+
+            // Inclure motif_autres dans la description
+            if (motif_autres) {
+                await demandeRepo.update(demandeId, {
+                    description: (description || '') + '\nAutre motif : ' + motif_autres
+                });
+            }
+
+            if (resolvedMotifIds.length > 0) {
+                await demandeRepo.ajouterMotifs(demandeId, resolvedMotifIds);
+            }
+
+        } else if (typeCle === 'derogation') {
+            await demandeRepo.createDerogation(demandeId, {
+                motif: motif || description || '',
+                annee_academique: annee_universitaire || null
+            });
+
+        } else if (typeCle === 'duplicata') {
+            // Résoudre id_type_document_academique (string → ID)
+            let resolvedDoc = parseInt(id_type_document_academique, 10);
+            if (isNaN(resolvedDoc) && id_type_document_academique && typeof id_type_document_academique === 'string') {
+                const row = await db.query(
+                    'SELECT id_type_document_academique FROM types_document_academique WHERE libelle ILIKE $1 LIMIT 1',
+                    [id_type_document_academique]
+                );
+                resolvedDoc = row.rows[0]?.id_type_document_academique || null;
+            }
+
+            await demandeRepo.createDuplicata(demandeId, {
+                id_type_document_academique: resolvedDoc,
+                nombre_exemplaires: nombre_exemplaires || 1
+            });
+
+        } else if (typeCle === 'attestation') {
+            // Résoudre id_type_attestation (string → ID)
+            let resolvedAtt = parseInt(id_type_attestation, 10);
+            if (isNaN(resolvedAtt) && id_type_attestation && typeof id_type_attestation === 'string') {
+                const row = await db.query(
+                    'SELECT id_type_attestation FROM types_attestation WHERE libelle ILIKE $1 LIMIT 1',
+                    [id_type_attestation]
+                );
+                resolvedAtt = row.rows[0]?.id_type_attestation || null;
+            }
+
+            await demandeRepo.createAttestation(demandeId, {
+                id_type_attestation: resolvedAtt,
+                nombre_exemplaires: nombre_exemplaires || 1
+            });
+        }
+
+        // Si statut = soumise, on met à jour date_soumission
+        if (statutLibelle === 'Soumise') {
+            await demandeRepo.update(demandeId, { date_soumission: new Date() });
+        }
+
+        // Recharger la demande complète avec les jointures
+        const demandeComplete = await demandeRepo.findById(demandeId);
 
         res.status(201).json({
             success: true,
             message: 'Demande créée avec succès',
-            demande: nouvelleDemande
+            demande: demandeComplete || nouvelleDemande
         });
 
     } catch (error) {

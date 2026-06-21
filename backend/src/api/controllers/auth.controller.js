@@ -21,7 +21,7 @@ const personnelRepo = require('../../db/repositories/personnel.repo');
 // ============================================================
 const register = async (req, res) => {
     console.log(`📥 Requête reçue : ${req.method} ${req.url}`);
-    const { nom, prenom, matricule, email, mot_de_passe } = req.body;
+    const { nom, prenom, matricule, email, mot_de_passe, filiere, niveau, option } = req.body;
 
     if (!nom || !prenom || !matricule || !email || !mot_de_passe) {
         return res.status(400).json({ message: 'Tous les champs sont requis' });
@@ -40,13 +40,46 @@ const register = async (req, res) => {
             return res.status(409).json({ message: 'Ce matricule est déjà utilisé' });
         }
 
-        // ✅ VRAI appel (plus de simulation) - Récupère l'id du rôle 'etudiant'
+        // ✅ Résoudre les libellés → IDs
+        const db = require('../../db/connection');
+
+        let id_filiere = null;
+        if (filiere) {
+            const num = parseInt(filiere, 10);
+            if (!isNaN(num)) { id_filiere = num; }
+            else {
+                const row = await db.query('SELECT id_filiere FROM filieres WHERE libelle ILIKE $1 OR code ILIKE $1 LIMIT 1', [filiere]);
+                id_filiere = row.rows[0]?.id_filiere || null;
+            }
+        }
+
+        let id_niveau = null;
+        if (niveau) {
+            const num = parseInt(niveau, 10);
+            if (!isNaN(num)) { id_niveau = num; }
+            else {
+                const row = await db.query('SELECT id_niveau FROM niveaux WHERE libelle ILIKE $1 LIMIT 1', [niveau]);
+                id_niveau = row.rows[0]?.id_niveau || null;
+            }
+        }
+
+        let id_option = null;
+        if (option) {
+            const num = parseInt(option, 10);
+            if (!isNaN(num)) { id_option = num; }
+            else {
+                const row = await db.query('SELECT id_option FROM options WHERE libelle ILIKE $1 LIMIT 1', [option]);
+                id_option = row.rows[0]?.id_option || null;
+            }
+        }
+
+        // ✅ Récupère l'id du rôle 'etudiant'
         const roleEtudiant = await roleRepo.findByLibelle('etudiant');
         
         // ✅ Hachage du mot de passe
         const motDePasseHash = await bcrypt.hash(mot_de_passe, authConfig.bcryptRounds);
 
-        // ✅ VRAI appel (plus de simulation) - Crée l'utilisateur dans la table utilisateurs
+        // ✅ Crée l'utilisateur dans la table utilisateurs
         const newUser = await userRepo.create({
             nom, prenom, email,
             mot_de_passe: motDePasseHash,
@@ -54,10 +87,13 @@ const register = async (req, res) => {
             premiere_connexion: false
         });
 
-        // ✅ VRAI appel (plus de simulation) - Crée l'étudiant dans la table etudiants
+        // ✅ Crée l'étudiant dans la table etudiants
         await etudiantRepo.create({
             id_utilisateur: newUser.id_utilisateur,
-            matricule: matricule
+            matricule: matricule,
+            id_filiere: id_filiere,
+            id_niveau: id_niveau,
+            id_option: id_option
         });
 
         // ✅ Génération du token JWT

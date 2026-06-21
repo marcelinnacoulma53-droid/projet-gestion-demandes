@@ -27,6 +27,39 @@
           <input type="text" id="matricule" placeholder="Ex: N20240000001" required/>
         </div>
         <div class="form-group">
+          <label>Filière</label>
+          <select id="filiere" required>
+            <option value="">-- Sélectionner --</option>
+            <option value="Informatique">Informatique</option>
+            <option value="Mathématiques et Informatique">Mathématiques et Informatique</option>
+            <option value="Réseaux et Technologies Internet">Réseaux et Technologies Internet</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Niveau</label>
+          <select id="niveau" required>
+            <option value="">-- Sélectionner --</option>
+            <option value="L1">L1</option>
+            <option value="L2">L2</option>
+            <option value="L3">L3</option>
+            <option value="M1">M1</option>
+            <option value="M2">M2</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Option</label>
+          <select id="option">
+            <option value="">-- Sélectionner --</option>
+            <option value="GL">GL — Génie Logiciel</option>
+            <option value="SR">SR — Sécurité des Réseaux</option>
+            <option value="SIC">SIC — Systèmes d'Information et Communication</option>
+            <option value="CD">CD — Concepteur Développeur</option>
+            <option value="RSI">RSI — Réseaux et Systèmes Informatiques</option>
+            <option value="IOT">IOT — Internet des Objets</option>
+            <option value="MI">MI — Mathématiques pour l'Informatique</option>
+          </select>
+        </div>
+        <div class="form-group">
           <label>Email</label>
           <input type="email" id="email" placeholder="Ex: kone@esi.bf" required/>
         </div>
@@ -64,9 +97,17 @@
       const email = document.getElementById('email').value.trim();
       const mot_de_passe = document.getElementById('mot_de_passe').value;
       const confirm_password = document.getElementById('confirm_password').value;
+      const filiere = document.getElementById('filiere').value;
+      const niveau = document.getElementById('niveau').value;
+      const option = document.getElementById('option').value;
 
       if (!nom || !prenom || !matricule || !email || !mot_de_passe) {
         document.getElementById('errorMsg').textContent = 'Veuillez remplir tous les champs.';
+        return;
+      }
+
+      if (!filiere || !niveau) {
+        document.getElementById('errorMsg').textContent = 'Veuillez sélectionner votre filière et votre niveau.';
         return;
       }
 
@@ -82,7 +123,7 @@
       }
 
       try {
-        const data = await authAPI.register({ nom, prenom, matricule, email, mot_de_passe });
+        const data = await authAPI.register({ nom, prenom, matricule, email, mot_de_passe, filiere, niveau, option });
 
         if (data.success) {
           setAuthSession(data.token, data.user);

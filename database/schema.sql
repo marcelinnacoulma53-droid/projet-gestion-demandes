@@ -76,6 +76,18 @@ CREATE TABLE types_attestation (
     libelle VARCHAR(50) UNIQUE NOT NULL
 );
 
+-- Table des options (nouvelle)
+CREATE TABLE options (
+    id_option SERIAL PRIMARY KEY,
+    libelle VARCHAR(100) UNIQUE NOT NULL
+);
+
+-- Table des motifs de réclamation (nouvelle)
+CREATE TABLE motifs (
+    id_motif SERIAL PRIMARY KEY,
+    libelle VARCHAR(100) UNIQUE NOT NULL
+);
+
 -- Table des décisions de traitement
 CREATE TABLE decisions (
     id_decision SERIAL PRIMARY KEY,
@@ -102,7 +114,8 @@ CREATE TABLE etudiants (
     id_utilisateur INT UNIQUE REFERENCES utilisateurs(id_utilisateur),
     matricule VARCHAR(50) UNIQUE NOT NULL,
     id_filiere INT REFERENCES filieres(id_filiere),
-    id_niveau INT REFERENCES niveaux(id_niveau)
+    id_niveau INT REFERENCES niveaux(id_niveau),
+    id_option INT REFERENCES options(id_option)  -- nouveau champ
 );
 
 -- Table des professeurs
@@ -129,11 +142,20 @@ CREATE TABLE demandes (
     description TEXT,
     date_creation TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     date_soumission TIMESTAMP,
+    annee_universitaire VARCHAR(20),  -- nouveau champ
+    correspondant VARCHAR(100),        -- nouveau champ
 
     id_etudiant INT REFERENCES etudiants(id_etudiant),
     id_type_demande INT REFERENCES types_demande(id_type_demande),
     id_statut INT REFERENCES statuts(id_statut),
     id_etape_courante INT REFERENCES etapes_workflow(id_etape)
+);
+
+-- Table pivot demande ↔ motifs (nouvelle)
+CREATE TABLE demande_motifs (
+    id_demande INT REFERENCES demandes(id_demande),
+    id_motif INT REFERENCES motifs(id_motif),
+    PRIMARY KEY (id_demande, id_motif)
 );
 
 -- Table des documents liés aux demandes
@@ -157,6 +179,7 @@ CREATE TABLE reclamations (
     id_matiere INT REFERENCES matieres(id_matiere),
     id_semestre INT REFERENCES semestres(id_semestre),
     id_professeur INT REFERENCES professeurs(id_professeur),
+    session VARCHAR(20),  -- nouveau champ
     description_reclamation TEXT NOT NULL
 );
 
@@ -180,7 +203,8 @@ CREATE TABLE duplicatas (
 CREATE TABLE attestations (
     id_attestation SERIAL PRIMARY KEY,
     id_demande INT UNIQUE REFERENCES demandes(id_demande),
-    id_type_attestation INT REFERENCES types_attestation(id_type_attestation)
+    id_type_attestation INT REFERENCES types_attestation(id_type_attestation),
+    nombre_exemplaires INT DEFAULT 1  -- nouveau champ
 );
 
 -- Table de suivi du workflow (traitements)

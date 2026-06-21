@@ -66,7 +66,7 @@
           <div class="fiche-row">
             <div class="form-group flex-1">
               <label>Année universitaire concernée</label>
-              <input type="text" placeholder="Ex: 2025-2026"/>
+              <input type="text" id="rec-annee-univ" placeholder="Ex: 2025-2026"/>
             </div>
             <div class="form-group flex-1">
               <label>INE</label>
@@ -103,9 +103,10 @@
             </div>
             <div class="form-group flex-1">
               <label>Semestre</label>
-              <select>
-                <option>S1</option><option>S2</option>
-                <option>S3</option><option>S4</option>
+              <select id="rec-semestre">
+                <option value="">-- Sélectionner --</option>
+                <option value="S1">S1</option><option value="S2">S2</option>
+                <option value="S3">S3</option><option value="S4">S4</option>
               </select>
             </div>
           </div>
@@ -115,9 +116,9 @@
             <div class="fiche-row" style="align-items:flex-start; gap:40px;">
               <div>
                 <label class="section-label">Session</label>
-                <div class="checkbox-group">
-                  <label><input type="checkbox"/> Normale</label>
-                  <label><input type="checkbox"/> Rattrapage</label>
+                <div class="checkbox-group" id="rec-session">
+                  <label><input type="radio" name="rec-session" value="Normale"/> Normale</label>
+                  <label><input type="radio" name="rec-session" value="Rattrapage"/> Rattrapage</label>
                 </div>
               </div>
               <div style="flex:1;">
@@ -135,32 +136,32 @@
           <!-- Correspondant -->
           <div class="fiche-section">
             <label class="section-label">Correspondant</label>
-            <div class="checkbox-group flex-wrap">
-              <label><input type="checkbox"/> Directeur</label>
-              <label><input type="checkbox"/> Directrice adjointe</label>
-              <label><input type="checkbox"/> Coordonnateur</label>
-              <label><input type="checkbox"/> Enseignant</label>
-              <label><input type="checkbox"/> Chef de service de la Scolarité</label>
+            <div class="checkbox-group flex-wrap" id="rec-correspondant">
+              <label><input type="checkbox" value="Directeur"/> Directeur</label>
+              <label><input type="checkbox" value="Directrice adjointe"/> Directrice adjointe</label>
+              <label><input type="checkbox" value="Coordonnateur"/> Coordonnateur</label>
+              <label><input type="checkbox" value="Enseignant"/> Enseignant</label>
+              <label><input type="checkbox" value="Chef de service de la Scolarité"/> Chef de service de la Scolarité</label>
             </div>
           </div>
 
           <!-- Motifs -->
           <div class="fiche-section">
             <label class="section-label">Motifs de la demande</label>
-            <div class="checkbox-group flex-wrap">
-              <label><input type="checkbox"/> Comptabilité des notes sur la copie</label>
-              <label><input type="checkbox"/> Rectification de note</label>
-              <label><input type="checkbox"/> Note non répertoriée</label>
-              <label><input type="checkbox"/> Annulation de note</label>
-              <label><input type="checkbox"/> Rectification du nom</label>
-              <label><input type="checkbox"/> Rectification de n° matricule</label>
-              <label><input type="checkbox"/> Rectification du lieu de naissance</label>
-              <label><input type="checkbox"/> Rectification de la date de naissance</label>
-              <label><input type="checkbox"/> Insertion du nom sur le PV</label>
+            <div class="checkbox-group flex-wrap" id="rec-motifs">
+              <label><input type="checkbox" value="Comptabilité des notes sur la copie"/> Comptabilité des notes sur la copie</label>
+              <label><input type="checkbox" value="Rectification de note"/> Rectification de note</label>
+              <label><input type="checkbox" value="Note non répertoriée"/> Note non répertoriée</label>
+              <label><input type="checkbox" value="Annulation de note"/> Annulation de note</label>
+              <label><input type="checkbox" value="Rectification du nom"/> Rectification du nom</label>
+              <label><input type="checkbox" value="Rectification du n° matricule"/> Rectification du n° matricule</label>
+              <label><input type="checkbox" value="Rectification du lieu de naissance"/> Rectification du lieu de naissance</label>
+              <label><input type="checkbox" value="Rectification de la date de naissance"/> Rectification de la date de naissance</label>
+              <label><input type="checkbox" value="Insertion du nom sur le PV"/> Insertion du nom sur le PV</label>
             </div>
             <div class="form-group" style="margin-top:10px;">
               <label>Autres (à préciser)</label>
-              <input type="text" placeholder="Précisez si autre motif"/>
+              <input type="text" id="rec-motif-autres" placeholder="Précisez si autre motif"/>
             </div>
           </div>
 
@@ -168,7 +169,7 @@
           <div class="fiche-section">
             <label class="section-label">ECUES concernés (mentionnez les intitulés des ECUES)</label>
             <div class="form-group">
-              <input type="text" placeholder="ECUE 1"/>
+              <input type="text" id="rec-ecue1" placeholder="ECUE 1"/>
             </div>
             <div class="form-group">
               <input type="text" placeholder="ECUE 2"/>
@@ -182,7 +183,7 @@
           <div class="fiche-section">
             <div class="form-group">
               <label class="section-label">Description du problème <em>(Si nécessaire)</em></label>
-              <textarea placeholder="Décrivez votre problème en détail..." style="height:100px;"></textarea>
+              <textarea id="rec-description" placeholder="Décrivez votre problème en détail..." style="height:100px;"></textarea>
             </div>
           </div>
 
@@ -209,11 +210,11 @@
           <h3 style="margin-bottom:18px; color:#1a237e;">📄 Demande de dérogation</h3>
           <div class="form-group">
             <label>Objet de la dérogation</label>
-            <input type="text" placeholder="Ex: Autorisation d'absence"/>
+            <input type="text" id="der-objet" placeholder="Ex: Autorisation d'absence"/>
           </div>
           <div class="form-group">
             <label>Motif</label>
-            <textarea placeholder="Expliquez votre motif..."></textarea>
+            <textarea id="der-motif" placeholder="Expliquez votre motif..."></textarea>
           </div>
           <div class="form-group">
             <label>Pièce jointe</label>
@@ -252,7 +253,7 @@
           <div class="fiche-row">
             <div class="form-group flex-2">
               <label>Année universitaire concernée</label>
-              <input type="text" placeholder="Ex: 2025-2026"/>
+              <input type="text" id="dup-annee-univ" placeholder="Ex: 2025-2026"/>
             </div>
             <div class="form-group flex-1">
               <label>INE</label>
@@ -306,12 +307,12 @@
 
           <div class="fiche-section">
             <label class="section-label">Correspondant</label>
-            <div class="checkbox-group flex-wrap">
-              <label><input type="checkbox"/> Directeur</label>
-              <label><input type="checkbox"/> Directrice adjointe</label>
-              <label><input type="checkbox"/> Coordonnateur</label>
-              <label><input type="checkbox"/> Responsable des stages</label>
-              <label><input type="checkbox"/> Chef Scolarité</label>
+            <div class="checkbox-group flex-wrap" id="dup-correspondant">
+              <label><input type="checkbox" value="Directeur"/> Directeur</label>
+              <label><input type="checkbox" value="Directrice adjointe"/> Directrice adjointe</label>
+              <label><input type="checkbox" value="Coordonnateur"/> Coordonnateur</label>
+              <label><input type="checkbox" value="Responsable des stages"/> Responsable des stages</label>
+              <label><input type="checkbox" value="Chef Scolarité"/> Chef Scolarité</label>
             </div>
           </div>
 
@@ -348,17 +349,15 @@
         </div>
 
         <!-- FORMULAIRE ATTESTATION -->
-
-        <!-- FORMULAIRE ATTESTATION -->
         <div id="form-attestation" class="formulaire" style="display:none;">
           <h3 style="margin-bottom:18px; color:#1a237e;">🎓 Demande d'attestation</h3>
           <div class="form-group">
             <label>Type d'attestation</label>
-            <select>
+            <select id="att-type">
               <option value="">-- Choisir --</option>
-              <option>Attestation d'inscription</option>
-              <option>Attestation de fréquentation</option>
-              <option>Attestation de réussite</option>
+              <option value="Attestation d'inscription">Attestation d'inscription</option>
+              <option value="Attestation de fréquentation">Attestation de fréquentation</option>
+              <option value="Attestation de réussite">Attestation de réussite</option>
             </select>
           </div>
           <div class="form-group">
@@ -434,15 +433,22 @@
       document.getElementById('choix-type').style.display = 'block';
       document.getElementById('form-title').textContent = '➕ Nouvelle demande';
     }
+    function collectCheckedValues(containerId) {
+      const container = document.getElementById(containerId);
+      if (!container) return [];
+      return Array.from(container.querySelectorAll('input[type="checkbox"]:checked'))
+        .map(cb => cb.value);
+    }
     async function envoyer() {
       const typeActif = document.querySelector('.formulaire[style*="block"]')?.id;
-      
+      if (!typeActif) return;
+
+      // Duplicata → paiement puis soumission
       if (typeActif === 'form-duplicata') {
         payerDuplicata();
         return;
       }
 
-      // Déterminer le type de demande
       const typeMap = {
         'form-reclamation': 'reclamation',
         'form-derogation': 'derogation',
@@ -450,24 +456,47 @@
       };
       const type_demande = typeMap[typeActif] || 'autre';
 
-      // Récupérer les champs selon le type
-      let objet = '';
-      let description = '';
+      let body = { type_demande, statut: 'soumise' };
 
       if (typeActif === 'form-reclamation') {
-        const matiere = document.querySelector('#form-reclamation input[placeholder*="Math"]')?.value || '';
-        const motif = document.querySelector('#form-reclamation textarea')?.value || '';
-        objet = 'Réclamation de note - ' + matiere;
-        description = motif;
+        const annee_universitaire = document.getElementById('rec-annee-univ')?.value || '';
+        const semestre = document.getElementById('rec-semestre')?.value || '';
+        const session = document.querySelector('input[name="rec-session"]:checked')?.value || '';
+        const correspondant = collectCheckedValues('rec-correspondant').join(', ');
+        const motif_labels = collectCheckedValues('rec-motifs');
+        const motif_autres = document.getElementById('rec-motif-autres')?.value || '';
+        const ecue1 = document.getElementById('rec-ecue1')?.value || '';
+        const description = document.getElementById('rec-description')?.value || '';
+        const objet = 'Réclamation de note - ' + ecue1;
+
+        body = {
+          ...body,
+          objet,
+          description,
+          annee_universitaire,
+          correspondant: correspondant || undefined,
+          id_semestre: semestre,
+          session: session || undefined,
+          motif_labels,
+          motif_autres,
+          id_matiere: ecue1
+        };
       } else if (typeActif === 'form-derogation') {
-        objet = document.querySelector('#form-derogation input')?.value || 'Dérogation';
-        description = document.querySelector('#form-derogation textarea')?.value || '';
+        const objet = document.getElementById('der-objet')?.value || 'Dérogation';
+        const motif = document.getElementById('der-motif')?.value || '';
+        body = { ...body, objet, description: motif, motif };
       } else if (typeActif === 'form-attestation') {
-        objet = document.querySelector('#form-attestation select')?.value || 'Attestation';
-        description = objet;
+        const typeAttestation = document.getElementById('att-type')?.value || '';
+        const nombre_exemplaires = parseInt(document.querySelector('input[name="exemplaires"]:checked')?.value || '1');
+        body = {
+          ...body,
+          objet: typeAttestation || 'Attestation',
+          description: typeAttestation,
+          id_type_attestation: typeAttestation,
+          nombre_exemplaires
+        };
       }
 
-      // Envoyer au backend
       try {
         const token = getAuthToken();
         const response = await fetch(API_BASE + '/demandes', {
@@ -476,7 +505,7 @@
             'Content-Type': 'application/json',
             'Authorization': 'Bearer ' + token
           },
-          body: JSON.stringify({ type_demande, objet, description, statut: 'soumise' })
+          body: JSON.stringify(body)
         });
 
         const data = await response.json();

@@ -58,26 +58,26 @@
         </div>
 
         <!-- CORRESPONDANT -->
-        <div class="fiche-section">
+        <div class="fiche-section" id="section-correspondant">
           <label class="section-label">Correspondant concerné</label>
           <div class="checkbox-group flex-wrap">
-            <label style="color:#aaa;"><input type="checkbox" disabled/> Directeur</label>
-            <label style="color:#aaa;"><input type="checkbox" disabled/> Enseignant</label>
-            <label style="color:#aaa;"><input type="checkbox" disabled/> Directrice adjointe</label>
-            <label style="color:#aaa;"><input type="checkbox" disabled/> Coordonnateur</label>
-            <label style="color:#aaa;"><input type="checkbox" disabled/> Chef de service Scolarité</label>
+            <label><input type="checkbox" value="Directeur" disabled/> Directeur</label>
+            <label><input type="checkbox" value="Enseignant" disabled/> Enseignant</label>
+            <label><input type="checkbox" value="Directrice adjointe" disabled/> Directrice adjointe</label>
+            <label><input type="checkbox" value="Coordonnateur" disabled/> Coordonnateur</label>
+            <label><input type="checkbox" value="Chef de service de la Scolarité" disabled/> Chef de service Scolarité</label>
           </div>
         </div>
 
         <!-- MOTIFS -->
-        <div class="fiche-section">
+        <div class="fiche-section" id="section-motifs">
           <label class="section-label">Motifs de la demande</label>
           <div class="checkbox-group flex-wrap">
-            <label style="color:#aaa;"><input type="checkbox" disabled/> Rectification de note</label>
-            <label style="color:#aaa;"><input type="checkbox" disabled/> Note non répertoriée</label>
-            <label style="color:#aaa;"><input type="checkbox" disabled/> Comptabilité des notes sur la copie</label>
-            <label style="color:#aaa;"><input type="checkbox" disabled/> Annulation de note</label>
-            <label style="color:#aaa;"><input type="checkbox" disabled/> Rectification du nom</label>
+            <label><input type="checkbox" value="Rectification de note" disabled/> Rectification de note</label>
+            <label><input type="checkbox" value="Note non répertoriée" disabled/> Note non répertoriée</label>
+            <label><input type="checkbox" value="Comptabilité des notes sur la copie" disabled/> Comptabilité des notes sur la copie</label>
+            <label><input type="checkbox" value="Annulation de note" disabled/> Annulation de note</label>
+            <label><input type="checkbox" value="Rectification du nom" disabled/> Rectification du nom</label>
           </div>
         </div>
 
@@ -86,6 +86,12 @@
           <label class="section-label">ECUES concernés</label>
           <div class="detail-row"><span>ECUE 1 :</span><strong>—</strong></div>
           <div class="detail-row"><span>ECUE 2 :</span><strong>—</strong></div>
+        </div>
+
+        <!-- NOMBRE D'EXEMPLAIRES -->
+        <div class="fiche-section" id="section-exemplaires">
+          <label class="section-label">Nombre d'exemplaires</label>
+          <div class="detail-row nb-exemplaires"><span>Exemplaires :</span><strong>—</strong></div>
         </div>
 
         <!-- DESCRIPTION -->
@@ -272,6 +278,7 @@
       }
 
       // Cacher sections spécifiques si pas réclamation
+      const sections = document.querySelectorAll('.fiche-section');
       if (typeD !== 'reclamation') {
         document.querySelectorAll('.detail-row').forEach(row => {
           const label = row.querySelector('span');
@@ -279,15 +286,24 @@
             row.style.display = 'none';
           }
         });
-        const ecueSection = document.querySelector('.fiche-section .section-label');
-        if (ecueSection) {
-          const sections = document.querySelectorAll('.fiche-section');
-          sections.forEach(s => {
-            const lb = s.querySelector('.section-label');
-            if (lb && lb.textContent.includes('ECUES')) s.style.display = 'none';
-          });
-        }
+        sections.forEach(s => {
+          const lb = s.querySelector('.section-label');
+          if (lb && lb.textContent.includes('ECUES')) s.style.display = 'none';
+        });
       }
+      // Sections spécifiques aux types
+      sections.forEach(s => {
+        const lb = s.querySelector('.section-label');
+        if (lb && lb.textContent.includes('exemplaires')) {
+          s.style.display = (typeD === 'duplicata' || typeD === 'attestation') ? '' : 'none';
+        }
+        if (lb && lb.textContent.includes('Motifs')) {
+          s.style.display = (typeD === 'reclamation') ? '' : 'none';
+        }
+        if (lb && lb.textContent.includes('Correspondant')) {
+          s.style.display = (typeD === 'reclamation' || typeD === 'duplicata') ? '' : 'none';
+        }
+      });
 
       // Cacher les actions si c'est un étudiant
       const role = resolveCurrentRole();
@@ -459,6 +475,39 @@
           if (el) el.textContent = fmt ? fmt(val) : val;
         });
 
+        // Correspondant — cocher les cases correspondantes
+        if (demande.correspondant) {
+          const mots = demande.correspondant.toLowerCase();
+          document.querySelectorAll('#section-correspondant input[type="checkbox"]').forEach(cb => {
+            cb.checked = mots.includes(cb.value.toLowerCase());
+            cb.disabled = true;
+          });
+        }
+
+        // Motifs — cocher les cases correspondantes
+        if (demande.motifs && demande.motifs.length > 0) {
+          const motifsLabels = demande.motifs.map(m => m.toLowerCase());
+          document.querySelectorAll('#section-motifs input[type="checkbox"]').forEach(cb => {
+            cb.checked = motifsLabels.includes(cb.value.toLowerCase());
+            cb.disabled = true;
+          });
+        }
+
+        // ECUE 1 = matière
+        const ecueSection = Array.from(document.querySelectorAll('.fiche-section'))
+          .find(s => s.querySelector('.section-label')?.textContent.includes('ECUES'));
+        const ecue1El = ecueSection?.querySelector('.detail-row strong');
+        if (ecue1El && demande.matiere) {
+          ecue1El.textContent = demande.matiere;
+        }
+
+        // Nombre d'exemplaires (duplicata / attestation)
+        const ex = demande.duplicata_exemplaires || demande.attestation_exemplaires;
+        if (ex) {
+          const exRow = document.querySelector('.detail-row.nb-exemplaires strong');
+          if (exRow) exRow.textContent = ex;
+        }
+
         // Description
         const descEl = document.querySelector('.fiche-section p');
         if (descEl) {
@@ -482,7 +531,8 @@
         renderTimeline(demande.type_demande, step);
 
         // Mettre à jour les sections spécifiques au type
-        const estReclamation = demande.type_demande === 'reclamation';
+        const typeD = demande.type_demande;
+        const estReclamation = typeD === 'reclamation';
         document.querySelectorAll('.detail-row').forEach(row => {
           const label = row.querySelector('span');
           if (label && ['Matière :', 'Enseignant :', 'Note obtenue :'].includes(label.textContent)) {
@@ -493,6 +543,15 @@
           const lb = s.querySelector('.section-label');
           if (lb && lb.textContent.includes('ECUES')) {
             s.style.display = estReclamation ? '' : 'none';
+          }
+          if (lb && lb.textContent.includes('exemplaires')) {
+            s.style.display = (typeD === 'duplicata' || typeD === 'attestation') ? '' : 'none';
+          }
+          if (lb && lb.textContent.includes('Motifs')) {
+            s.style.display = estReclamation ? '' : 'none';
+          }
+          if (lb && lb.textContent.includes('Correspondant')) {
+            s.style.display = (typeD === 'reclamation' || typeD === 'duplicata') ? '' : 'none';
           }
         });
 

@@ -31,7 +31,8 @@ async function create(etudiantData) {
         id_utilisateur,
         matricule,
         id_filiere,
-        id_niveau
+        id_niveau,
+        id_option
     } = etudiantData;
 
 
@@ -42,9 +43,10 @@ async function create(etudiantData) {
             id_utilisateur,
             matricule,
             id_filiere,
-            id_niveau
+            id_niveau,
+            id_option
         )
-        VALUES ($1,$2,$3,$4)
+        VALUES ($1,$2,$3,$4,$5)
         RETURNING
             id_etudiant,
             id_utilisateur,
@@ -54,7 +56,8 @@ async function create(etudiantData) {
             id_utilisateur,
             matricule,
             id_filiere,
-            id_niveau
+            id_niveau,
+            id_option
         ]
     );
 
