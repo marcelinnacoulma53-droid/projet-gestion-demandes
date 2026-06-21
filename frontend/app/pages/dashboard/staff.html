@@ -282,7 +282,7 @@
               <td data-label="Date">${date}</td>
               <td data-label="Statut"><span class="badge ${badgeClass}">${statut}</span></td>
               <td data-label="Actions" class="actions-cell">
-                <button class="btn-voir" onclick="window.location.href='../demandes/detail.html?id=${d.id_demande}'">👁 Voir</button>
+                <button class="btn-voir" onclick="voirDetail(this)">👁 Voir</button>
                 ${peutTraiter ? `
                   <button class="btn-valider" onclick="transmettreDemande(${d.id_demande})">→ Transmettre</button>
                   <button class="btn-rejeter" onclick="rejeterDemande(${d.id_demande})">✗ Rejeter</button>
