@@ -158,9 +158,11 @@
       </div>
       <div class="modal-footer">
         <button class="btn-retour" onclick="document.getElementById('modal').style.display='none'">Fermer</button>
+        <a id="lien-detail-complet" href="#" class="btn-envoyer" style="text-decoration:none;">Voir détail complet</a>
       </div>
     </div>
   </div>
+
 
   <!-- MODAL COMPLÉMENT -->
   <div id="modalComplement" class="modal-overlay" style="display:none;" onclick="fermerModalComplement(event)">
@@ -178,6 +180,58 @@
       <div class="modal-footer">
         <button class="btn-retour" onclick="document.getElementById('modalComplement').style.display='none'">Annuler</button>
         <button class="btn-envoyer" onclick="envoyerComplement()">Envoyer</button>
+      </div>
+    </div>
+  </div>
+  <!-- MODAL TRANSMETTRE -->
+  <div id="modalTransmettre" class="modal-overlay" style="display:none;" onclick="fermerModalTransmettre(event)">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3>→ Transmettre la demande</h3>
+        <button onclick="document.getElementById('modalTransmettre').style.display='none'" class="modal-close">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Commentaire <span style="color:#888; font-weight:400;">(optionnel)</span></label>
+          <textarea id="transmettreCommentaire" placeholder="Ex: Dossier complet"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-retour" onclick="document.getElementById('modalTransmettre').style.display='none'">Annuler</button>
+        <button class="btn-envoyer" onclick="confirmerTransmission()">Confirmer</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL REJETER -->
+  <div id="modalRejeter" class="modal-overlay" style="display:none;" onclick="fermerModalRejeter(event)">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3>✗ Rejeter la demande</h3>
+        <button onclick="document.getElementById('modalRejeter').style.display='none'" class="modal-close">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Motif du rejet <span style="color:#c62828;">*</span></label>
+          <textarea id="rejeterMotif" placeholder="Ex: Pièce jointe manquante"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-retour" onclick="document.getElementById('modalRejeter').style.display='none'">Annuler</button>
+        <button class="btn-envoyer" onclick="confirmerRejet()">Confirmer le rejet</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL CONFIRMATION (remplace alert) -->
+  <div id="modalInfo" class="modal-overlay" style="display:none;" onclick="fermerModalInfo(event)">
+    <div class="modal-box" style="max-width:380px;">
+      <div class="modal-body" style="text-align:center; padding:28px 20px 20px;">
+        <div id="infoIcone" style="font-size:40px; margin-bottom:10px;"></div>
+        <p id="infoMessage" style="font-size:14px; color:#333; margin:0;"></p>
+      </div>
+      <div class="modal-footer" style="justify-content:center;">
+        <button class="btn-envoyer" onclick="document.getElementById('modalInfo').style.display='none'">OK</button>
       </div>
     </div>
   </div>
@@ -243,74 +297,89 @@
     }
     chargerDemandesStaff();
 
-    async function transmettreDemande(idDemande) {
-      const commentaire = prompt('Commentaire (optionnel) avant de transmettre :') || '';
+    let idEnCours = null;
+
+    function transmettreDemande(idDemande) {
+      idEnCours = idDemande;
+      document.getElementById('transmettreCommentaire').value = '';
+      document.getElementById('modalTransmettre').style.display = 'flex';
+    }
+
+    async function confirmerTransmission() {
+      const commentaire = document.getElementById('transmettreCommentaire').value;
+      document.getElementById('modalTransmettre').style.display = 'none';
 
       try {
         const token = getAuthToken();
-        const response = await fetch(API_BASE + '/workflow/' + idDemande + '/valider', {
+        const response = await fetch(API_BASE + '/workflow/' + idEnCours + '/valider', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer ' + token
-          },
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
           body: JSON.stringify({ commentaire })
         });
-
         const data = await response.json();
 
         if (!data.success) {
-          alert('Erreur : ' + (data.message || 'Impossible de transmettre la demande.'));
+          afficherInfo('⚠️', data.message || 'Impossible de transmettre la demande.');
           return;
         }
 
         if (data.data.termine) {
-          alert('Demande clôturée — fin du circuit de validation.');
+          afficherInfo('✅', 'Demande clôturée — fin du circuit de validation.');
         } else {
-          alert('Demande transmise à l\'étape : ' + data.data.nextEtape);
+          afficherInfo('✅', 'Demande transmise à l\'étape : ' + data.data.nextEtape);
         }
-
         chargerDemandesStaff();
 
       } catch (e) {
-        console.error('Erreur transmission:', e);
-        alert('Erreur de connexion au serveur.');
+        afficherInfo('⚠️', 'Erreur de connexion au serveur.');
       }
     }
 
-    async function rejeterDemande(idDemande) {
-      const motif = prompt('Motif du rejet (obligatoire) :');
+    function rejeterDemande(idDemande) {
+      idEnCours = idDemande;
+      document.getElementById('rejeterMotif').value = '';
+      document.getElementById('modalRejeter').style.display = 'flex';
+    }
+
+    async function confirmerRejet() {
+      const motif = document.getElementById('rejeterMotif').value.trim();
       if (!motif) {
-        alert('Le motif est obligatoire pour rejeter une demande.');
+        afficherInfo('⚠️', 'Le motif est obligatoire pour rejeter une demande.');
         return;
       }
+      document.getElementById('modalRejeter').style.display = 'none';
 
       try {
         const token = getAuthToken();
-        const response = await fetch(API_BASE + '/workflow/' + idDemande + '/rejeter', {
+        const response = await fetch(API_BASE + '/workflow/' + idEnCours + '/rejeter', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer ' + token
-          },
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
           body: JSON.stringify({ motif })
         });
-
         const data = await response.json();
 
         if (!data.success) {
-          alert('Erreur : ' + (data.message || 'Impossible de rejeter la demande.'));
+          afficherInfo('⚠️', data.message || 'Impossible de rejeter la demande.');
           return;
         }
 
-        alert('Demande rejetée.');
+        afficherInfo('✅', 'Demande rejetée.');
         chargerDemandesStaff();
 
       } catch (e) {
-        console.error('Erreur rejet:', e);
-        alert('Erreur de connexion au serveur.');
+        afficherInfo('⚠️', 'Erreur de connexion au serveur.');
       }
     }
+
+    function afficherInfo(icone, message) {
+      document.getElementById('infoIcone').textContent = icone;
+      document.getElementById('infoMessage').textContent = message;
+      document.getElementById('modalInfo').style.display = 'flex';
+    }
+
+    function fermerModalTransmettre(e) { if (e.target.id === 'modalTransmettre') e.target.style.display = 'none'; }
+    function fermerModalRejeter(e) { if (e.target.id === 'modalRejeter') e.target.style.display = 'none'; }
+    function fermerModalInfo(e) { if (e.target.id === 'modalInfo') e.target.style.display = 'none'; }
 
     function filterDemandes(groupe) {
       const rows = document.querySelectorAll('#demandesTable tbody tr');
@@ -329,10 +398,12 @@
     function voirDetail(btn) {
       const row = btn.closest('tr');
       const cells = row.querySelectorAll('td');
+      const idDemande = row.dataset.id;
       document.getElementById('d-etudiant').textContent = cells[1].textContent;
       document.getElementById('d-type').textContent = cells[2].textContent;
       document.getElementById('d-date').textContent = cells[3].textContent;
       document.getElementById('d-statut').textContent = cells[4].textContent.trim();
+      document.getElementById('lien-detail-complet').href = '../demandes/detail.html?id=' + idDemande;
       document.getElementById('modal').style.display = 'flex';
     }
 

@@ -59,39 +59,35 @@
           </thead>
           <tbody>
             <tr data-statut="en_attente">
-              <td>001</td>
-              <td>Koné Mamadou</td>
-              <td>Mathématiques</td>
-              <td><strong>08/20</strong></td>
-              <td>10/06/2026</td>
-              <td><span class="badge yellow">🟡 En attente</span></td>
-              <td>
-                <button class="btn-voir" onclick="ouvrirCorrection(this, '08', 'Koné Mamadou', 'Mathématiques')">
-                  ✏️ Traiter
-                </button>
+              <td data-label="N°">001</td>
+              <td data-label="Étudiant">Koné Mamadou</td>
+              <td data-label="Matière">Mathématiques</td>
+              <td data-label="Note actuelle"><strong>08/20</strong></td>
+              <td data-label="Date">10/06/2026</td>
+              <td data-label="Statut"><span class="badge yellow">🟡 En attente</span></td>
+              <td data-label="Action">
+                <button class="btn-voir" onclick="ouvrirCorrection(this, '08', 'Koné Mamadou', 'Mathématiques')">✏️ Traiter</button>
               </td>
             </tr>
             <tr data-statut="en_attente">
-              <td>002</td>
-              <td>Traoré Fatoumata</td>
-              <td>Algorithmique</td>
-              <td><strong>10/20</strong></td>
-              <td>09/06/2026</td>
-              <td><span class="badge yellow">🟡 En attente</span></td>
-              <td>
-                <button class="btn-voir" onclick="ouvrirCorrection(this, '10', 'Traoré Fatoumata', 'Algorithmique')">
-                  ✏️ Traiter
-                </button>
+              <td data-label="N°">002</td>
+              <td data-label="Étudiant">Traoré Fatoumata</td>
+              <td data-label="Matière">Algorithmique</td>
+              <td data-label="Note actuelle"><strong>10/20</strong></td>
+              <td data-label="Date">09/06/2026</td>
+              <td data-label="Statut"><span class="badge yellow">🟡 En attente</span></td>
+              <td data-label="Action">
+                <button class="btn-voir" onclick="ouvrirCorrection(this, '10', 'Traoré Fatoumata', 'Algorithmique')">✏️ Traiter</button>
               </td>
             </tr>
             <tr data-statut="traitee">
-              <td>003</td>
-              <td>Sawadogo Issouf</td>
-              <td>Réseaux</td>
-              <td><strong>12/20</strong></td>
-              <td>08/06/2026</td>
-              <td><span class="badge green">🟢 Traitée</span></td>
-              <td>
+              <td data-label="N°">003</td>
+              <td data-label="Étudiant">Sawadogo Issouf</td>
+              <td data-label="Matière">Réseaux</td>
+              <td data-label="Note actuelle"><strong>12/20</strong></td>
+              <td data-label="Date">08/06/2026</td>
+              <td data-label="Statut"><span class="badge green">🟢 Traitée</span></td>
+              <td data-label="Action">
                 <button class="btn-voir" onclick="alert('Déjà traitée.')">👁 Voir</button>
               </td>
             </tr>

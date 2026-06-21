@@ -94,6 +94,7 @@
       </div>
       <div class="modal-footer">
         <button class="btn-retour" onclick="document.getElementById('modal').style.display='none'">Fermer</button>
+        <a id="lien-detail-complet" href="#" class="btn-envoyer" style="text-decoration:none;">Voir détail complet</a>
       </div>
     </div>
   </div>
@@ -142,7 +143,7 @@
               <td data-label="Date">${date}</td>
               <td data-label="Statut"><span class="badge ${badgeClass}">${statut}</span></td>
               <td data-label="Actions" class="actions-cell">
-                <button class="btn-voir" onclick="window.location.href='../demandes/detail.html?id='+${d.id_demande}">👁 Voir</button>
+                <button class="btn-voir" onclick="ouvrirModalDetail(${d.id_demande}, '${(d.nom_etudiant||'').replace(/'/g,"")}', '${(d.objet||'').replace(/'/g,"")}', '${date}', '${statut}')">👁 Voir</button>
               </td>
             </tr>`;
           }).join('');
@@ -174,7 +175,14 @@
         alert('Erreur lors du chargement du détail.');
       }
     }
-
+    function ouvrirModalDetail(id, etudiant, type, date, statut) {
+      document.getElementById('d-etudiant').textContent = etudiant;
+      document.getElementById('d-type').textContent = type;
+      document.getElementById('d-date').textContent = date;
+      document.getElementById('d-statut').textContent = statut;
+      document.getElementById('lien-detail-complet').href = '../demandes/detail.html?id=' + id;
+      document.getElementById('modal').style.display = 'flex';
+    }
     // Filtrer les demandes
     function filterDemandes(groupe) {
       const rows = document.querySelectorAll('#demandesBody tr');
