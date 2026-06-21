@@ -35,6 +35,8 @@ async function findByEmailWithRole(email) {
         SELECT 
             u.id_utilisateur,
             u.email,
+            u.nom,
+            u.prenom,
             u.mot_de_passe,
             u.actif,
             u.id_role,
@@ -62,6 +64,8 @@ async function findByIdentifiantWithRole(identifiant) {
         SELECT 
             u.id_utilisateur,
             u.email,
+            u.nom,
+            u.prenom,
             u.mot_de_passe,
             u.actif,
             u.id_role,

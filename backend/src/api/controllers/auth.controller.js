@@ -149,6 +149,8 @@ const login = async (req, res) => {
             user: {
                 id: user.id_utilisateur,
                 email: user.email,
+                nom: user.nom,
+                prenom: user.prenom,
                 role: user.role_libelle.toLowerCase(), 
                 premiere_connexion: user.premiere_connexion
             }
@@ -329,6 +331,8 @@ const changerIdentifiants = async (req, res, next) => {
             user: {
                 id: userId,
                 email: nouveau_email,
+                nom: roleResult?.nom || nom || '',
+                prenom: roleResult?.prenom || '',
                 role: (roleResult?.role_libelle || 'staff').toLowerCase()   // ✅
             }
         });
