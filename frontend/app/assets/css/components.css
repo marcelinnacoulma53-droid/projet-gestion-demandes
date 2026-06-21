@@ -114,6 +114,7 @@
 .badge.yellow { background: #fff8e1; color: #f9a825; }
 .badge.green  { background: #e8f5e9; color: #2e7d32; }
 .badge.red    { background: #ffebee; color: #c62828; }
+.badge.blue   { background: #e3f2fd; color: #1565c0; }
 
 .btn-detail {
   background: #1a237e;

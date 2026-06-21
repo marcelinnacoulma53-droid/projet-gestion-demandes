@@ -48,6 +48,7 @@
         <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
           <button class="btn-filter active-filter" onclick="filtrer('all',this)">📋 Toutes</button>
           <button class="btn-filter" onclick="filtrer('en_attente',this)">🟡 En attente</button>
+          <button class="btn-filter" onclick="filtrer('transmise',this)">🔵 Transmises</button>
           <button class="btn-filter" onclick="filtrer('traitee',this)">🟢 Traitées</button>
         </div>
         <table class="demandes-table" id="reclamTable">
@@ -171,9 +172,10 @@
     function updateStats(demandes) {
       const total = demandes.length;
       const attente = demandes.filter(d =>
-        d.statut === 'soumise' || d.statut === 'en cours de traitement'
+        d.etape_courante === 'professeur' || d.etape_courante === 'secretaire' || d.etape_courante === 'da'
       ).length;
       const traitees = demandes.filter(d =>
+        d.etape_courante === 'da_final' || d.etape_courante === 'scolarite' ||
         d.statut === 'acceptee' || d.statut === 'terminee' || d.statut === 'rejetee'
       ).length;
 
@@ -193,15 +195,28 @@
       tbody.innerHTML = demandes.map((d, i) => {
         const statut = d.statut || 'soumise';
         const s = statut.toLowerCase();
-        const isTraitee = s === 'acceptee' || s === 'terminee' || s === 'rejetee';
-        const badgeClass = isTraitee ? 'green' : 'yellow';
-        const badgeText = isTraitee ? '🟢 Traitée' : '🟡 En attente';
+        const etape = d.etape_courante || '';
+        const isFinalisee = s === 'acceptee' || s === 'terminee' || s === 'rejetee';
+        const isTransmise = etape === 'da_final' || etape === 'scolarite';
+
+        let badgeClass, badgeText;
+        if (isFinalisee) {
+          badgeClass = 'green';
+          badgeText = '🟢 Traitée';
+        } else if (isTransmise) {
+          badgeClass = 'blue';
+          badgeText = '🔵 Transmise au DA';
+        } else {
+          badgeClass = 'yellow';
+          badgeText = '🟡 En attente';
+        }
+
         const date = d.date_creation ? new Date(d.date_creation).toLocaleDateString('fr-FR') : 'N/A';
         const etudiant = ((d.prenom_etudiant || '') + ' ' + (d.nom_etudiant || '')).trim() || 'N/A';
         const matiere = d.matiere || '—';
-        const statutClean = isTraitee ? 'traitee' : 'en_attente';
+        const statutClean = isFinalisee ? 'traitee' : isTransmise ? 'transmise' : 'en_attente';
 
-        const actionBtn = isTraitee
+        const actionBtn = isFinalisee || isTransmise
           ? `<button class="btn-voir" onclick="afficherNotif('👁', 'Déjà traitée.', 'info')">👁 Voir</button>`
           : `<button class="btn-voir" onclick="ouvrirCorrection(${d.id_demande}, '${etudiant.replace(/'/g, "\\'")}', '${matiere.replace(/'/g, "\\'")}')">✏️ Traiter</button>`;
 
@@ -224,7 +239,9 @@
         ? demandesData
         : demandesData.filter(d => {
             const s = d.statut ? d.statut.toLowerCase() : '';
-            if (groupe === 'en_attente') return s === 'soumise' || s === 'en cours de traitement';
+            const etape = d.etape_courante || '';
+            if (groupe === 'en_attente') return etape === 'professeur' || etape === 'secretaire' || etape === 'da';
+            if (groupe === 'transmise') return etape === 'da_final' || etape === 'scolarite';
             if (groupe === 'traitee') return s === 'acceptee' || s === 'terminee' || s === 'rejetee';
             return true;
           });
