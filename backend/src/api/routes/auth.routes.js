@@ -66,4 +66,18 @@ router.post('/admin/staff',
     authController.createStaff
 );
 
+// ✅ Lister tous les utilisateurs (admin uniquement)
+router.get('/users',
+    authenticate,
+    checkRole(['administrateur']),
+    authController.getAllUsers
+);
+
+// ✅ Supprimer un utilisateur (admin uniquement)
+router.delete('/users/:id',
+    authenticate,
+    checkRole(['administrateur']),
+    authController.deleteUser
+);
+
 module.exports = router;

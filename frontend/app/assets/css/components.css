@@ -882,3 +882,13 @@ body.dashboard-body {
     text-align: center;
   }
 }
+
+/* SCREEN (admin tabs) */
+.screen { display: none; }
+.screen.active { display: block; }
+
+/* TABLE RESPONSIVE WRAPPER */
+.table-responsive { overflow-x: auto; margin-bottom: 0; }
+@media (max-width: 768px) {
+  .table-responsive { margin: 0 -4px; }
+}

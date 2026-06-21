@@ -24,6 +24,7 @@ const demandeRoutes = require('./api/routes/demandes.routes');
 const workflowRoutes = require('./api/routes/workflow.routes');
 const documentRoutes = require('./api/routes/documents.routes');
 const notificationRoutes = require('./api/routes/notifications.routes');
+const typeDemandeRoutes = require('./api/routes/types.routes');
 const { errorHandler } = require('./middlewares/error.middleware');
 
 // ============================================================
@@ -61,6 +62,7 @@ app.use('/api/demandes', demandeRoutes);
 app.use('/api/workflow', workflowRoutes);
 app.use('/api/documents', documentRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/types-demandes', typeDemandeRoutes);
 
 // ============================================================
 // GESTION DES ERREURS 404

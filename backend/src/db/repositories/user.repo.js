@@ -208,6 +208,39 @@ async function findByRole(roleLibelle) {
     return result.rows;
 }
 
+// =======================================
+// Lister tous les utilisateurs (admin)
+// =======================================
+async function findAll() {
+    const result = await db.query(
+        `
+        SELECT 
+            u.id_utilisateur,
+            u.nom,
+            u.prenom,
+            u.email,
+            u.actif,
+            u.premiere_connexion,
+            r.libelle AS role_libelle
+        FROM utilisateurs u
+        LEFT JOIN roles r ON u.id_role = r.id_role
+        ORDER BY u.id_utilisateur
+        `
+    );
+    return result.rows;
+}
+
+// =======================================
+// Supprimer un utilisateur (admin)
+// =======================================
+async function deleteUser(id_utilisateur) {
+    const result = await db.query(
+        `DELETE FROM utilisateurs WHERE id_utilisateur = $1 RETURNING id_utilisateur`,
+        [id_utilisateur]
+    );
+    return result.rows[0] || null;
+}
+
 // Export du repository
 module.exports = {
     findByEmail,
@@ -217,5 +250,7 @@ module.exports = {
     create,
     findEtudiantByUserId,
     update,
-    findByRole
+    findByRole,
+    findAll,
+    deleteUser
 };

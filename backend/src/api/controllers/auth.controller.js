@@ -342,4 +342,34 @@ const changerIdentifiants = async (req, res, next) => {
     }
 };
 
-module.exports = { register, login, getMe, logout, createStaff, changerIdentifiants };
+// ============================================================
+// 7. LISTER TOUS LES UTILISATEURS (admin uniquement)
+// GET /api/auth/users
+// ============================================================
+const getAllUsers = async (req, res, next) => {
+    try {
+        const users = await userRepo.findAll();
+        res.json({ success: true, users });
+    } catch (error) {
+        next(error);
+    }
+};
+
+// ============================================================
+// 8. SUPPRIMER UN UTILISATEUR (admin uniquement)
+// DELETE /api/auth/users/:id
+// ============================================================
+const deleteUser = async (req, res, next) => {
+    const { id } = req.params;
+    try {
+        const deleted = await userRepo.deleteUser(id);
+        if (!deleted) {
+            return res.status(404).json({ message: 'Utilisateur non trouvé' });
+        }
+        res.json({ success: true, message: 'Utilisateur supprimé' });
+    } catch (error) {
+        next(error);
+    }
+};
+
+module.exports = { register, login, getMe, logout, createStaff, changerIdentifiants, getAllUsers, deleteUser };
