@@ -748,8 +748,14 @@ body.dashboard-body {
     transform: none !important;
   }
 
+  .dashboard-layout {
+    max-width: 100vw;
+  }
+
   .main-content {
     padding: 16px !important;
+    max-width: 100%;
+    overflow-x: hidden;
   }
 
   /* Stats : 2 colonnes au lieu de 4 */
@@ -823,7 +829,30 @@ body.dashboard-body {
     content: attr(data-label);
     font-weight: 600;
     color: #888;
-    margin-right: 12px;
+    flex-shrink: 0;
+  }
+
+  .demandes-table td.actions-cell {
+    flex-wrap: wrap;
+    gap: 4px;
+    padding: 6px 4px;
+    justify-content: flex-start;
+  }
+
+  .demandes-table td.actions-cell::before {
+    width: 100%;
+    margin-bottom: 4px;
+  }
+
+  .demandes-table td.actions-cell button,
+  .demandes-table td.actions-cell a {
+    font-size: 11px;
+    padding: 5px 8px;
+    white-space: nowrap;
+  }
+
+  .section-card {
+    overflow: hidden;
   }
 
   /* Formulaires et fiches */
@@ -890,7 +919,7 @@ body.dashboard-body {
 /* TABLE RESPONSIVE WRAPPER */
 .table-responsive { overflow-x: auto; margin-bottom: 0; }
 @media (max-width: 768px) {
-  .table-responsive { margin: 0 -4px; }
+  .table-responsive { overflow-x: hidden; margin: 0 -4px; }
 }
 
 /* DASHBOARD 2-COL GRID */
