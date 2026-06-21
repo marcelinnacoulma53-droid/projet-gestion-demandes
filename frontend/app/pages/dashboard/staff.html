@@ -246,6 +246,22 @@
       afficherRoleNavbar('roleLabel');
     });
 
+    const ETAPE_ROLE_MAP = {
+      secretaire: ['secretaire'],
+      secretaire_retour: ['secretaire'],
+      sp: ['sp'],
+      da: ['da'],
+      da_final: ['da'],
+      professeur: ['professeur'],
+      directrice: ['directrice'],
+      presidence: ['presidence'],
+      scolarite: ['scolarite']
+    };
+
+    function etapeAutoriseRole(etape, role) {
+      return (ETAPE_ROLE_MAP[etape] || []).includes(role);
+    }
+
     async function chargerDemandesStaff() {
       const token = getAuthToken();
       if (!token) return;
@@ -275,7 +291,7 @@
             const badgeClass = s === 'acceptee' || s === 'terminee' ? 'green' : s === 'rejetee' ? 'red' : 'yellow';
             const date = d.date_creation ? new Date(d.date_creation).toLocaleDateString('fr-FR') : 'N/A';
             const etape = d.etape_courante || '';
-            const peutTraiter = statut !== 'rejetee' && statut !== 'terminee' && statut !== 'cloturee' && (!etape || etape === roleUser);
+            const peutTraiter = statut !== 'rejetee' && statut !== 'terminee' && statut !== 'cloturee' && (!etape || etapeAutoriseRole(etape, roleUser));
             return `<tr data-statut="${statut}" data-id="${d.id_demande}">
               <td data-label="N°">${d.reference || d.id_demande}</td>
               <td data-label="Étudiant">${d.nom_etudiant || 'Étudiant'}</td>

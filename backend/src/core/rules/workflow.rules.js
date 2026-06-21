@@ -17,13 +17,15 @@ const workflowRules = {
             },
             derogation: {
                 'secretaire': 'sp',
-                'sp': 'directrice',
+                'sp': 'secretaire_retour',
+                'secretaire_retour': 'directrice',
                 'directrice': 'presidence',
                 'presidence': 'scolarite'
             },
             duplicata: {
                 'secretaire': 'sp',
-                'sp': 'da'
+                'sp': 'secretaire_retour',
+                'secretaire_retour': 'da'
             },
             attestation: {
                 'secretaire': 'da'
@@ -52,8 +54,8 @@ const workflowRules = {
     isEtapeValide: (typeDemande, etape) => {
         const workflows = {
             reclamation: ['secretaire', 'da', 'professeur', 'da_final', 'scolarite'],
-            derogation: ['secretaire', 'sp', 'directrice', 'presidence', 'scolarite'],
-            duplicata: ['secretaire', 'sp', 'da'],
+            derogation: ['secretaire', 'sp', 'secretaire_retour', 'directrice', 'presidence', 'scolarite'],
+            duplicata: ['secretaire', 'sp', 'secretaire_retour', 'da'],
             attestation: ['secretaire', 'da']
         };
         return workflows[typeDemande]?.includes(etape) || false;
@@ -74,6 +76,7 @@ const workflowRules = {
             derogation: {
                 'secretaire': ['secretaire'],
                 'sp': ['sp'],
+                'secretaire_retour': ['secretaire'],
                 'directrice': ['directrice'],
                 'presidence': ['presidence'],
                 'scolarite': ['scolarite']
@@ -81,6 +84,7 @@ const workflowRules = {
             duplicata: {
                 'secretaire': ['secretaire'],
                 'sp': ['sp'],
+                'secretaire_retour': ['secretaire'],
                 'da': ['da']
             },
             attestation: {

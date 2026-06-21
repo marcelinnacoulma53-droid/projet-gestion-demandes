@@ -243,7 +243,10 @@
           body: JSON.stringify({
             type_demande: 'duplicata',
             objet: 'Duplicata - ' + documentDemande,
-            description: (description + ' (' + exemplaires + ' exemplaire(s))').trim()
+            description: (description + ' (' + exemplaires + ' exemplaire(s))').trim(),
+            statut: 'soumise',
+            id_type_document_academique: documentDemande,
+            nombre_exemplaires: parseInt(exemplaires, 10) || 1
           })
         });
 

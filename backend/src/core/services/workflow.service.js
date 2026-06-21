@@ -29,6 +29,24 @@ const workflowService = {
                 await demandeRepo.update(id_demande, { 
                     id_statut: id_terminee
                 });
+
+                // Enregistrer le traitement final
+                await traitementRepo.create({
+                    id_demande,
+                    id_utilisateur,
+                    decision: 'VALIDE',
+                    commentaire,
+                    ancienne_etape: demande.etape_courante,
+                    nouvelle_etape: null
+                });
+
+                // Notifier l'étudiant que sa demande est terminée
+                await notificationService.notifierUtilisateur(
+                    demande.id_etudiant,
+                    `Votre demande ${demande.reference} a été traitée avec succès et est désormais terminée.`,
+                    id_demande
+                );
+
                 return { success: true, nextEtape: null, termine: true };
             }
             
@@ -54,6 +72,13 @@ const workflowService = {
             await notificationService.notifierRole(nextStep, 
                 `Nouvelle demande ${demande.reference} à traiter`, 
                 id_demande);
+
+            // 6. Notifier l'étudiant de l'avancement
+            await notificationService.notifierUtilisateur(
+                demande.id_etudiant,
+                `Votre demande ${demande.reference} a avancé à l'étape suivante du traitement.`,
+                id_demande
+            );
             
             return { success: true, nextEtape: nextStep };
         } catch (error) {

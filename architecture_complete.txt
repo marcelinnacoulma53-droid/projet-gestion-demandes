@@ -307,7 +307,7 @@ const personnelRepo = require('../../db/repositories/personnel.repo');
 // ============================================================
 const register = async (req, res) => {
     console.log(`📥 Requête reçue : ${req.method} ${req.url}`);
-    const { nom, prenom, matricule, email, mot_de_passe } = req.body;
+    const { nom, prenom, matricule, email, mot_de_passe, filiere, niveau, option } = req.body;
 
     if (!nom || !prenom || !matricule || !email || !mot_de_passe) {
         return res.status(400).json({ message: 'Tous les champs sont requis' });
@@ -326,24 +326,61 @@ const register = async (req, res) => {
             return res.status(409).json({ message: 'Ce matricule est déjà utilisé' });
         }
 
-        // ✅ VRAI appel (plus de simulation) - Récupère l'id du rôle 'etudiant'
+        // ✅ Résoudre les libellés → IDs
+        const db = require('../../db/connection');
+
+        let id_filiere = null;
+        if (filiere) {
+            const num = parseInt(filiere, 10);
+            if (!isNaN(num)) { id_filiere = num; }
+            else {
+                const row = await db.query('SELECT id_filiere FROM filieres WHERE libelle ILIKE $1 OR code ILIKE $1 LIMIT 1', [filiere]);
+                id_filiere = row.rows[0]?.id_filiere || null;
+            }
+        }
+
+        let id_niveau = null;
+        if (niveau) {
+            const num = parseInt(niveau, 10);
+            if (!isNaN(num)) { id_niveau = num; }
+            else {
+                const row = await db.query('SELECT id_niveau FROM niveaux WHERE libelle ILIKE $1 LIMIT 1', [niveau]);
+                id_niveau = row.rows[0]?.id_niveau || null;
+            }
+        }
+
+        let id_option = null;
+        if (option) {
+            const num = parseInt(option, 10);
+            if (!isNaN(num)) { id_option = num; }
+            else {
+                const row = await db.query('SELECT id_option FROM options WHERE libelle ILIKE $1 LIMIT 1', [option]);
+                id_option = row.rows[0]?.id_option || null;
+            }
+        }
+
+        // ✅ Récupère l'id du rôle 'etudiant'
         const roleEtudiant = await roleRepo.findByLibelle('etudiant');
         
         // ✅ Hachage du mot de passe
         const motDePasseHash = await bcrypt.hash(mot_de_passe, authConfig.bcryptRounds);
 
-        // ✅ VRAI appel (plus de simulation) - Crée l'utilisateur dans la table utilisateurs
+        // ✅ Crée l'utilisateur dans la table utilisateurs
         const newUser = await userRepo.create({
             nom, prenom, email,
             mot_de_passe: motDePasseHash,
             id_role: roleEtudiant.id_role,
-            premiere_connexion: false
+            premiere_connexion: false,
+            telephone: req.body.telephone || null
         });
 
-        // ✅ VRAI appel (plus de simulation) - Crée l'étudiant dans la table etudiants
+        // ✅ Crée l'étudiant dans la table etudiants
         await etudiantRepo.create({
             id_utilisateur: newUser.id_utilisateur,
-            matricule: matricule
+            matricule: matricule,
+            id_filiere: id_filiere,
+            id_niveau: id_niveau,
+            id_option: id_option
         });
 
         // ✅ Génération du token JWT
@@ -454,16 +491,29 @@ const login = async (req, res) => {
 // ============================================================
 const getMe = async (req, res) => {
     try {
-        // ✅ L'ID utilisateur vient du middleware authenticate
         const userId = req.user.userId;
-
-        // ✅ VRAI appel (plus de simulation) - Cherche l'utilisateur par ID
         const user = await userRepo.findById(userId);
 
-        // ✅ Réponse au frontend
+        // Si étudiant, récupérer aussi les infos de la table etudiants
+        let etudiant = null;
+        if (req.user.role === 'etudiant') {
+            const db = require('../../db/connection');
+            const result = await db.query(
+                `SELECT e.id_etudiant, e.matricule AS ine,
+                        f.libelle AS filiere, n.libelle AS niveau, o.libelle AS option
+                 FROM etudiants e
+                 LEFT JOIN filieres f ON e.id_filiere = f.id_filiere
+                 LEFT JOIN niveaux n ON e.id_niveau = n.id_niveau
+                 LEFT JOIN options o ON e.id_option = o.id_option
+                 WHERE e.id_utilisateur = $1`,
+                [userId]
+            );
+            etudiant = result.rows[0] || null;
+        }
+
         res.json({
             success: true,
-            user: user
+            user: { ...user, etudiant }
         });
 
     } catch (error) {
@@ -572,7 +622,7 @@ const createStaff = async (req, res, next) => {
 // ============================================================
 const changerIdentifiants = async (req, res, next) => {
     const userId = req.user.userId;
-    const { nouveau_email, nouveau_mot_de_passe, confirmation_mot_de_passe, nom } = req.body;
+    const { nouveau_email, nouveau_mot_de_passe, confirmation_mot_de_passe, nom, grade, specialite } = req.body;
 
     if (!nouveau_email || !nouveau_mot_de_passe || !confirmation_mot_de_passe) {
         return res.status(400).json({ message: 'Tous les champs sont requis' });
@@ -599,6 +649,17 @@ const changerIdentifiants = async (req, res, next) => {
             premiere_connexion: false,
             nom: nom || undefined
         });
+
+        // Si c'est un professeur, mettre à jour grade et spécialité
+        if (grade || specialite) {
+            const prof = await professeurRepo.findByUserId(userId);
+            if (prof) {
+                const updates = {};
+                if (grade) updates.grade = grade;
+                if (specialite) updates.specialite = specialite;
+                await professeurRepo.update(userId, updates);
+            }
+        }
 
         // Récupérer le rôle pour le nouveau token
         const roleResult = await userRepo.findByEmailWithRole(nouveau_email);
@@ -677,13 +738,24 @@ const workflowRules = require('../../core/rules/workflow.rules');
 // ============================================================
 // 1. CRÉER UNE DEMANDE
 // ============================================================
-// demande.controller.js — createDemande corrigé
 
-const db = require('../../db/connection'); // ⚠️ à ajouter en haut du fichier si absent
+const db = require('../../db/connection');
 
 const createDemande = async (req, res, next) => {
     const userId = req.user.userId;
-    const { type_demande, objet, description } = req.body;
+    const {
+        type_demande, objet, description, statut,
+        annee_universitaire, correspondant,
+        // Réclamation
+        id_matiere, id_semestre, id_professeur, session,
+        description_reclamation, motif_ids, motif_labels, motif_autres,
+        // Dérogation
+        motif,
+        // Duplicata
+        id_type_document_academique, nombre_exemplaires,
+        // Attestation
+        id_type_attestation
+    } = req.body;
 
     if (!type_demande || !objet) {
         return res.status(400).json({ 
@@ -697,8 +769,7 @@ const createDemande = async (req, res, next) => {
             return res.status(404).json({ message: 'Étudiant non trouvé' });
         }
 
-        // ✅ Le front envoie "reclamation" (minuscule), la base a "Reclamation"
-        // On normalise avec ILIKE pour ignorer la casse
+        // Résoudre le type de demande
         const typeInfo = await db.query(
             'SELECT id_type_demande FROM types_demande WHERE libelle ILIKE $1',
             [type_demande]
@@ -708,15 +779,22 @@ const createDemande = async (req, res, next) => {
         }
         const id_type_demande = typeInfo.rows[0].id_type_demande;
 
-        // ✅ Toute nouvelle demande démarre au statut "Brouillon"
+        // Statut
+        const statutLibelle = (statut && statut !== 'brouillon') ? 'Soumise' : 'Brouillon';
         const statutInfo = await db.query(
             'SELECT id_statut FROM statuts WHERE libelle = $1',
-            ['Brouillon']
+            [statutLibelle]
         );
         const id_statut = statutInfo.rows[0]?.id_statut;
 
         const premiereEtape = workflowRules.getFirstStep(type_demande.toLowerCase());
         const id_etape_courante = await demandeRepo.getEtapeId(premiereEtape);
+
+        // Mettre à jour le téléphone si fourni
+        const telephone = req.body.telephone;
+        if (telephone) {
+            await db.query('UPDATE utilisateurs SET telephone = $1 WHERE id_utilisateur = $2', [telephone, userId]);
+        }
 
         const reference = generateReference(type_demande);
         const nouvelleDemande = await demandeRepo.create({
@@ -726,13 +804,118 @@ const createDemande = async (req, res, next) => {
             objet: objet,
             description: description || '',
             id_statut: id_statut,
-            id_etape_courante: id_etape_courante
+            id_etape_courante: id_etape_courante,
+            annee_universitaire: annee_universitaire || null,
+            correspondant: correspondant || null
         });
+
+        const demandeId = nouvelleDemande.id_demande;
+
+        // ✅ Résoudre les libellés → IDs
+        const typeCle = type_demande.toLowerCase();
+
+        if (typeCle === 'reclamation') {
+            // Résoudre id_matiere (string → ID)
+            let resolvedMatiere = parseInt(id_matiere, 10);
+            if (isNaN(resolvedMatiere) && id_matiere && typeof id_matiere === 'string') {
+                const row = await db.query(
+                    'SELECT id_matiere FROM matieres WHERE libelle ILIKE $1 LIMIT 1',
+                    [id_matiere]
+                );
+                resolvedMatiere = row.rows[0]?.id_matiere || null;
+            }
+
+            // Résoudre id_semestre (string → ID)
+            let resolvedSemestre = parseInt(id_semestre, 10);
+            if (isNaN(resolvedSemestre) && id_semestre && typeof id_semestre === 'string') {
+                const row = await db.query(
+                    'SELECT id_semestre FROM semestres WHERE libelle ILIKE $1 LIMIT 1',
+                    [id_semestre]
+                );
+                resolvedSemestre = row.rows[0]?.id_semestre || null;
+            }
+
+            await demandeRepo.createReclamation(demandeId, {
+                id_matiere: resolvedMatiere,
+                id_semestre: resolvedSemestre,
+                id_professeur: id_professeur || null,
+                session: session || null,
+                description_reclamation: description_reclamation || description || ''
+            });
+
+            // Résoudre motif_labels → motif_ids
+            let resolvedMotifIds = motif_ids || [];
+            if (motif_labels && motif_labels.length > 0) {
+                const motifRows = await db.query(
+                    'SELECT id_motif FROM motifs WHERE libelle = ANY($1)',
+                    [motif_labels]
+                );
+                const found = motifRows.rows.map(r => r.id_motif);
+                resolvedMotifIds = [...new Set([...resolvedMotifIds, ...found])];
+            }
+
+            // Inclure motif_autres dans la description
+            if (motif_autres) {
+                await demandeRepo.update(demandeId, {
+                    description: (description || '') + '\nAutre motif : ' + motif_autres
+                });
+            }
+
+            if (resolvedMotifIds.length > 0) {
+                await demandeRepo.ajouterMotifs(demandeId, resolvedMotifIds);
+            }
+
+        } else if (typeCle === 'derogation') {
+            await demandeRepo.createDerogation(demandeId, {
+                motif: motif || description || '',
+                annee_academique: annee_universitaire || null
+            });
+
+        } else if (typeCle === 'duplicata') {
+            // Résoudre id_type_document_academique (string → ID)
+            let resolvedDoc = parseInt(id_type_document_academique, 10);
+            if (isNaN(resolvedDoc) && id_type_document_academique && typeof id_type_document_academique === 'string') {
+                const row = await db.query(
+                    'SELECT id_type_document_academique FROM types_document_academique WHERE libelle ILIKE $1 LIMIT 1',
+                    [id_type_document_academique]
+                );
+                resolvedDoc = row.rows[0]?.id_type_document_academique || null;
+            }
+
+            await demandeRepo.createDuplicata(demandeId, {
+                id_type_document_academique: resolvedDoc,
+                nombre_exemplaires: nombre_exemplaires || 1
+            });
+
+        } else if (typeCle === 'attestation') {
+            // Résoudre id_type_attestation (string → ID)
+            let resolvedAtt = parseInt(id_type_attestation, 10);
+            if (isNaN(resolvedAtt) && id_type_attestation && typeof id_type_attestation === 'string') {
+                const row = await db.query(
+                    'SELECT id_type_attestation FROM types_attestation WHERE libelle ILIKE $1 LIMIT 1',
+                    [id_type_attestation]
+                );
+                resolvedAtt = row.rows[0]?.id_type_attestation || null;
+            }
+
+            await demandeRepo.createAttestation(demandeId, {
+                id_type_attestation: resolvedAtt,
+                nombre_exemplaires: nombre_exemplaires || 1
+            });
+        }
+
+        // Si statut = soumise, on met à jour date_soumission
+        if (statutLibelle === 'Soumise') {
+            await demandeRepo.update(demandeId, { date_soumission: new Date() });
+        }
+
+        // Recharger la demande complète avec les jointures
+        const demandeComplete = await demandeRepo.findById(demandeId);
 
         res.status(201).json({
             success: true,
             message: 'Demande créée avec succès',
-            demande: nouvelleDemande
+            demande: demandeComplete || nouvelleDemande
         });
 
     } catch (error) {
@@ -1098,11 +1281,30 @@ const supprimerFichier = async (req, res, next) => {
     }
 };
 
+// ============================================================
+// LISTER LES DOCUMENTS D'UNE DEMANDE
+// GET /api/documents/demande/:demandeId
+// ============================================================
+const getDocumentsByDemande = async (req, res, next) => {
+    const demandeId = req.params.demandeId;
+
+    try {
+        const documents = await documentRepo.findByDemande(demandeId);
+        res.json({
+            success: true,
+            documents: documents
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
 module.exports = {
     upload,
     uploadFichier,
     telechargerFichier,
-    supprimerFichier
+    supprimerFichier,
+    getDocumentsByDemande
 };
 ════════════════════════════════════════════════════
 FICHIER : ./backend/src/api/controllers/notification.controller.js
@@ -1232,6 +1434,22 @@ module.exports = {
     toutMarquerCommeLu,
     supprimerNotification
 };
+════════════════════════════════════════════════════
+FICHIER : ./backend/src/api/controllers/professeur.controller.js
+════════════════════════════════════════════════════
+const professeurRepo = require('../../db/repositories/professeur.repo');
+
+const getAllProfesseurs = async (req, res, next) => {
+    try {
+        const professeurs = await professeurRepo.findAll();
+        res.json({ success: true, professeurs });
+    } catch (error) {
+        next(error);
+    }
+};
+
+module.exports = { getAllProfesseurs };
+
 ════════════════════════════════════════════════════
 FICHIER : ./backend/src/api/controllers/typeDemande.controller.js
 ════════════════════════════════════════════════════
@@ -1466,6 +1684,34 @@ router.delete('/users/:id',
 
 module.exports = router;
 ════════════════════════════════════════════════════
+FICHIER : ./backend/src/api/routes/data.routes.js
+════════════════════════════════════════════════════
+const express = require('express');
+const router = express.Router();
+const db = require('../../db/connection');
+const { authenticate } = require('../../middlewares/auth.middleware');
+
+router.get('/matieres', authenticate, async (req, res, next) => {
+    try {
+        const result = await db.query('SELECT id_matiere, code, libelle FROM matieres ORDER BY libelle ASC');
+        res.json({ success: true, matieres: result.rows });
+    } catch (error) {
+        next(error);
+    }
+});
+
+router.get('/semestres', authenticate, async (req, res, next) => {
+    try {
+        const result = await db.query('SELECT id_semestre, libelle FROM semestres ORDER BY libelle ASC');
+        res.json({ success: true, semestres: result.rows });
+    } catch (error) {
+        next(error);
+    }
+});
+
+module.exports = router;
+
+════════════════════════════════════════════════════
 FICHIER : ./backend/src/api/routes/demandes.routes.js
 ════════════════════════════════════════════════════
 // ============================================================
@@ -1539,6 +1785,12 @@ router.post(
     upload.single('fichier'),  // ← middleware multer // Traite le fichier (un seul fichier, nommé 'fichier')
     documentController.uploadFichier 
 );
+
+/**
+ * GET /api/documents/demande/:demandeId
+ * Lister tous les documents d'une demande
+ */
+router.get('/demande/:demandeId', authenticate, documentController.getDocumentsByDemande);
 
 /**
  * GET /api/documents/:documentId
@@ -1625,6 +1877,18 @@ router.delete('/:id', authenticate, notificationController.supprimerNotification
 
 // J'exporte le routeur pour l'utiliser dans app.js
 module.exports = router;
+════════════════════════════════════════════════════
+FICHIER : ./backend/src/api/routes/professeur.routes.js
+════════════════════════════════════════════════════
+const express = require('express');
+const router = express.Router();
+const professeurController = require('../controllers/professeur.controller');
+const { authenticate } = require('../../middlewares/auth.middleware');
+
+router.get('/', authenticate, professeurController.getAllProfesseurs);
+
+module.exports = router;
+
 ════════════════════════════════════════════════════
 FICHIER : ./backend/src/api/routes/types.routes.js
 ════════════════════════════════════════════════════
@@ -1722,6 +1986,8 @@ const workflowRoutes = require('./api/routes/workflow.routes');
 const documentRoutes = require('./api/routes/documents.routes');
 const notificationRoutes = require('./api/routes/notifications.routes');
 const typeDemandeRoutes = require('./api/routes/types.routes');
+const professeurRoutes = require('./api/routes/professeur.routes');
+const dataRoutes = require('./api/routes/data.routes');
 const { errorHandler } = require('./middlewares/error.middleware');
 
 // ============================================================
@@ -1760,6 +2026,8 @@ app.use('/api/workflow', workflowRoutes);
 app.use('/api/documents', documentRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/types-demandes', typeDemandeRoutes);
+app.use('/api/professeurs', professeurRoutes);
+app.use('/api/data', dataRoutes);
 
 // ============================================================
 // GESTION DES ERREURS 404
@@ -2314,19 +2582,38 @@ const permissionService = {
     peutValider: async (id_demande, id_utilisateur, role) => {
         try {
             const demande = await demandeRepo.findById(id_demande);
-            if (!demande) return false;
+            if (!demande) {
+                console.warn('[peutValider] Demande introuvable:', id_demande);
+                return false;
+            }
             
             const rolesAutorises = workflowRules.getRolesAutorisesPourEtape(
                 demande.type_demande, 
                 demande.etape_courante
             );
             
-            if (!rolesAutorises.includes(role)) return false;
+            if (!rolesAutorises.includes(role)) {
+                console.warn(
+                    '[peutValider] Role non autorise. type=%s etape=%s role=%s autorises=%j',
+                    demande.type_demande, demande.etape_courante, role, rolesAutorises
+                );
+                return false;
+            }
             
             // Vérification supplémentaire pour les professeurs
             if (role === 'professeur') {
                 const professeur = await professeurRepo.findByUserId(id_utilisateur);
-                return demande.id_professeur === professeur.id_professeur;
+                if (!professeur) {
+                    console.warn('[peutValider] Professeur introuvable pour userId:', id_utilisateur);
+                    return false;
+                }
+                if (demande.id_professeur !== professeur.id_professeur) {
+                    console.warn(
+                        '[peutValider] Professeur non assigne. demande.id_prof=%s, professeur.id_prof=%s',
+                        demande.id_professeur, professeur.id_professeur
+                    );
+                    return false;
+                }
             }
             
             return true;
@@ -2542,7 +2829,9 @@ async function create(demandeData) {
         description,
         id_type_demande,
         id_statut,
-        id_etape_courante
+        id_etape_courante,
+        annee_universitaire,
+        correspondant
     } = demandeData;
 
 
@@ -2556,15 +2845,19 @@ async function create(demandeData) {
             description,
             id_type_demande,
             id_statut,
-            id_etape_courante
+            id_etape_courante,
+            annee_universitaire,
+            correspondant
         )
-        VALUES ($1,$2,$3,$4,$5,$6,$7)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
         RETURNING
             id_demande,
             reference,
             objet,
             description,
-            date_creation
+            date_creation,
+            annee_universitaire,
+            correspondant
         `,
         [
             reference,
@@ -2573,7 +2866,9 @@ async function create(demandeData) {
             description,
             id_type_demande,
             id_statut,
-            id_etape_courante
+            id_etape_courante,
+            annee_universitaire || null,
+            correspondant || null
         ]
     );
 
@@ -2627,15 +2922,46 @@ async function findById(id_demande) {
             d.reference,
             d.objet,
             d.description,
+            d.date_creation,
+            d.date_soumission,
+            d.annee_universitaire,
+            d.correspondant,
             LOWER(s.libelle) AS statut,
             LOWER(td.libelle) AS type_demande,
             LOWER(ew.libelle) AS etape_courante,
-            d.date_creation,
             d.id_etudiant,
             d.id_statut,
             d.id_type_demande,
             d.id_etape_courante,
-            r.id_professeur
+            r.id_professeur,
+            r.id_matiere,
+            r.id_semestre,
+            r.session,
+            r.description_reclamation,
+            (SELECT u2.nom || ' ' || u2.prenom FROM professeurs p2 JOIN utilisateurs u2 ON p2.id_utilisateur = u2.id_utilisateur WHERE p2.id_professeur = r.id_professeur) AS enseignant,
+            u.nom AS nom_etudiant,
+            u.prenom AS prenom_etudiant,
+            u.telephone,
+            e.matricule AS ine,
+            f.libelle AS filiere,
+            n.libelle AS niveau,
+            o.libelle AS option,
+            sm.libelle AS semestre,
+            m.libelle AS matiere,
+            dg.motif AS derogation_motif,
+            dg.annee_academique,
+            dp.id_type_document_academique,
+            dp.nombre_exemplaires AS duplicata_exemplaires,
+            at.id_type_attestation,
+            at.nombre_exemplaires AS attestation_exemplaires,
+            ta.libelle AS type_attestation_libelle,
+            tda.libelle AS type_document_academique_libelle,
+            ARRAY(
+                SELECT mo.libelle
+                FROM demande_motifs dm
+                JOIN motifs mo ON dm.id_motif = mo.id_motif
+                WHERE dm.id_demande = d.id_demande
+            ) AS motifs
         FROM demandes d
         LEFT JOIN statuts s
             ON d.id_statut = s.id_statut
@@ -2645,6 +2971,30 @@ async function findById(id_demande) {
             ON d.id_etape_courante = ew.id_etape
         LEFT JOIN reclamations r
             ON r.id_demande = d.id_demande
+        LEFT JOIN derogations dg
+            ON dg.id_demande = d.id_demande
+        LEFT JOIN duplicatas dp
+            ON dp.id_demande = d.id_demande
+        LEFT JOIN attestations at
+            ON at.id_demande = d.id_demande
+        LEFT JOIN etudiants e
+            ON d.id_etudiant = e.id_etudiant
+        LEFT JOIN utilisateurs u
+            ON e.id_utilisateur = u.id_utilisateur
+        LEFT JOIN filieres f
+            ON e.id_filiere = f.id_filiere
+        LEFT JOIN niveaux n
+            ON e.id_niveau = n.id_niveau
+        LEFT JOIN options o
+            ON e.id_option = o.id_option
+        LEFT JOIN semestres sm
+            ON r.id_semestre = sm.id_semestre
+        LEFT JOIN matieres m
+            ON r.id_matiere = m.id_matiere
+        LEFT JOIN types_attestation ta
+            ON at.id_type_attestation = ta.id_type_attestation
+        LEFT JOIN types_document_academique tda
+            ON dp.id_type_document_academique = tda.id_type_document_academique
         WHERE d.id_demande = $1
         `,
         [id_demande]
@@ -2833,12 +3183,14 @@ async function findByProfesseur(id_professeur) {
             d.id_demande, d.reference, d.objet, d.description, d.date_creation,
             d.id_etudiant, LOWER(td.libelle) AS type_demande, LOWER(s.libelle) AS statut,
             LOWER(ew.libelle) AS etape_courante,
-            u.nom AS nom_etudiant, u.prenom AS prenom_etudiant
+            u.nom AS nom_etudiant, u.prenom AS prenom_etudiant,
+            m.libelle AS matiere
         FROM demandes d
         LEFT JOIN types_demande td ON d.id_type_demande = td.id_type_demande
         LEFT JOIN statuts s ON d.id_statut = s.id_statut
         LEFT JOIN etapes_workflow ew ON d.id_etape_courante = ew.id_etape
         LEFT JOIN reclamations r ON r.id_demande = d.id_demande
+        LEFT JOIN matieres m ON r.id_matiere = m.id_matiere
         LEFT JOIN etudiants e ON d.id_etudiant = e.id_etudiant
         LEFT JOIN utilisateurs u ON e.id_utilisateur = u.id_utilisateur
         WHERE r.id_professeur = $1
@@ -2847,6 +3199,74 @@ async function findByProfesseur(id_professeur) {
         [id_professeur]
     );
     return result.rows;
+}
+
+// =======================================
+// Créer un enregistrement dans reclamations
+// =======================================
+async function createReclamation(demandeId, data) {
+    const { id_matiere, id_semestre, id_professeur, session, description_reclamation } = data;
+    const result = await db.query(
+        `INSERT INTO reclamations (id_demande, id_matiere, id_semestre, id_professeur, session, description_reclamation)
+         VALUES ($1,$2,$3,$4,$5,$6)
+         RETURNING id_reclamation`,
+        [demandeId, id_matiere || null, id_semestre || null, id_professeur || null, session || null, description_reclamation || '']
+    );
+    return result.rows[0];
+}
+
+// =======================================
+// Créer un enregistrement dans derogations
+// =======================================
+async function createDerogation(demandeId, data) {
+    const { motif, annee_academique } = data;
+    const result = await db.query(
+        `INSERT INTO derogations (id_demande, motif, annee_academique)
+         VALUES ($1,$2,$3)
+         RETURNING id_derogation`,
+        [demandeId, motif || '', annee_academique || null]
+    );
+    return result.rows[0];
+}
+
+// =======================================
+// Créer un enregistrement dans duplicatas
+// =======================================
+async function createDuplicata(demandeId, data) {
+    const { id_type_document_academique, nombre_exemplaires } = data;
+    const result = await db.query(
+        `INSERT INTO duplicatas (id_demande, id_type_document_academique, nombre_exemplaires)
+         VALUES ($1,$2,$3)
+         RETURNING id_duplicata`,
+        [demandeId, id_type_document_academique || null, nombre_exemplaires || 1]
+    );
+    return result.rows[0];
+}
+
+// =======================================
+// Créer un enregistrement dans attestations
+// =======================================
+async function createAttestation(demandeId, data) {
+    const { id_type_attestation, nombre_exemplaires } = data;
+    const result = await db.query(
+        `INSERT INTO attestations (id_demande, id_type_attestation, nombre_exemplaires)
+         VALUES ($1,$2,$3)
+         RETURNING id_attestation`,
+        [demandeId, id_type_attestation || null, nombre_exemplaires || 1]
+    );
+    return result.rows[0];
+}
+
+// =======================================
+// Associer des motifs à une demande
+// =======================================
+async function ajouterMotifs(demandeId, motifIds) {
+    if (!motifIds || motifIds.length === 0) return;
+    const values = motifIds.map((_, i) => `($1, $${i + 2})`).join(', ');
+    await db.query(
+        `INSERT INTO demande_motifs (id_demande, id_motif) VALUES ${values} ON CONFLICT DO NOTHING`,
+        [demandeId, ...motifIds]
+    );
 }
 
 module.exports = {
@@ -2861,7 +3281,12 @@ module.exports = {
     findByStatutLibelle,
     findByEtapeLibelle,
     findByTypeLibelles,
-    findByProfesseur
+    findByProfesseur,
+    createReclamation,
+    createDerogation,
+    createDuplicata,
+    createAttestation,
+    ajouterMotifs
 };
 
 ════════════════════════════════════════════════════
@@ -3032,7 +3457,8 @@ async function create(etudiantData) {
         id_utilisateur,
         matricule,
         id_filiere,
-        id_niveau
+        id_niveau,
+        id_option
     } = etudiantData;
 
 
@@ -3043,9 +3469,10 @@ async function create(etudiantData) {
             id_utilisateur,
             matricule,
             id_filiere,
-            id_niveau
+            id_niveau,
+            id_option
         )
-        VALUES ($1,$2,$3,$4)
+        VALUES ($1,$2,$3,$4,$5)
         RETURNING
             id_etudiant,
             id_utilisateur,
@@ -3055,7 +3482,8 @@ async function create(etudiantData) {
             id_utilisateur,
             matricule,
             id_filiere,
-            id_niveau
+            id_niveau,
+            id_option
         ]
     );
 
@@ -3395,9 +3823,54 @@ async function findByUserId(id_utilisateur) {
     return result.rows[0] || null;
 }
 
+// =======================================
+// Lister tous les professeurs avec leurs noms
+// =======================================
+async function findAll() {
+    const result = await db.query(
+        `
+        SELECT
+            p.id_professeur,
+            p.id_utilisateur,
+            p.grade,
+            p.specialite,
+            u.nom,
+            u.prenom,
+            u.email
+        FROM professeurs p
+        JOIN utilisateurs u ON p.id_utilisateur = u.id_utilisateur
+        ORDER BY u.nom ASC
+        `
+    );
+    return result.rows;
+}
+
+// =======================================
+// Mettre à jour un professeur
+// =======================================
+async function update(id_utilisateur, data) {
+    const fields = [];
+    const values = [];
+    let index = 1;
+    for (const key in data) {
+        fields.push(`${key} = $${index}`);
+        values.push(data[key]);
+        index++;
+    }
+    if (fields.length === 0) return null;
+    values.push(id_utilisateur);
+    const result = await db.query(
+        `UPDATE professeurs SET ${fields.join(', ')} WHERE id_utilisateur = $${index} RETURNING id_professeur`,
+        values
+    );
+    return result.rows[0] || null;
+}
+
 module.exports = {
     create,
-    findByUserId
+    findByUserId,
+    findAll,
+    update
 };
 
 ════════════════════════════════════════════════════
@@ -3729,16 +4202,16 @@ async function findById(id) {
 // Créer un utilisateur
 // =======================================
 async function create(userData) {
-    const { nom, prenom, email, mot_de_passe, id_role, premiere_connexion } = userData;
+    const { nom, prenom, email, mot_de_passe, id_role, premiere_connexion, telephone } = userData;
     
     const result = await db.query(
         `
         INSERT INTO utilisateurs
-        (nom, prenom, email, mot_de_passe, id_role, premiere_connexion)
-        VALUES ($1, $2, $3, $4, $5, $6)
+        (nom, prenom, email, mot_de_passe, id_role, premiere_connexion, telephone)
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
         RETURNING id_utilisateur, nom, prenom, email
         `,
-        [nom, prenom, email, mot_de_passe, id_role, premiere_connexion !== undefined ? premiere_connexion : true]
+        [nom, prenom, email, mot_de_passe, id_role, premiere_connexion !== undefined ? premiere_connexion : true, telephone || null]
     );
     return result.rows[0];
 }
@@ -4284,6 +4757,94 @@ const errorWithStack = (err, context) => {
 
 module.exports = { info, warn, error, debug, api, errorWithStack };
 ════════════════════════════════════════════════════
+FICHIER : ./database/migrations/001_ajout_colonnes.sql
+════════════════════════════════════════════════════
+-- ===========================================
+-- Migration 001 : Ajout des nouvelles colonnes
+-- ===========================================
+-- Date : 2026-06-21
+-- Description : Ajoute les colonnes manquantes
+--   pour les tables options, motifs, demande_motifs
+--   et les nouveaux champs dans les tables existantes.
+-- ===========================================
+
+-- 1. Tables de référence
+
+CREATE TABLE IF NOT EXISTS options (
+    id_option SERIAL PRIMARY KEY,
+    libelle VARCHAR(100) UNIQUE NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS motifs (
+    id_motif SERIAL PRIMARY KEY,
+    libelle VARCHAR(100) UNIQUE NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS demande_motifs (
+    id_demande INT REFERENCES demandes(id_demande),
+    id_motif INT REFERENCES motifs(id_motif),
+    PRIMARY KEY (id_demande, id_motif)
+);
+
+-- 2. Nouvelles colonnes dans les tables existantes
+
+ALTER TABLE etudiants
+    ADD COLUMN IF NOT EXISTS id_option INT REFERENCES options(id_option);
+
+ALTER TABLE demandes
+    ADD COLUMN IF NOT EXISTS annee_universitaire VARCHAR(20),
+    ADD COLUMN IF NOT EXISTS correspondant VARCHAR(100);
+
+ALTER TABLE reclamations
+    ADD COLUMN IF NOT EXISTS session VARCHAR(20);
+
+ALTER TABLE attestations
+    ADD COLUMN IF NOT EXISTS nombre_exemplaires INT DEFAULT 1;
+
+ALTER TABLE duplicatas
+    ADD COLUMN IF NOT EXISTS nombre_exemplaires INT DEFAULT 1;
+
+════════════════════════════════════════════════════
+FICHIER : ./database/migrations/002_ajout_utilisateurs_test.sql
+════════════════════════════════════════════════════
+-- ===========================================
+-- Migration 002 : Ajout des utilisateurs de test
+-- ===========================================
+-- Date : 2026-06-21
+-- Description : Ajoute les comptes DA et Professeur
+--   pour permettre de tester le circuit complet.
+--   Mot de passe pour tous les comptes : secret123
+-- ===========================================
+
+-- 1. Création du compte DA (Directeur Adjoint)
+INSERT INTO utilisateurs (nom, prenom, email, mot_de_passe, id_role, actif, premiere_connexion)
+SELECT 'Kaboré', 'Moussa', 'da@esi.bf',
+       '$2b$10$Gm2b/6Tl5tZzI8Vd6wiGrOVbuvCPV.wmmM4kSkT7abngrtk4OdrDm',
+       id_role, true, true
+FROM roles WHERE libelle = 'DA'
+ON CONFLICT (email) DO NOTHING;
+
+-- Personnel associé au DA
+INSERT INTO personnel_administratif (id_utilisateur, fonction, service)
+SELECT id_utilisateur, 'Directeur Adjoint', 'Direction'
+FROM utilisateurs WHERE email = 'da@esi.bf'
+ON CONFLICT DO NOTHING;
+
+-- 2. Création du compte Professeur
+INSERT INTO utilisateurs (nom, prenom, email, mot_de_passe, id_role, actif, premiere_connexion)
+SELECT 'Traoré', 'Aminata', 'professeur@esi.bf',
+       '$2b$10$Gm2b/6Tl5tZzI8Vd6wiGrOVbuvCPV.wmmM4kSkT7abngrtk4OdrDm',
+       id_role, true, true
+FROM roles WHERE libelle = 'Professeur'
+ON CONFLICT (email) DO NOTHING;
+
+-- Fiche professeur associée
+INSERT INTO professeurs (id_utilisateur, grade, specialite)
+SELECT id_utilisateur, 'Maître de Conférences', 'Informatique'
+FROM utilisateurs WHERE email = 'professeur@esi.bf'
+ON CONFLICT (id_utilisateur) DO NOTHING;
+
+════════════════════════════════════════════════════
 FICHIER : ./database/schema.sql
 ════════════════════════════════════════════════════
 --===========================================
@@ -4364,6 +4925,18 @@ CREATE TABLE types_attestation (
     libelle VARCHAR(50) UNIQUE NOT NULL
 );
 
+-- Table des options (nouvelle)
+CREATE TABLE options (
+    id_option SERIAL PRIMARY KEY,
+    libelle VARCHAR(100) UNIQUE NOT NULL
+);
+
+-- Table des motifs de réclamation (nouvelle)
+CREATE TABLE motifs (
+    id_motif SERIAL PRIMARY KEY,
+    libelle VARCHAR(100) UNIQUE NOT NULL
+);
+
 -- Table des décisions de traitement
 CREATE TABLE decisions (
     id_decision SERIAL PRIMARY KEY,
@@ -4390,7 +4963,8 @@ CREATE TABLE etudiants (
     id_utilisateur INT UNIQUE REFERENCES utilisateurs(id_utilisateur),
     matricule VARCHAR(50) UNIQUE NOT NULL,
     id_filiere INT REFERENCES filieres(id_filiere),
-    id_niveau INT REFERENCES niveaux(id_niveau)
+    id_niveau INT REFERENCES niveaux(id_niveau),
+    id_option INT REFERENCES options(id_option)  -- nouveau champ
 );
 
 -- Table des professeurs
@@ -4417,11 +4991,20 @@ CREATE TABLE demandes (
     description TEXT,
     date_creation TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     date_soumission TIMESTAMP,
+    annee_universitaire VARCHAR(20),  -- nouveau champ
+    correspondant VARCHAR(100),        -- nouveau champ
 
     id_etudiant INT REFERENCES etudiants(id_etudiant),
     id_type_demande INT REFERENCES types_demande(id_type_demande),
     id_statut INT REFERENCES statuts(id_statut),
     id_etape_courante INT REFERENCES etapes_workflow(id_etape)
+);
+
+-- Table pivot demande ↔ motifs (nouvelle)
+CREATE TABLE demande_motifs (
+    id_demande INT REFERENCES demandes(id_demande),
+    id_motif INT REFERENCES motifs(id_motif),
+    PRIMARY KEY (id_demande, id_motif)
 );
 
 -- Table des documents liés aux demandes
@@ -4445,6 +5028,7 @@ CREATE TABLE reclamations (
     id_matiere INT REFERENCES matieres(id_matiere),
     id_semestre INT REFERENCES semestres(id_semestre),
     id_professeur INT REFERENCES professeurs(id_professeur),
+    session VARCHAR(20),  -- nouveau champ
     description_reclamation TEXT NOT NULL
 );
 
@@ -4468,7 +5052,8 @@ CREATE TABLE duplicatas (
 CREATE TABLE attestations (
     id_attestation SERIAL PRIMARY KEY,
     id_demande INT UNIQUE REFERENCES demandes(id_demande),
-    id_type_attestation INT REFERENCES types_attestation(id_type_attestation)
+    id_type_attestation INT REFERENCES types_attestation(id_type_attestation),
+    nombre_exemplaires INT DEFAULT 1  -- nouveau champ
 );
 
 -- Table de suivi du workflow (traitements)
@@ -4590,6 +5175,44 @@ VALUES
 ('Attestation de scolarite')
 ON CONFLICT (libelle) DO NOTHING;
 
+-- Filières
+
+INSERT INTO filieres (code, libelle)
+VALUES
+('INFO', 'Informatique'),
+('MI', 'Mathématiques et Informatique'),
+('RIT', 'Réseaux et Technologies Internet')
+ON CONFLICT (code) DO NOTHING;
+
+-- Niveaux
+
+INSERT INTO niveaux (libelle)
+VALUES
+('L1'), ('L2'), ('L3'),
+('M1'), ('M2')
+ON CONFLICT (libelle) DO NOTHING;
+
+-- Semestres
+
+INSERT INTO semestres (libelle)
+VALUES
+('S1'), ('S2'), ('S3'), ('S4')
+ON CONFLICT (libelle) DO NOTHING;
+
+-- Matières
+
+INSERT INTO matieres (code, libelle)
+VALUES
+('ALGO1', 'Algorithmique et structures de données'),
+('BDD1', 'Bases de données'),
+('PROG1', 'Programmation orientée objet'),
+('RES1', 'Réseaux'),
+('WEB1', 'Développement Web'),
+('MATH1', 'Mathématiques pour l informatique'),
+('SYS1', 'Systèmes d exploitation'),
+('GL1', 'Génie Logiciel')
+ON CONFLICT (code) DO NOTHING;
+
 -- Utilisateur administrateur (email: administrateur@esi.bf, mot de passe: Admin2026!)
 INSERT INTO utilisateurs (nom, prenom, email, mot_de_passe, id_role, actif, premiere_connexion)
 SELECT 'Admin', 'Système', 'administrateur@esi.bf',
@@ -4611,6 +5234,34 @@ INSERT INTO personnel_administratif (id_utilisateur, fonction, service)
 SELECT id_utilisateur, 'Secrétaire', 'Scolarité'
 FROM utilisateurs WHERE email = 'secretaire@esi.bf'
 ON CONFLICT DO NOTHING;
+
+-- Options (filières) disponibles
+
+INSERT INTO options (libelle)
+VALUES
+('GL'),
+('SR'),
+('SIC'),
+('CD'),
+('RSI'),
+('IOT'),
+('MI')
+ON CONFLICT (libelle) DO NOTHING;
+
+-- Motifs de réclamation
+
+INSERT INTO motifs (libelle)
+VALUES
+('Comptabilité des notes sur la copie'),
+('Rectification de note'),
+('Note non répertoriée'),
+('Annulation de note'),
+('Rectification du nom'),
+('Rectification du n° matricule'),
+('Rectification du lieu de naissance'),
+('Rectification de la date de naissance'),
+('Insertion du nom sur le PV')
+ON CONFLICT (libelle) DO NOTHING;
 
 ════════════════════════════════════════════════════
 FICHIER : ./docs/api.md
@@ -4767,6 +5418,7 @@ FICHIER : ./frontend/app/assets/css/components.css
 .badge.yellow { background: #fff8e1; color: #f9a825; }
 .badge.green  { background: #e8f5e9; color: #2e7d32; }
 .badge.red    { background: #ffebee; color: #c62828; }
+.badge.blue   { background: #e3f2fd; color: #1565c0; }
 
 .btn-detail {
   background: #1a237e;
@@ -6121,6 +6773,27 @@ FICHIER : ./frontend/app/pages/auth/first-login.html
         <input type="password" id="confirmPassword" placeholder="Répétez le mot de passe"/>
       </div>
 
+      <!-- Champs spécifiques au professeur -->
+      <div id="prof-champs" style="display:none;">
+        <div class="form-group">
+          <label>Grade</label>
+          <select id="grade">
+            <option value="">-- Sélectionner --</option>
+            <option value="MCF">Maître de Conférences (MCF)</option>
+            <option value="MCU">Maître de Conférences Universitaire (MCU)</option>
+            <option value="Professeur Titulaire">Professeur Titulaire</option>
+            <option value="PA">Professeur Associé (PA)</option>
+            <option value="Assistant">Assistant</option>
+            <option value="ATER">Attaché Temporaire (ATER)</option>
+            <option value="Vacataire">Vacataire</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Spécialité</label>
+          <input type="text" id="specialite" placeholder="Ex: Algorithmique, Réseaux, BDD..."/>
+        </div>
+      </div>
+
       <p id="errorMsg" style="color:#c62828; font-size:13px; margin-bottom:10px;"></p>
 
       <button class="btn-login" onclick="confirmerInfos()">
@@ -6135,6 +6808,9 @@ FICHIER : ./frontend/app/pages/auth/first-login.html
     window.addEventListener('DOMContentLoaded', () => {
       const role = resolveCurrentRole() || 'inconnu';
       document.getElementById('role-display').textContent = getRoleLabel(role);
+      if (role === 'professeur' || role === 'enseignant') {
+        document.getElementById('prof-champs').style.display = 'block';
+      }
     });
 
     async function confirmerInfos() {
@@ -6142,6 +6818,8 @@ FICHIER : ./frontend/app/pages/auth/first-login.html
       const newEmail = document.getElementById('newEmail').value;
       const newPassword = document.getElementById('newPassword').value;
       const confirmPassword = document.getElementById('confirmPassword').value;
+      const grade = document.getElementById('grade')?.value || '';
+      const specialite = document.getElementById('specialite')?.value || '';
       const errorMsg = document.getElementById('errorMsg');
 
       if (!nom || !newEmail || !newPassword || !confirmPassword) {
@@ -6158,13 +6836,16 @@ FICHIER : ./frontend/app/pages/auth/first-login.html
       }
 
       try {
-        // ✅ Appel réel au serveur — change le mot de passe EN BASE
-        const data = await authAPI.changerIdentifiants({
+        const body = {
           nouveau_email: newEmail,
           nouveau_mot_de_passe: newPassword,
           confirmation_mot_de_passe: confirmPassword,
           nom: nom
-        });
+        };
+        if (grade) body.grade = grade;
+        if (specialite) body.specialite = specialite;
+
+        const data = await authAPI.changerIdentifiants(body);
 
         if (data.success) {
           // ✅ Le serveur renvoie un NOUVEAU token — il faut le stocker
@@ -6267,8 +6948,45 @@ FICHIER : ./frontend/app/pages/auth/register.html
           <input type="text" id="matricule" placeholder="Ex: N20240000001" required/>
         </div>
         <div class="form-group">
+          <label>Filière</label>
+          <select id="filiere" required>
+            <option value="">-- Sélectionner --</option>
+            <option value="Informatique">Informatique</option>
+            <option value="Mathématiques et Informatique">Mathématiques et Informatique</option>
+            <option value="Réseaux et Technologies Internet">Réseaux et Technologies Internet</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Niveau</label>
+          <select id="niveau" required>
+            <option value="">-- Sélectionner --</option>
+            <option value="L1">L1</option>
+            <option value="L2">L2</option>
+            <option value="L3">L3</option>
+            <option value="M1">M1</option>
+            <option value="M2">M2</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Option</label>
+          <select id="option">
+            <option value="">-- Sélectionner --</option>
+            <option value="GL">GL — Génie Logiciel</option>
+            <option value="SR">SR — Sécurité des Réseaux</option>
+            <option value="SIC">SIC — Systèmes d'Information et Communication</option>
+            <option value="CD">CD — Concepteur Développeur</option>
+            <option value="RSI">RSI — Réseaux et Systèmes Informatiques</option>
+            <option value="IOT">IOT — Internet des Objets</option>
+            <option value="MI">MI — Mathématiques pour l'Informatique</option>
+          </select>
+        </div>
+        <div class="form-group">
           <label>Email</label>
           <input type="email" id="email" placeholder="Ex: kone@esi.bf" required/>
+        </div>
+        <div class="form-group">
+          <label>Téléphone</label>
+          <input type="tel" id="telephone" placeholder="Ex: +226 XX XX XX XX"/>
         </div>
         <div class="form-group">
           <label>Mot de passe</label>
@@ -6304,9 +7022,18 @@ FICHIER : ./frontend/app/pages/auth/register.html
       const email = document.getElementById('email').value.trim();
       const mot_de_passe = document.getElementById('mot_de_passe').value;
       const confirm_password = document.getElementById('confirm_password').value;
+      const filiere = document.getElementById('filiere').value;
+      const niveau = document.getElementById('niveau').value;
+      const option = document.getElementById('option').value;
+      const telephone = document.getElementById('telephone').value.trim();
 
       if (!nom || !prenom || !matricule || !email || !mot_de_passe) {
         document.getElementById('errorMsg').textContent = 'Veuillez remplir tous les champs.';
+        return;
+      }
+
+      if (!filiere || !niveau) {
+        document.getElementById('errorMsg').textContent = 'Veuillez sélectionner votre filière et votre niveau.';
         return;
       }
 
@@ -6322,7 +7049,7 @@ FICHIER : ./frontend/app/pages/auth/register.html
       }
 
       try {
-        const data = await authAPI.register({ nom, prenom, matricule, email, mot_de_passe });
+        const data = await authAPI.register({ nom, prenom, matricule, email, mot_de_passe, filiere, niveau, option, telephone });
 
         if (data.success) {
           setAuthSession(data.token, data.user);
@@ -6568,7 +7295,7 @@ FICHIER : ./frontend/app/pages/dashboard/admin.html
           headers: { 'Authorization': 'Bearer ' + token }
         });
         const data = await response.json();
-        toutesLesDemandes = data.demandes || [];
+        toutesLesDemandes = (data.demandes || []).filter(d => d.statut !== 'brouillon');
 
         document.getElementById('totalDemandes').textContent = toutesLesDemandes.length;
         document.getElementById('enAttente').textContent = toutesLesDemandes.filter(d => {
@@ -6654,7 +7381,7 @@ FICHIER : ./frontend/app/pages/dashboard/admin.html
           headers: { 'Authorization': 'Bearer ' + token }
         });
         const data = await response.json();
-        toutesLesDemandes = data.demandes || [];
+        toutesLesDemandes = (data.demandes || []).filter(d => d.statut !== 'brouillon');
         demandesFiltre = [...toutesLesDemandes];
         remplirTableDemandes();
         remplirFiltreType();
@@ -6728,21 +7455,38 @@ FICHIER : ./frontend/app/pages/dashboard/admin.html
 
     async function ouvrirModalDetail(id) {
       const token = getAuthToken();
+      let demande = { id };
       try {
         const response = await fetch(API_BASE + '/demandes/' + id, {
           headers: { 'Authorization': 'Bearer ' + token }
         });
         const data = await response.json();
-        const demande = data.demande || data;
+        demande = data.demande || data;
         document.getElementById('d-etudiant').textContent = demande.nom_etudiant || 'N/A';
         document.getElementById('d-type').textContent = demande.type_demande || demande.objet || 'N/A';
         document.getElementById('d-date').textContent = demande.date_creation ? new Date(demande.date_creation).toLocaleDateString('fr-FR') : 'N/A';
         document.getElementById('d-statut').textContent = demande.statut || 'N/A';
-        document.getElementById('lien-detail-complet').href = '../demandes/detail.html?id=' + id;
-        document.getElementById('modalDetail').style.display = 'flex';
       } catch(e) {
         afficherInfo('⚠️', 'Erreur lors du chargement du détail.');
       }
+      // Passer les données dans l'URL (fonctionne même si l'API a échoué)
+      const params = new URLSearchParams({ id: String(id) });
+      if (demande.nom_etudiant) params.set('etu', demande.nom_etudiant);
+      if (demande.type_demande || demande.objet) params.set('type', demande.type_demande || demande.objet);
+      if (demande.date_creation) params.set('date', new Date(demande.date_creation).toLocaleDateString('fr-FR'));
+      if (demande.statut) params.set('statut', demande.statut);
+      if (demande.reference || demande.id_demande) params.set('ref', demande.reference || demande.id_demande);
+      if (demande.ine) params.set('ine', demande.ine);
+      if (demande.telephone) params.set('tel', demande.telephone);
+      if (demande.filiere) params.set('filiere', demande.filiere);
+      if (demande.option) params.set('option', demande.option);
+      if (demande.niveau) params.set('niveau', demande.niveau);
+      if (demande.semestre) params.set('semestre', demande.semestre);
+      if (demande.session) params.set('session', demande.session);
+      if (demande.annee_universitaire) params.set('annee', demande.annee_universitaire);
+      if (demande.description) params.set('desc', demande.description);
+      document.getElementById('lien-detail-complet').href = '../demandes/detail.html?' + params.toString();
+      document.getElementById('modalDetail').style.display = 'flex';
     }
 
     // ============================================
@@ -6974,7 +7718,7 @@ FICHIER : ./frontend/app/pages/dashboard/enseignant.html
   <nav class="navbar">
     <div class="navbar-brand">🎓 EduRequest</div>
     <div class="navbar-user">
-      <span>👤 Enseignant</span>
+      <span id="roleLabel">👤 Enseignant</span>
       <a href="../auth/login.html" class="btn-logout" onclick="clearAuthSession()">Déconnexion</a>
     </div>
   </nav>
@@ -6993,67 +7737,40 @@ FICHIER : ./frontend/app/pages/dashboard/enseignant.html
       <div class="stats-grid">
         <div class="stat-card">
           <h3>Total reçues</h3>
-          <p class="stat-number">3</p>
+          <p class="stat-number" id="stat-total">0</p>
         </div>
         <div class="stat-card yellow">
           <h3>En attente</h3>
-          <p class="stat-number">2</p>
+          <p class="stat-number" id="stat-attente">0</p>
         </div>
         <div class="stat-card green">
           <h3>Traitées</h3>
-          <p class="stat-number">1</p>
+          <p class="stat-number" id="stat-traitees">0</p>
         </div>
       </div>
 
       <!-- TABLEAU RÉCLAMATIONS -->
       <section class="section-card" id="reclamations">
-        <h2>📋 Réclamations à traiter</h2>
+        <h2>📋 Réclamations reçues</h2>
+        <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
+          <button class="btn-filter active-filter" onclick="filtrer('all',this)">📋 Toutes</button>
+          <button class="btn-filter" onclick="filtrer('en_attente',this)">🟡 En attente</button>
+          <button class="btn-filter" onclick="filtrer('transmise',this)">🔵 Transmises</button>
+          <button class="btn-filter" onclick="filtrer('traitee',this)">🟢 Traitées</button>
+        </div>
         <table class="demandes-table" id="reclamTable">
           <thead>
             <tr>
               <th>N°</th>
               <th>Étudiant</th>
               <th>Matière</th>
-              <th>Note actuelle</th>
               <th>Date</th>
               <th>Statut</th>
               <th>Action</th>
             </tr>
           </thead>
-          <tbody>
-            <tr data-statut="en_attente">
-              <td data-label="N°">001</td>
-              <td data-label="Étudiant">Koné Mamadou</td>
-              <td data-label="Matière">Mathématiques</td>
-              <td data-label="Note actuelle"><strong>08/20</strong></td>
-              <td data-label="Date">10/06/2026</td>
-              <td data-label="Statut"><span class="badge yellow">🟡 En attente</span></td>
-              <td data-label="Action">
-                <button class="btn-voir" onclick="ouvrirCorrection(this, '08', 'Koné Mamadou', 'Mathématiques')">✏️ Traiter</button>
-              </td>
-            </tr>
-            <tr data-statut="en_attente">
-              <td data-label="N°">002</td>
-              <td data-label="Étudiant">Traoré Fatoumata</td>
-              <td data-label="Matière">Algorithmique</td>
-              <td data-label="Note actuelle"><strong>10/20</strong></td>
-              <td data-label="Date">09/06/2026</td>
-              <td data-label="Statut"><span class="badge yellow">🟡 En attente</span></td>
-              <td data-label="Action">
-                <button class="btn-voir" onclick="ouvrirCorrection(this, '10', 'Traoré Fatoumata', 'Algorithmique')">✏️ Traiter</button>
-              </td>
-            </tr>
-            <tr data-statut="traitee">
-              <td data-label="N°">003</td>
-              <td data-label="Étudiant">Sawadogo Issouf</td>
-              <td data-label="Matière">Réseaux</td>
-              <td data-label="Note actuelle"><strong>12/20</strong></td>
-              <td data-label="Date">08/06/2026</td>
-              <td data-label="Statut"><span class="badge green">🟢 Traitée</span></td>
-              <td data-label="Action">
-                <button class="btn-voir" onclick="alert('Déjà traitée.')">👁 Voir</button>
-              </td>
-            </tr>
+          <tbody id="reclam-tbody">
+            <tr><td colspan="6" style="text-align:center;color:#888;padding:20px;">Chargement...</td></tr>
           </tbody>
         </table>
       </section>
@@ -7073,10 +7790,8 @@ FICHIER : ./frontend/app/pages/dashboard/enseignant.html
         <div class="fiche-section" style="margin-bottom:14px;">
           <div class="detail-row"><span>Étudiant :</span><strong id="c-etudiant"></strong></div>
           <div class="detail-row"><span>Matière :</span><strong id="c-matiere"></strong></div>
-          <div class="detail-row"><span>Note actuelle :</span><strong id="c-note-actuelle" style="color:#c62828;"></strong></div>
         </div>
 
-        <!-- CHOIX ENSEIGNANT -->
         <div class="fiche-section">
           <label class="section-label">Décision de l'enseignant</label>
           <div class="checkbox-group" style="margin-bottom:16px;">
@@ -7090,7 +7805,6 @@ FICHIER : ./frontend/app/pages/dashboard/enseignant.html
             </label>
           </div>
 
-          <!-- NOUVELLE NOTE (visible si modifier) -->
           <div id="noteField" style="display:none;">
             <div class="form-group">
               <label>Nouvelle note <span style="color:#c62828;">*</span></label>
@@ -7109,21 +7823,145 @@ FICHIER : ./frontend/app/pages/dashboard/enseignant.html
       </div>
       <div class="modal-footer">
         <button class="btn-retour" onclick="document.getElementById('modalCorrection').style.display='none'">Annuler</button>
-        <button class="btn-envoyer" onclick="soumettrDecision()">Envoyer au DA</button>
+        <button class="btn-envoyer" onclick="soumettreDecision()">Envoyer au DA</button>
       </div>
     </div>
   </div>
 
+  <div id="notification-bar" style="display:none; padding:12px 16px; border-radius:8px; margin:12px auto; max-width:720px; font-weight:600; font-size:14px; text-align:center; position:fixed; top:16px; left:50%; transform:translateX(-50%); z-index:9999;"></div>
+
   <script src="../../assets/js/core/api.js"></script>
   <script src="../../assets/js/core/auth.js"></script>
   <script>
+    if (!isAuthenticated()) {
+      window.location.href = '../auth/login.html';
+    }
+
+    afficherRoleNavbar('roleLabel');
+
+    let demandesData = [];
+    let currentDemandeId = null;
+
+    function afficherNotif(icone, message, type) {
+      const el = document.getElementById('notification-bar');
+      if (!el) return;
+      el.textContent = icone + ' ' + message;
+      el.style.display = 'block';
+      el.style.background = type === 'success' ? '#e8f5e9' : type === 'error' ? '#ffebee' : '#fff8e1';
+      el.style.color = type === 'success' ? '#2e7d32' : type === 'error' ? '#c62828' : '#e65100';
+      el.style.border = '1px solid ' + (type === 'success' ? '#a5d6a7' : type === 'error' ? '#ef9a9a' : '#ffe0b2');
+      setTimeout(() => { el.style.display = 'none'; }, 4000);
+    }
+
+    async function chargerDemandes() {
+      const token = getAuthToken();
+      if (!token) return;
+
+      try {
+        const response = await fetch(API_BASE + '/demandes/mes-demandes', {
+          headers: { 'Authorization': 'Bearer ' + token }
+        });
+        const data = await response.json();
+        const demandes = data.demandes || data || [];
+
+        if (Array.isArray(demandes)) {
+          demandesData = demandes;
+          renderTable(demandes);
+          updateStats(demandes);
+        }
+      } catch (e) {
+        console.error('Erreur chargement demandes:', e);
+        document.getElementById('reclam-tbody').innerHTML =
+          '<tr><td colspan="6" style="text-align:center;color:#c62828;padding:20px;">Erreur de chargement</td></tr>';
+      }
+    }
+
+    function updateStats(demandes) {
+      const total = demandes.length;
+      const attente = demandes.filter(d =>
+        d.etape_courante === 'professeur' || d.etape_courante === 'secretaire' || d.etape_courante === 'da'
+      ).length;
+      const traitees = demandes.filter(d =>
+        d.etape_courante === 'da_final' || d.etape_courante === 'scolarite' ||
+        d.statut === 'acceptee' || d.statut === 'terminee' || d.statut === 'rejetee'
+      ).length;
+
+      document.getElementById('stat-total').textContent = total;
+      document.getElementById('stat-attente').textContent = attente;
+      document.getElementById('stat-traitees').textContent = traitees;
+    }
+
+    function renderTable(demandes) {
+      const tbody = document.getElementById('reclam-tbody');
+
+      if (demandes.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#888;padding:20px;">Aucune réclamation pour le moment</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = demandes.map((d, i) => {
+        const statut = d.statut || 'soumise';
+        const s = statut.toLowerCase();
+        const etape = d.etape_courante || '';
+        const isFinalisee = s === 'acceptee' || s === 'terminee' || s === 'rejetee';
+        const isTransmise = etape === 'da_final' || etape === 'scolarite';
+
+        let badgeClass, badgeText;
+        if (isFinalisee) {
+          badgeClass = 'green';
+          badgeText = '🟢 Traitée';
+        } else if (isTransmise) {
+          badgeClass = 'blue';
+          badgeText = '🔵 Transmise au DA';
+        } else {
+          badgeClass = 'yellow';
+          badgeText = '🟡 En attente';
+        }
+
+        const date = d.date_creation ? new Date(d.date_creation).toLocaleDateString('fr-FR') : 'N/A';
+        const etudiant = ((d.prenom_etudiant || '') + ' ' + (d.nom_etudiant || '')).trim() || 'N/A';
+        const matiere = d.matiere || '—';
+        const statutClean = isFinalisee ? 'traitee' : isTransmise ? 'transmise' : 'en_attente';
+
+        const actionBtn = isFinalisee || isTransmise
+          ? `<button class="btn-voir" onclick="afficherNotif('👁', 'Déjà traitée.', 'info')">👁 Voir</button>`
+          : `<button class="btn-voir" onclick="ouvrirCorrection(${d.id_demande}, '${etudiant.replace(/'/g, "\\'")}', '${matiere.replace(/'/g, "\\'")}')">✏️ Traiter</button>`;
+
+        return `<tr data-statut="${statutClean}">
+          <td data-label="N°">${d.reference || '#' + d.id_demande}</td>
+          <td data-label="Étudiant">${etudiant}</td>
+          <td data-label="Matière">${matiere}</td>
+          <td data-label="Date">${date}</td>
+          <td data-label="Statut"><span class="badge ${badgeClass}">${badgeText}</span></td>
+          <td data-label="Action">${actionBtn}</td>
+        </tr>`;
+      }).join('');
+    }
+
+    function filtrer(groupe, btn) {
+      document.querySelectorAll('.btn-filter').forEach(b => b.classList.remove('active-filter'));
+      if (btn) btn.classList.add('active-filter');
+
+      const filtered = groupe === 'all'
+        ? demandesData
+        : demandesData.filter(d => {
+            const s = d.statut ? d.statut.toLowerCase() : '';
+            const etape = d.etape_courante || '';
+            if (groupe === 'en_attente') return etape === 'professeur' || etape === 'secretaire' || etape === 'da';
+            if (groupe === 'transmise') return etape === 'da_final' || etape === 'scolarite';
+            if (groupe === 'traitee') return s === 'acceptee' || s === 'terminee' || s === 'rejetee';
+            return true;
+          });
+
+      renderTable(filtered);
+    }
+
     let currentRow = null;
 
-    function ouvrirCorrection(btn, noteActuelle, etudiant, matiere) {
-      currentRow = btn.closest('tr');
+    function ouvrirCorrection(demandeId, etudiant, matiere) {
+      currentDemandeId = demandeId;
       document.getElementById('c-etudiant').textContent = etudiant;
       document.getElementById('c-matiere').textContent = matiere;
-      document.getElementById('c-note-actuelle').textContent = noteActuelle + '/20';
       document.getElementById('nouvelleNote').value = '';
       document.getElementById('commentaire').value = '';
       document.querySelectorAll('input[name="decision"]').forEach(r => r.checked = false);
@@ -7135,36 +7973,52 @@ FICHIER : ./frontend/app/pages/dashboard/enseignant.html
       document.getElementById('noteField').style.display = show ? 'block' : 'none';
     }
 
-    function soumettrDecision() {
+    async function soumettreDecision() {
       const decision = document.querySelector('input[name="decision"]:checked');
       const commentaire = document.getElementById('commentaire').value;
 
-      if (!decision) { alert('Choisissez une décision.'); return; }
-      if (!commentaire) { alert('Le commentaire est obligatoire.'); return; }
+      if (!decision) { afficherNotif('⚠️', 'Choisissez une décision.', 'warning'); return; }
+      if (!commentaire) { afficherNotif('⚠️', 'Le commentaire est obligatoire.', 'warning'); return; }
 
       if (decision.value === 'modifier') {
         const note = document.getElementById('nouvelleNote').value;
-        if (!note || note < 0 || note > 20) { alert('Entrez une note valide (0-20).'); return; }
-        // Mettre à jour la note dans le tableau
-        currentRow.querySelectorAll('td')[3].innerHTML = '<strong style="color:#2e7d32;">' + note + '/20</strong>';
+        if (!note || note < 0 || note > 20) { afficherNotif('⚠️', 'Entrez une note valide (0-20).', 'warning'); return; }
       }
 
-      // Mettre à jour le statut
-      const badge = currentRow.querySelector('.badge');
-      badge.className = 'badge green';
-      badge.textContent = '🟢 Traitée';
-      currentRow.dataset.statut = 'traitee';
-      currentRow.querySelector('button').textContent = '👁 Voir';
-      currentRow.querySelector('button').onclick = () => alert('Déjà traitée.');
+      try {
+        const token = getAuthToken();
+        const response = await fetch(API_BASE + '/workflow/' + currentDemandeId + '/valider', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + token
+          },
+          body: JSON.stringify({
+            commentaire: commentaire + (decision.value === 'modifier' ? ' (Nouvelle note: ' + document.getElementById('nouvelleNote').value + '/20)' : '')
+          })
+        });
 
-      document.getElementById('modalCorrection').style.display = 'none';
-      alert('✅ Décision envoyée au DA avec succès !');
+        const result = await response.json();
+
+        if (result.success) {
+          document.getElementById('modalCorrection').style.display = 'none';
+          afficherNotif('✅', 'Décision envoyée au DA avec succès !', 'success');
+          chargerDemandes();
+        } else {
+          afficherNotif('❌', result.message || 'Une erreur est survenue.', 'error');
+        }
+      } catch (e) {
+        console.error('Erreur soumission:', e);
+        afficherNotif('❌', 'Erreur de connexion au serveur.', 'error');
+      }
     }
 
     function fermerModal(e) {
       if (e.target.id === 'modalCorrection')
         document.getElementById('modalCorrection').style.display = 'none';
     }
+
+    chargerDemandes();
   </script>
 </body>
 </html>
@@ -7248,6 +8102,12 @@ FICHIER : ./frontend/app/pages/dashboard/etudiant.html
       <!-- TABLEAU DES DEMANDES -->
       <section id="mes-demandes" class="section-card">
         <h2>📋 Mes demandes</h2>
+        <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
+          <button class="btn-filter active-filter" onclick="filtrerEtudiant('all',this)">📋 Toutes</button>
+          <button class="btn-filter" onclick="filtrerEtudiant('en_attente',this)">🟡 En attente</button>
+          <button class="btn-filter" onclick="filtrerEtudiant('validee',this)">🟢 Validées</button>
+          <button class="btn-filter" onclick="filtrerEtudiant('rejetee',this)">🔴 Rejetées</button>
+        </div>
         <table class="demandes-table">
           <thead>
             <tr>
@@ -7290,6 +8150,16 @@ FICHIER : ./frontend/app/pages/dashboard/etudiant.html
   <script>
     function showSection(id) {
       document.getElementById(id).scrollIntoView({behavior: 'smooth'});
+    }
+
+    function filtrerEtudiant(groupe, btn) {
+      document.querySelectorAll('.btn-filter').forEach(b => b.classList.remove('active-filter'));
+      if (btn) btn.classList.add('active-filter');
+      document.querySelectorAll('.demandes-table tbody tr').forEach(row => {
+        if (groupe === 'all') { row.style.display = ''; return; }
+        const s = (row.dataset.statut || '').toLowerCase();
+        row.style.display = s === groupe ? '' : 'none';
+      });
     }
   </script>
   <script src="../../assets/js/core/api.js"></script>
@@ -7337,7 +8207,8 @@ FICHIER : ./frontend/app/pages/dashboard/etudiant.html
               const date = d.date_creation ? new Date(d.date_creation).toLocaleDateString('fr-FR') : 'N/A';
               const type = d.type_demande || d.objet || 'Demande';
               // APRÈS — avec data-label pour le mode mobile
-              return `<tr>
+              const statutClean = s === 'acceptee' || s === 'terminee' ? 'validee' : s === 'rejetee' ? 'rejetee' : 'en_attente';
+              return `<tr data-statut="${statutClean}">
                   <td data-label="N°">${i+1}</td>
                   <td data-label="Type">${type}</td>
                   <td data-label="Date">${date}</td>
@@ -7824,7 +8695,7 @@ FICHIER : ./frontend/app/pages/dashboard/staff.html
           headers: { 'Authorization': 'Bearer ' + token }
         });
         const data = await response.json();
-        const demandes = data.demandes || [];
+        const demandes = (data.demandes || []).filter(d => d.statut !== 'brouillon');
 
         document.querySelector('.stat-card:nth-child(1) .stat-number').textContent = demandes.length;
         const enAttente = demandes.filter(d => d.statut === 'soumise' || d.statut === 'en cours de traitement').length;
@@ -7838,13 +8709,14 @@ FICHIER : ./frontend/app/pages/dashboard/staff.html
         if (demandes.length === 0) {
           tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:#888; padding:20px;">Aucune demande pour le moment</td></tr>';
         } else {
+          const roleUser = resolveCurrentRole();
           tbody.innerHTML = demandes.map((d) => {
             const statut = d.statut || 'soumise';
             const s = statut.toLowerCase();
             const badgeClass = s === 'acceptee' || s === 'terminee' ? 'green' : s === 'rejetee' ? 'red' : 'yellow';
             const date = d.date_creation ? new Date(d.date_creation).toLocaleDateString('fr-FR') : 'N/A';
             const etape = d.etape_courante || '';
-            const peutTraiter = statut !== 'rejetee' && statut !== 'terminee' && statut !== 'cloturee';
+            const peutTraiter = statut !== 'rejetee' && statut !== 'terminee' && statut !== 'cloturee' && (!etape || etape === roleUser);
             return `<tr data-statut="${statut}" data-id="${d.id_demande}">
               <td data-label="N°">${d.reference || d.id_demande}</td>
               <td data-label="Étudiant">${d.nom_etudiant || 'Étudiant'}</td>
@@ -7973,7 +8845,16 @@ FICHIER : ./frontend/app/pages/dashboard/staff.html
       document.getElementById('d-type').textContent = cells[2].textContent;
       document.getElementById('d-date').textContent = cells[3].textContent;
       document.getElementById('d-statut').textContent = cells[4].textContent.trim();
-      document.getElementById('lien-detail-complet').href = '../demandes/detail.html?id=' + idDemande;
+      // Passer toutes les données dans l'URL
+      const params = new URLSearchParams({
+        id: idDemande,
+        ref: cells[0].textContent.trim(),
+        etu: cells[1].textContent,
+        type: cells[2].textContent,
+        date: cells[3].textContent,
+        statut: cells[4].textContent.trim()
+      });
+      document.getElementById('lien-detail-complet').href = '../demandes/detail.html?' + params.toString();
       document.getElementById('modal').style.display = 'flex';
     }
 
@@ -8045,132 +8926,98 @@ FICHIER : ./frontend/app/pages/demandes/detail.html
 
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px;">
           <h2>📋 Détail de la demande</h2>
-          <span class="badge yellow" style="font-size:14px; padding:6px 16px;">🟡 En attente</span>
+          <span class="badge yellow" style="font-size:14px; padding:6px 16px;">🟡 —</span>
         </div>
 
         <!-- INFORMATIONS GÉNÉRALES -->
         <div class="fiche-section">
           <label class="section-label">Informations générales</label>
-          <div class="detail-row"><span>N° demande :</span><strong>#001</strong></div>
-          <div class="detail-row"><span>Type :</span><strong>Réclamation de note</strong></div>
-          <div class="detail-row"><span>Année universitaire :</span><strong>2025-2026</strong></div>
-          <div class="detail-row"><span>Date soumission :</span><strong>10/06/2026</strong></div>
-          <div class="detail-row"><span>Étudiant :</span><strong>Koné Mamadou</strong></div>
-          <div class="detail-row"><span>INE :</span><strong>N00222020241</strong></div>
-          <div class="detail-row"><span>Téléphone :</span><strong>+226 70 00 00 00</strong></div>
-          <div class="detail-row"><span>Filière :</span><strong>Informatique</strong></div>
-          <div class="detail-row"><span>Option :</span><strong>Génie Logiciel</strong></div>
-          <div class="detail-row"><span>Niveau :</span><strong>L2</strong></div>
-          <div class="detail-row"><span>Semestre :</span><strong>S3</strong></div>
-          <div class="detail-row"><span>Session :</span><strong>Normale</strong></div>
+          <div class="detail-row"><span>N° demande :</span><strong>—</strong></div>
+          <div class="detail-row"><span>Type :</span><strong>—</strong></div>
+          <div class="detail-row"><span>Année universitaire :</span><strong>—</strong></div>
+          <div class="detail-row"><span>Date soumission :</span><strong>—</strong></div>
+          <div class="detail-row"><span>Étudiant :</span><strong>—</strong></div>
+          <div class="detail-row"><span>INE :</span><strong>—</strong></div>
+          <div class="detail-row"><span>Téléphone :</span><strong>—</strong></div>
+          <div class="detail-row"><span>Filière :</span><strong>—</strong></div>
+          <div class="detail-row"><span>Option :</span><strong>—</strong></div>
+          <div class="detail-row"><span>Niveau :</span><strong>—</strong></div>
+          <div class="detail-row"><span>Semestre :</span><strong>—</strong></div>
+          <div class="detail-row"><span>Session :</span><strong>—</strong></div>
         </div>
 
         <!-- PIÈCES JUSTIFICATIVES -->
         <div class="fiche-section">
           <label class="section-label">📎 Pièces justificatives jointes</label>
           <div class="checkbox-group flex-wrap">
-            <label style="color:#2e7d32;"><input type="checkbox" checked disabled/> Relevés de notes</label>
-            <label style="color:#2e7d32;"><input type="checkbox" checked disabled/> Copies</label>
+            <label style="color:#aaa;"><input type="checkbox" disabled/> Relevés de notes</label>
+            <label style="color:#aaa;"><input type="checkbox" disabled/> Copies</label>
             <label style="color:#aaa;"><input type="checkbox" disabled/> Attestation d'inscription</label>
             <label style="color:#aaa;"><input type="checkbox" disabled/> Autres</label>
           </div>
         </div>
 
         <!-- CORRESPONDANT -->
-        <div class="fiche-section">
+        <div class="fiche-section" id="section-correspondant">
           <label class="section-label">Correspondant concerné</label>
           <div class="checkbox-group flex-wrap">
-            <label style="color:#2e7d32;"><input type="checkbox" checked disabled/> Directeur</label>
-            <label style="color:#2e7d32;"><input type="checkbox" checked disabled/> Enseignant</label>
-            <label style="color:#aaa;"><input type="checkbox" disabled/> Directrice adjointe</label>
-            <label style="color:#aaa;"><input type="checkbox" disabled/> Coordonnateur</label>
-            <label style="color:#aaa;"><input type="checkbox" disabled/> Chef de service Scolarité</label>
+            <label><input type="checkbox" value="Directeur" disabled/> Directeur</label>
+            <label><input type="checkbox" value="Enseignant" disabled/> Enseignant</label>
+            <label><input type="checkbox" value="Directrice adjointe" disabled/> Directrice adjointe</label>
+            <label><input type="checkbox" value="Coordonnateur" disabled/> Coordonnateur</label>
+            <label><input type="checkbox" value="Chef de service de la Scolarité" disabled/> Chef de service Scolarité</label>
           </div>
         </div>
 
         <!-- MOTIFS -->
-        <div class="fiche-section">
+        <div class="fiche-section" id="section-motifs">
           <label class="section-label">Motifs de la demande</label>
           <div class="checkbox-group flex-wrap">
-            <label style="color:#2e7d32;"><input type="checkbox" checked disabled/> Rectification de note</label>
-            <label style="color:#2e7d32;"><input type="checkbox" checked disabled/> Note non répertoriée</label>
-            <label style="color:#aaa;"><input type="checkbox" disabled/> Comptabilité des notes sur la copie</label>
-            <label style="color:#aaa;"><input type="checkbox" disabled/> Annulation de note</label>
-            <label style="color:#aaa;"><input type="checkbox" disabled/> Rectification du nom</label>
+            <label><input type="checkbox" value="Rectification de note" disabled/> Rectification de note</label>
+            <label><input type="checkbox" value="Note non répertoriée" disabled/> Note non répertoriée</label>
+            <label><input type="checkbox" value="Comptabilité des notes sur la copie" disabled/> Comptabilité des notes sur la copie</label>
+            <label><input type="checkbox" value="Annulation de note" disabled/> Annulation de note</label>
+            <label><input type="checkbox" value="Rectification du nom" disabled/> Rectification du nom</label>
           </div>
         </div>
 
         <!-- ECUES CONCERNÉS -->
         <div class="fiche-section">
           <label class="section-label">ECUES concernés</label>
-          <div class="detail-row"><span>ECUE 1 :</span><strong>Algorithmique</strong></div>
-          <div class="detail-row"><span>ECUE 2 :</span><strong>Mathématiques</strong></div>
+          <div class="detail-row"><span>ECUE 1 :</span><strong>—</strong></div>
+          <div class="detail-row"><span>ECUE 2 :</span><strong>—</strong></div>
+        </div>
+
+        <!-- INFOS RÉCLAMATION -->
+        <div class="fiche-section" id="section-reclamation-infos">
+          <label class="section-label">Détails de la réclamation</label>
+          <div class="detail-row"><span>Matière :</span><strong>—</strong></div>
+          <div class="detail-row"><span>Enseignant :</span><strong>—</strong></div>
+          <div class="detail-row"><span>Note obtenue :</span><strong>—</strong></div>
+        </div>
+
+        <!-- NOMBRE D'EXEMPLAIRES -->
+        <div class="fiche-section" id="section-exemplaires">
+          <label class="section-label">Nombre d'exemplaires</label>
+          <div class="detail-row nb-exemplaires"><span>Exemplaires :</span><strong>—</strong></div>
         </div>
 
         <!-- DESCRIPTION -->
         <div class="fiche-section">
           <label class="section-label">Description du problème</label>
-          <p style="font-size:13px; color:#444; line-height:1.6; margin:0;">
-            J'ai remarqué une erreur dans le calcul de ma note finale. La somme des points
-            sur ma copie donne 12/20 mais la note reportée est 08/20. Je demande une vérification.
-          </p>
+          <p style="font-size:13px; color:#444; line-height:1.6; margin:0;">—</p>
         </div>
 
         <!-- COPIE PDF -->
         <div class="fiche-section" style="background:#e8eaf6;">
           <label class="section-label">📄 Copie jointe</label>
-          <a href="#" style="color:#1a237e; font-weight:600; font-size:14px;">
-            📄 copie_maths.pdf — Cliquez pour voir
-          </a>
+          <span style="color:#888; font-size:14px;">Aucune pièce jointe</span>
         </div>
 
         <!-- TIMELINE -->
         <div class="fiche-section">
           <label class="section-label">📌 Suivi du traitement</label>
-          <div class="timeline">
-            <div class="timeline-item done">
-              <div class="timeline-dot green"></div>
-              <div class="timeline-content">
-                <strong>✅ Demande soumise</strong>
-                <span>10/06/2026 — par l'étudiant</span>
-              </div>
-            </div>
-            <div class="timeline-item done">
-              <div class="timeline-dot green"></div>
-              <div class="timeline-content">
-                <strong>✅ Reçue par la Secrétaire</strong>
-                <span>10/06/2026 — Transmise au DA</span>
-              </div>
-            </div>
-            <div class="timeline-item current">
-              <div class="timeline-dot yellow"></div>
-              <div class="timeline-content">
-                <strong>🟡 Examen par le DA</strong>
-                <span>En attente de traitement</span>
-              </div>
-            </div>
-            <div class="timeline-item pending">
-              <div class="timeline-dot grey"></div>
-              <div class="timeline-content">
-                <strong>Transmission à l'Enseignant</strong>
-                <span>En attente</span>
-              </div>
-            </div>
-            <div class="timeline-item pending">
-              <div class="timeline-dot grey"></div>
-              <div class="timeline-content">
-                <strong>Retour DA (décision finale)</strong>
-                <span>En attente</span>
-              </div>
-            </div>
-            <div class="timeline-item pending">
-              <div class="timeline-dot grey"></div>
-              <div class="timeline-content">
-                <strong>Exécution par la Scolarité</strong>
-                <span>En attente</span>
-              </div>
-            </div>
-          </div>
+          <div class="timeline" id="timelineContainer"></div>
         </div>
 
         <!-- ZONE ACTIONS STAFF -->
@@ -8190,6 +9037,9 @@ FICHIER : ./frontend/app/pages/demandes/detail.html
           </div>
         </div>
 
+        <!-- NOTIFICATION -->
+        <div id="notification" style="display:none; padding:12px 16px; border-radius:8px; margin-top:12px; font-weight:600; font-size:14px; text-align:center;"></div>
+
         <!-- BOUTON RETOUR DYNAMIQUE -->
         <div style="margin-top:16px;">
           <button class="btn-retour" onclick="history.back()">← Retour</button>
@@ -8203,8 +9053,22 @@ FICHIER : ./frontend/app/pages/demandes/detail.html
   <script>
     // Récupérer les paramètres de l'URL
     const urlP = new URLSearchParams(window.location.search);
-    const typeD = urlP.get('type') || 'reclamation';
     const idDemande = urlP.get('id');
+    const urlRef = urlP.get('ref') || '';
+    const urlEtu = urlP.get('etu') || '';
+    const urlType = urlP.get('type') || '';
+    const urlDate = urlP.get('date') || '';
+    const urlStatut = urlP.get('statut') || '';
+    const urlIne = urlP.get('ine') || '';
+    const urlTel = urlP.get('tel') || '';
+    const urlFiliere = urlP.get('filiere') || '';
+    const urlOption = urlP.get('option') || '';
+    const urlNiveau = urlP.get('niveau') || '';
+    const urlSemestre = urlP.get('semestre') || '';
+    const urlSession = urlP.get('session') || '';
+    const urlAnnee = urlP.get('annee') || '';
+    const urlDesc = urlP.get('desc') || '';
+    const typeD = urlType || 'reclamation';
 
     const DASHBOARD_MAP = {
       etudiant: '../dashboard/etudiant.html',
@@ -8245,28 +9109,84 @@ FICHIER : ./frontend/app/pages/demandes/detail.html
     };
 
     const timelines = {
-      reclamation: ['✅ Demande soumise', '✅ Reçue par la Secrétaire', '🟡 Examen par le DA', 'Transmission à l\'Enseignant', 'Retour DA (décision finale)', 'Exécution par la Scolarité'],
-      attestation: ['✅ Demande soumise', '✅ Reçue par la Secrétaire', '🟡 Examen par le SP', 'Transmission au DA', 'Décision Directrice', 'Exécution par la Scolarité'],
-      duplicata: ['✅ Demande soumise', '✅ Reçue par la Secrétaire', '🟡 Examen par le SP', 'Transmission au DA', 'Décision Directrice', 'Exécution par la Scolarité'],
-      derogation: ['✅ Demande soumise', '✅ Reçue par la Secrétaire', '🟡 Examen par le SP', 'Transmission au DA', 'Décision finale', 'Exécution']
+      reclamation: [
+        'Demande soumise',
+        'Reçue par la Secrétaire',
+        'Examen par le DA',
+        'Transmission à l\'Enseignant',
+        'Retour DA (décision finale)',
+        'Exécution par la Scolarité'
+      ],
+      derogation: [
+        'Demande soumise',
+        'Reçue par la Secrétaire',
+        'Examen par le SP',
+        'Retour à la Secrétaire',
+        'Examen par la Directrice',
+        'Examen par la Présidence',
+        'Exécution par la Scolarité'
+      ],
+      duplicata: [
+        'Demande soumise',
+        'Reçue par la Secrétaire',
+        'Examen par le SP',
+        'Retour à la Secrétaire',
+        'Décision par le DA'
+      ],
+      attestation: [
+        'Demande soumise',
+        'Reçue par la Secrétaire',
+        'Décision par le DA'
+      ]
     };
+
+    function renderTimeline(type, currentStep) {
+      const container = document.getElementById('timelineContainer');
+      if (!container) return;
+      const steps = timelines[type] || timelines['reclamation'];
+      container.innerHTML = '';
+      steps.forEach((label, i) => {
+        let cls = 'timeline-item';
+        let dotCls = 'grey';
+        let suffix = 'En attente';
+        let emoji = '';
+        if (currentStep > 0 && i < currentStep) {
+          cls += ' done';
+          dotCls = 'green';
+          suffix = 'Terminée';
+          emoji = '✅ ';
+        } else if (currentStep > 0 && i === currentStep) {
+          cls += ' current';
+          dotCls = 'yellow';
+          suffix = 'En cours';
+          emoji = '🟡 ';
+        }
+        if (i === 0 && currentStep > 0) suffix = 'Effectuée';
+        const div = document.createElement('div');
+        div.className = cls;
+        div.innerHTML = `
+          <div class="timeline-dot ${dotCls}"></div>
+          <div class="timeline-content">
+            <strong>${emoji}${label}</strong>
+            <span>${suffix}</span>
+          </div>`;
+        container.appendChild(div);
+      });
+    }
 
     window.addEventListener('DOMContentLoaded', function() {
       // Adapter la sidebar et la navbar au rôle connecté
       afficherSidebarRole();
 
-      // Changer le badge type
-      const typeBadge = document.querySelector('.detail-row strong');
-      if (typeBadge) typeBadge.textContent = titres[typeD] || titres['reclamation'];
+      // Changer le badge type seulement si pas d'API (pas d'id)
+      if (!idDemande) {
+        const typeBadge = document.querySelector('.detail-row:nth-child(3) strong');
+        if (typeBadge) typeBadge.textContent = titres[typeD] || titres['reclamation'];
+        renderTimeline(typeD, 1);
+      }
 
-      // Adapter la timeline
-      const tl = timelines[typeD] || timelines['reclamation'];
-      const contents = document.querySelectorAll('.timeline-content strong');
-      contents.forEach((el, i) => {
-        if (tl[i]) el.textContent = tl[i];
-      });
-
-      // Cacher section enseignant si pas réclamation
+      // Cacher sections spécifiques si pas réclamation
+      const sections = document.querySelectorAll('.fiche-section');
       if (typeD !== 'reclamation') {
         document.querySelectorAll('.detail-row').forEach(row => {
           const label = row.querySelector('span');
@@ -8274,7 +9194,28 @@ FICHIER : ./frontend/app/pages/demandes/detail.html
             row.style.display = 'none';
           }
         });
+        sections.forEach(s => {
+          const lb = s.querySelector('.section-label');
+          if (lb && lb.textContent.includes('ECUES')) s.style.display = 'none';
+          if (lb && lb.textContent.includes('Détails de la réclamation')) s.style.display = 'none';
+        });
       }
+      // Sections spécifiques aux types
+      sections.forEach(s => {
+        const lb = s.querySelector('.section-label');
+        if (lb && lb.textContent.includes('exemplaires')) {
+          s.style.display = (typeD === 'duplicata' || typeD === 'attestation') ? '' : 'none';
+        }
+        if (lb && lb.textContent.includes('Motifs')) {
+          s.style.display = (typeD === 'reclamation') ? '' : 'none';
+        }
+        if (lb && lb.textContent.includes('Correspondant')) {
+          s.style.display = (typeD === 'reclamation' || typeD === 'duplicata') ? '' : 'none';
+        }
+        if (lb && lb.textContent.includes('Détails de la réclamation')) {
+          s.style.display = (typeD === 'reclamation') ? '' : 'none';
+        }
+      });
 
       // Cacher les actions si c'est un étudiant
       const role = resolveCurrentRole();
@@ -8283,6 +9224,16 @@ FICHIER : ./frontend/app/pages/demandes/detail.html
         if (actionsStaff) actionsStaff.style.display = 'none';
       }
     });
+
+    function afficherNotification(icone, message, type) {
+      const el = document.getElementById('notification');
+      if (!el) return;
+      el.textContent = icone + ' ' + message;
+      el.style.display = 'block';
+      el.style.background = type === 'success' ? '#e8f5e9' : type === 'error' ? '#ffebee' : '#fff8e1';
+      el.style.color = type === 'success' ? '#2e7d32' : type === 'error' ? '#c62828' : '#e65100';
+      setTimeout(() => { el.style.display = 'none'; }, 4000);
+    }
 
     function changerStatut(statut) {
       const badge = document.querySelector('.badge');
@@ -8295,7 +9246,7 @@ FICHIER : ./frontend/app/pages/demandes/detail.html
       }
       const actionsStaff = document.getElementById('actions-staff');
       if (actionsStaff) actionsStaff.style.display = 'none';
-      alert(statut === 'validee' ? '✅ Demande validée !' : '❌ Demande rejetée !');
+      afficherNotification('✅', statut === 'validee' ? 'Demande validée !' : 'Demande rejetée !', 'success');
     }
 
     function demanderComplement() {
@@ -8308,10 +9259,10 @@ FICHIER : ./frontend/app/pages/demandes/detail.html
     function envoyerComplement() {
       const msg = document.getElementById('msg-complement');
       if (!msg || !msg.value) {
-        alert('Écrivez un message.');
+        afficherNotification('⚠️', 'Écrivez un message.', 'error');
         return;
       }
-      alert('📝 Message envoyé à l\'étudiant !');
+      afficherNotification('📝', 'Message envoyé à l\'étudiant !', 'success');
       const box = document.getElementById('complement-box');
       if (box) box.style.display = 'none';
       if (msg) msg.value = '';
@@ -8325,8 +9276,75 @@ FICHIER : ./frontend/app/pages/demandes/detail.html
       rejetee:                 { classe: 'red',    texte: '🔴 Rejetée' }
     };
 
+    function remplirChampsDepuisSource(source) {
+      if (!source) return;
+      const map = [
+        [2, source.ref || source.reference, v => v.startsWith('#') ? v : '#' + v],
+        [3, source.type],
+        [4, source.annee_universitaire || source.annee],
+        [5, source.date],
+        [6, source.prenom_etudiant ? source.prenom_etudiant + ' ' + (source.nom_etudiant || '') : (source.nom_etudiant || source.etu || '')],
+        [7, source.ine],
+        [8, source.telephone || source.tel],
+        [9, source.filiere],
+        [10, source.option],
+        [11, source.niveau],
+        [12, source.semestre],
+        [13, source.session]
+      ];
+      map.forEach(([n, val, fmt]) => {
+        if (!val) return;
+        const el = document.querySelector('.detail-row:nth-child(' + n + ') strong');
+        if (el) el.textContent = fmt ? fmt(val) : val;
+      });
+
+      const s = source.statut || source.statut;
+      if (s) {
+        const badge = document.querySelector('.badge');
+        if (badge) badge.textContent = s;
+      }
+
+      if (source.description || source.desc) {
+        const descEl = document.querySelector('.fiche-section p');
+        if (descEl) descEl.textContent = source.description || source.desc;
+      }
+    }
+
+    function appliquerFallbackDepuisUrl() {
+      if (!idDemande) return;
+      remplirChampsDepuisSource({
+        ref: urlRef,
+        etu: urlEtu,
+        type: urlType,
+        date: urlDate,
+        statut: urlStatut,
+        ine: urlIne,
+        tel: urlTel,
+        filiere: urlFiliere,
+        option: urlOption,
+        niveau: urlNiveau,
+        semestre: urlSemestre,
+        session: urlSession,
+        annee: urlAnnee,
+        desc: urlDesc
+      });
+    }
+
+    function appliquerFallbackDepuisSession() {
+      if (!idDemande) return;
+      try {
+        const saved = sessionStorage.getItem('detail_demande_' + idDemande);
+        if (!saved) return;
+        remplirChampsDepuisSource(JSON.parse(saved));
+      } catch(e) {}
+    }
+
     async function chargerVraieDemande() {
       if (!idDemande) return;
+
+      // Fallback immédiat depuis l'URL, puis sessionStorage
+      appliquerFallbackDepuisUrl();
+      appliquerFallbackDepuisSession();
 
       try {
         const token = getAuthToken();
@@ -8335,7 +9353,10 @@ FICHIER : ./frontend/app/pages/demandes/detail.html
         });
         const data = await response.json();
         const demande = data.demande || data;
-        if (!demande || !demande.id_demande) return;
+        if (!demande || !demande.id_demande) {
+          afficherNotification('⚠️', 'Données de la demande non trouvées.', 'error');
+          return;
+        }
 
         // Badge statut en haut
         const badge = document.querySelector('.badge');
@@ -8345,31 +9366,144 @@ FICHIER : ./frontend/app/pages/demandes/detail.html
           badge.textContent = infos.texte;
         }
 
-        // N° demande
-        const numEl = document.querySelector('.detail-row:nth-child(1) strong');
-        if (numEl) numEl.textContent = '#' + (demande.reference || demande.id_demande);
+        // Toutes les infos générales (12 lignes)
+        const rows = [
+          [2, demande.reference || demande.id_demande, v => '#' + v],
+          [3, titres[demande.type_demande] || demande.type_demande],
+          [4, demande.annee_universitaire || ''],
+          [5, demande.date_creation ? new Date(demande.date_creation).toLocaleDateString('fr-FR') : ''],
+          [6, ((demande.prenom_etudiant || '') + ' ' + (demande.nom_etudiant || '')).trim() || ''],
+          [7, demande.ine || ''],
+          [8, demande.telephone || ''],
+          [9, demande.filiere || ''],
+          [10, demande.option || ''],
+          [11, demande.niveau || ''],
+          [12, demande.semestre || ''],
+          [13, demande.session || '']
+        ];
+        rows.forEach(([n, val, fmt]) => {
+          if (!val) return;
+          const el = document.querySelector('.detail-row:nth-child(' + n + ') strong');
+          if (el) el.textContent = fmt ? fmt(val) : val;
+        });
 
-        // Type
-        const typeEl = document.querySelector('.detail-row:nth-child(2) strong');
-        if (typeEl) typeEl.textContent = titres[demande.type_demande] || demande.type_demande;
-
-        // Date
-        const dateEl = document.querySelector('.detail-row:nth-child(4) strong');
-        if (dateEl && demande.date_creation) {
-          dateEl.textContent = new Date(demande.date_creation).toLocaleDateString('fr-FR');
+        // Correspondant — cocher les cases correspondantes
+        if (demande.correspondant) {
+          const mots = demande.correspondant.toLowerCase();
+          document.querySelectorAll('#section-correspondant input[type="checkbox"]').forEach(cb => {
+            cb.checked = mots.includes(cb.value.toLowerCase());
+            cb.disabled = true;
+          });
         }
 
-        // Étudiant
-        const etuEl = document.querySelector('.detail-row:nth-child(5) strong');
-        if (etuEl && demande.nom_etudiant) {
-          etuEl.textContent = demande.nom_etudiant;
+        // Motifs — cocher les cases correspondantes
+        if (demande.motifs && demande.motifs.length > 0) {
+          const motifsLabels = demande.motifs.map(m => m.toLowerCase());
+          document.querySelectorAll('#section-motifs input[type="checkbox"]').forEach(cb => {
+            cb.checked = motifsLabels.includes(cb.value.toLowerCase());
+            cb.disabled = true;
+          });
+        }
+
+        // ECUE 1 = matière
+        const ecueSection = Array.from(document.querySelectorAll('.fiche-section'))
+          .find(s => s.querySelector('.section-label')?.textContent.includes('ECUES'));
+        const ecue1El = ecueSection?.querySelector('.detail-row strong');
+        if (ecue1El && demande.matiere) {
+          ecue1El.textContent = demande.matiere;
+        }
+
+        // Matière, Enseignant, Note obtenue (réclamation)
+        if (demande.type_demande === 'reclamation') {
+          const rows = document.querySelectorAll('#section-reclamation-infos .detail-row');
+          if (rows[0]) rows[0].querySelector('strong').textContent = demande.matiere || '—';
+          if (rows[1]) rows[1].querySelector('strong').textContent = demande.enseignant || '—';
+          if (rows[2]) rows[2].querySelector('strong').textContent = demande.note_obtenue || '—';
+        }
+
+        // Nombre d'exemplaires (duplicata / attestation)
+        const ex = demande.duplicata_exemplaires || demande.attestation_exemplaires;
+        if (ex) {
+          const exRow = document.querySelector('.detail-row.nb-exemplaires strong');
+          if (exRow) exRow.textContent = ex;
         }
 
         // Description
         const descEl = document.querySelector('.fiche-section p');
-        if (descEl && demande.description) {
-          descEl.textContent = demande.description;
+        if (descEl) {
+          descEl.textContent = demande.description || '—';
         }
+
+        // Charger les documents (pièces jointes)
+        try {
+          const docRes = await fetch(API_BASE + '/documents/demande/' + idDemande, {
+            headers: { 'Authorization': 'Bearer ' + token }
+          });
+          const docData = await docRes.json();
+          if (docData.success && docData.documents && docData.documents.length > 0) {
+            const copieSection = document.querySelector('.fiche-section[style*="background:#e8eaf6"]');
+            if (copieSection) {
+              copieSection.innerHTML = `
+                <label class="section-label">📄 Copie jointe</label>
+                <div style="display:flex; flex-direction:column; gap:8px;">
+                  ${docData.documents.map(d =>
+                    `<a href="${API_BASE}/documents/${d.id_document}" target="_blank" style="color:#1a237e; font-weight:500;">
+                      📎 ${d.nom_original}
+                    </a>`
+                  ).join('')}
+                </div>`;
+            }
+          }
+        } catch(e) {
+          console.error('Erreur chargement documents:', e);
+        }
+
+        // Déterminer l'étape courante depuis le statut
+        const etapes = timelines[demande.type_demande] || timelines['reclamation'];
+        let step;
+        if (['terminee', 'acceptee'].includes(demande.statut)) {
+          step = etapes.length;
+        } else if (demande.statut === 'rejetee') {
+          step = Math.min(2, etapes.length);
+        } else if (demande.statut === 'en cours de traitement') {
+          step = Math.min(2, etapes.length);
+        } else if (demande.statut === 'soumise') {
+          step = 1;
+        } else {
+          step = 0;
+        }
+        renderTimeline(demande.type_demande, step);
+
+        // Mettre à jour les sections spécifiques au type
+        const typeD = demande.type_demande;
+        const estReclamation = typeD === 'reclamation';
+        document.querySelectorAll('.detail-row').forEach(row => {
+          const label = row.querySelector('span');
+          if (label && ['Matière :', 'Enseignant :', 'Note obtenue :'].includes(label.textContent)) {
+            row.style.display = estReclamation ? '' : 'none';
+          }
+        });
+        document.querySelectorAll('.fiche-section').forEach(s => {
+          const lb = s.querySelector('.section-label');
+          if (lb && lb.textContent.includes('ECUES')) {
+            s.style.display = estReclamation ? '' : 'none';
+          }
+          if (lb && lb.textContent.includes('Détails de la réclamation')) {
+            s.style.display = estReclamation ? '' : 'none';
+          }
+          if (lb && lb.textContent.includes('exemplaires')) {
+            s.style.display = (typeD === 'duplicata' || typeD === 'attestation') ? '' : 'none';
+          }
+          if (lb && lb.textContent.includes('Motifs')) {
+            s.style.display = estReclamation ? '' : 'none';
+          }
+          if (lb && lb.textContent.includes('Correspondant')) {
+            s.style.display = (typeD === 'reclamation' || typeD === 'duplicata') ? '' : 'none';
+          }
+          if (lb && lb.textContent.includes('Détails de la réclamation')) {
+            s.style.display = estReclamation ? '' : 'none';
+          }
+        });
 
         // Cacher les actions staff si étudiant ou demande terminée
         const actionsStaff = document.getElementById('actions-staff');
@@ -8379,8 +9513,14 @@ FICHIER : ./frontend/app/pages/demandes/detail.html
           actionsStaff.style.display = 'none';
         }
 
+        // Nettoyer le sessionStorage une fois les données API chargées
+        try { sessionStorage.removeItem('detail_demande_' + idDemande); } catch(e) {}
+
       } catch (e) {
         console.error('Erreur chargement détail:', e);
+        afficherNotification('⚠️', 'Impossible de charger les données depuis le serveur.', 'error');
+        appliquerFallbackDepuisSession();
+        renderTimeline('reclamation', 0);
       }
     }
 
@@ -8463,7 +9603,7 @@ FICHIER : ./frontend/app/pages/demandes/nouvelle.html
           <div class="fiche-row">
             <div class="form-group flex-1">
               <label>Année universitaire concernée</label>
-              <input type="text" placeholder="Ex: 2025-2026"/>
+              <input type="text" id="rec-annee-univ" placeholder="Ex: 2025-2026"/>
             </div>
             <div class="form-group flex-1">
               <label>INE</label>
@@ -8500,9 +9640,16 @@ FICHIER : ./frontend/app/pages/demandes/nouvelle.html
             </div>
             <div class="form-group flex-1">
               <label>Semestre</label>
-              <select>
-                <option>S1</option><option>S2</option>
-                <option>S3</option><option>S4</option>
+              <select id="rec-semestre">
+                <option value="">-- Sélectionner --</option>
+                <option value="S1">S1</option><option value="S2">S2</option>
+                <option value="S3">S3</option><option value="S4">S4</option>
+              </select>
+            </div>
+            <div class="form-group flex-1">
+              <label>Professeur / Enseignant</label>
+              <select id="rec-professeur">
+                <option value="">-- Sélectionner --</option>
               </select>
             </div>
           </div>
@@ -8512,9 +9659,9 @@ FICHIER : ./frontend/app/pages/demandes/nouvelle.html
             <div class="fiche-row" style="align-items:flex-start; gap:40px;">
               <div>
                 <label class="section-label">Session</label>
-                <div class="checkbox-group">
-                  <label><input type="checkbox"/> Normale</label>
-                  <label><input type="checkbox"/> Rattrapage</label>
+                <div class="checkbox-group" id="rec-session">
+                  <label><input type="radio" name="rec-session" value="Normale"/> Normale</label>
+                  <label><input type="radio" name="rec-session" value="Rattrapage"/> Rattrapage</label>
                 </div>
               </div>
               <div style="flex:1;">
@@ -8532,45 +9679,50 @@ FICHIER : ./frontend/app/pages/demandes/nouvelle.html
           <!-- Correspondant -->
           <div class="fiche-section">
             <label class="section-label">Correspondant</label>
-            <div class="checkbox-group flex-wrap">
-              <label><input type="checkbox"/> Directeur</label>
-              <label><input type="checkbox"/> Directrice adjointe</label>
-              <label><input type="checkbox"/> Coordonnateur</label>
-              <label><input type="checkbox"/> Enseignant</label>
-              <label><input type="checkbox"/> Chef de service de la Scolarité</label>
+            <div class="checkbox-group flex-wrap" id="rec-correspondant">
+              <label><input type="checkbox" value="Directeur"/> Directeur</label>
+              <label><input type="checkbox" value="Directrice adjointe"/> Directrice adjointe</label>
+              <label><input type="checkbox" value="Coordonnateur"/> Coordonnateur</label>
+              <label><input type="checkbox" value="Enseignant"/> Enseignant</label>
+              <label><input type="checkbox" value="Chef de service de la Scolarité"/> Chef de service de la Scolarité</label>
             </div>
           </div>
 
           <!-- Motifs -->
           <div class="fiche-section">
             <label class="section-label">Motifs de la demande</label>
-            <div class="checkbox-group flex-wrap">
-              <label><input type="checkbox"/> Comptabilité des notes sur la copie</label>
-              <label><input type="checkbox"/> Rectification de note</label>
-              <label><input type="checkbox"/> Note non répertoriée</label>
-              <label><input type="checkbox"/> Annulation de note</label>
-              <label><input type="checkbox"/> Rectification du nom</label>
-              <label><input type="checkbox"/> Rectification de n° matricule</label>
-              <label><input type="checkbox"/> Rectification du lieu de naissance</label>
-              <label><input type="checkbox"/> Rectification de la date de naissance</label>
-              <label><input type="checkbox"/> Insertion du nom sur le PV</label>
+            <div class="checkbox-group flex-wrap" id="rec-motifs">
+              <label><input type="checkbox" value="Comptabilité des notes sur la copie"/> Comptabilité des notes sur la copie</label>
+              <label><input type="checkbox" value="Rectification de note"/> Rectification de note</label>
+              <label><input type="checkbox" value="Note non répertoriée"/> Note non répertoriée</label>
+              <label><input type="checkbox" value="Annulation de note"/> Annulation de note</label>
+              <label><input type="checkbox" value="Rectification du nom"/> Rectification du nom</label>
+              <label><input type="checkbox" value="Rectification du n° matricule"/> Rectification du n° matricule</label>
+              <label><input type="checkbox" value="Rectification du lieu de naissance"/> Rectification du lieu de naissance</label>
+              <label><input type="checkbox" value="Rectification de la date de naissance"/> Rectification de la date de naissance</label>
+              <label><input type="checkbox" value="Insertion du nom sur le PV"/> Insertion du nom sur le PV</label>
             </div>
             <div class="form-group" style="margin-top:10px;">
               <label>Autres (à préciser)</label>
-              <input type="text" placeholder="Précisez si autre motif"/>
+              <input type="text" id="rec-motif-autres" placeholder="Précisez si autre motif"/>
             </div>
           </div>
 
           <!-- ECUES -->
           <div class="fiche-section">
-            <label class="section-label">ECUES concernés (mentionnez les intitulés des ECUES)</label>
+            <label class="section-label">ECUES concernés</label>
             <div class="form-group">
-              <input type="text" placeholder="ECUE 1"/>
+              <label>ECUE 1 (matière)</label>
+              <select id="rec-ecue1">
+                <option value="">-- Sélectionner une matière --</option>
+              </select>
             </div>
             <div class="form-group">
+              <label>ECUE 2 (optionnel)</label>
               <input type="text" placeholder="ECUE 2"/>
             </div>
             <div class="form-group">
+              <label>ECUE 3 (optionnel)</label>
               <input type="text" placeholder="ECUE 3"/>
             </div>
           </div>
@@ -8579,7 +9731,7 @@ FICHIER : ./frontend/app/pages/demandes/nouvelle.html
           <div class="fiche-section">
             <div class="form-group">
               <label class="section-label">Description du problème <em>(Si nécessaire)</em></label>
-              <textarea placeholder="Décrivez votre problème en détail..." style="height:100px;"></textarea>
+              <textarea id="rec-description" placeholder="Décrivez votre problème en détail..." style="height:100px;"></textarea>
             </div>
           </div>
 
@@ -8606,11 +9758,11 @@ FICHIER : ./frontend/app/pages/demandes/nouvelle.html
           <h3 style="margin-bottom:18px; color:#1a237e;">📄 Demande de dérogation</h3>
           <div class="form-group">
             <label>Objet de la dérogation</label>
-            <input type="text" placeholder="Ex: Autorisation d'absence"/>
+            <input type="text" id="der-objet" placeholder="Ex: Autorisation d'absence"/>
           </div>
           <div class="form-group">
             <label>Motif</label>
-            <textarea placeholder="Expliquez votre motif..."></textarea>
+            <textarea id="der-motif" placeholder="Expliquez votre motif..."></textarea>
           </div>
           <div class="form-group">
             <label>Pièce jointe</label>
@@ -8649,7 +9801,7 @@ FICHIER : ./frontend/app/pages/demandes/nouvelle.html
           <div class="fiche-row">
             <div class="form-group flex-2">
               <label>Année universitaire concernée</label>
-              <input type="text" placeholder="Ex: 2025-2026"/>
+              <input type="text" id="dup-annee-univ" placeholder="Ex: 2025-2026"/>
             </div>
             <div class="form-group flex-1">
               <label>INE</label>
@@ -8703,12 +9855,12 @@ FICHIER : ./frontend/app/pages/demandes/nouvelle.html
 
           <div class="fiche-section">
             <label class="section-label">Correspondant</label>
-            <div class="checkbox-group flex-wrap">
-              <label><input type="checkbox"/> Directeur</label>
-              <label><input type="checkbox"/> Directrice adjointe</label>
-              <label><input type="checkbox"/> Coordonnateur</label>
-              <label><input type="checkbox"/> Responsable des stages</label>
-              <label><input type="checkbox"/> Chef Scolarité</label>
+            <div class="checkbox-group flex-wrap" id="dup-correspondant">
+              <label><input type="checkbox" value="Directeur"/> Directeur</label>
+              <label><input type="checkbox" value="Directrice adjointe"/> Directrice adjointe</label>
+              <label><input type="checkbox" value="Coordonnateur"/> Coordonnateur</label>
+              <label><input type="checkbox" value="Responsable des stages"/> Responsable des stages</label>
+              <label><input type="checkbox" value="Chef Scolarité"/> Chef Scolarité</label>
             </div>
           </div>
 
@@ -8745,17 +9897,15 @@ FICHIER : ./frontend/app/pages/demandes/nouvelle.html
         </div>
 
         <!-- FORMULAIRE ATTESTATION -->
-
-        <!-- FORMULAIRE ATTESTATION -->
         <div id="form-attestation" class="formulaire" style="display:none;">
           <h3 style="margin-bottom:18px; color:#1a237e;">🎓 Demande d'attestation</h3>
           <div class="form-group">
             <label>Type d'attestation</label>
-            <select>
+            <select id="att-type">
               <option value="">-- Choisir --</option>
-              <option>Attestation d'inscription</option>
-              <option>Attestation de fréquentation</option>
-              <option>Attestation de réussite</option>
+              <option value="Attestation d'inscription">Attestation d'inscription</option>
+              <option value="Attestation de fréquentation">Attestation de fréquentation</option>
+              <option value="Attestation de réussite">Attestation de réussite</option>
             </select>
           </div>
           <div class="form-group">
@@ -8820,7 +9970,122 @@ FICHIER : ./frontend/app/pages/demandes/nouvelle.html
       document.getElementById('choix-type').style.display = 'none';
       document.getElementById('form-' + type).style.display = 'block';
       document.getElementById('form-title').textContent = '';
+      if (type === 'reclamation') chargerProfesseurs();
     }
+
+    async function chargerProfesseurs() {
+      const select = document.getElementById('rec-professeur');
+      if (!select || select.options.length > 1) return;
+      try {
+        const token = getAuthToken();
+        const res = await fetch(API_BASE + '/professeurs', {
+          headers: { 'Authorization': 'Bearer ' + token }
+        });
+        const data = await res.json();
+        if (data.success && data.professeurs) {
+          data.professeurs.forEach(p => {
+            const opt = document.createElement('option');
+            opt.value = p.id_professeur;
+            opt.textContent = p.prenom + ' ' + p.nom + (p.grade ? ' (' + p.grade + ')' : '');
+            select.appendChild(opt);
+          });
+        }
+      } catch(e) {
+        console.error('Erreur chargement professeurs:', e);
+      }
+    }
+
+    async function chargerMatieres() {
+      const select = document.getElementById('rec-ecue1');
+      if (!select || select.options.length > 1) return;
+      try {
+        const token = getAuthToken();
+        const res = await fetch(API_BASE + '/data/matieres', {
+          headers: { 'Authorization': 'Bearer ' + token }
+        });
+        if (!res.ok) {
+          select.style.border = '1px solid #d32f2f';
+          const optionDefaut = select.querySelector('option');
+          if (optionDefaut) optionDefaut.textContent = '⚠ Erreur chargement';
+          return;
+        }
+        const data = await res.json();
+        if (data.success && data.matieres && data.matieres.length > 0) {
+          data.matieres.forEach(m => {
+            const opt = document.createElement('option');
+            opt.value = m.id_matiere;
+            opt.textContent = m.libelle + (m.code ? ' (' + m.code + ')' : '');
+            select.appendChild(opt);
+          });
+        } else {
+          const optionDefaut = select.querySelector('option');
+          if (optionDefaut) optionDefaut.textContent = '⚠ Aucune matière disponible';
+        }
+      } catch(e) {
+        console.error('Erreur chargement matieres:', e);
+        const optionDefaut = select.querySelector('option');
+        if (optionDefaut) optionDefaut.textContent = '⚠ Erreur réseau';
+      }
+    }
+
+    async function autoRemplirInfosEtudiant() {
+      try {
+        const token = getAuthToken();
+        const res = await fetch(API_BASE + '/auth/me', {
+          headers: { 'Authorization': 'Bearer ' + token }
+        });
+        const data = await res.json();
+        if (!data.success || !data.user) return;
+        const u = data.user;
+        const e = u.etudiant;
+        if (!e) return;
+
+        const form = document.getElementById('form-reclamation');
+
+        // INE
+        const ineInput = form.querySelector('input[placeholder*="INE"]');
+        if (ineInput) { ineInput.value = e.ine || ''; ineInput.disabled = true; ineInput.style.background = '#eee'; }
+
+        // Nom et prénom
+        const nomInput = form.querySelector('input[placeholder*="nom complet"]');
+        if (nomInput) { nomInput.value = (u.prenom || '') + ' ' + (u.nom || ''); nomInput.disabled = true; nomInput.style.background = '#eee'; }
+
+        // Téléphone
+        const telInput = form.querySelector('input[placeholder*="+226"]');
+        if (telInput) { telInput.value = u.telephone || ''; telInput.disabled = true; telInput.style.background = '#eee'; }
+
+        // Filière
+        const filiereInput = form.querySelector('input[placeholder*="Informatique"]');
+        if (filiereInput) { filiereInput.value = e.filiere || ''; filiereInput.disabled = true; filiereInput.style.background = '#eee'; }
+
+        // Option
+        const optionInput = form.querySelector('input[placeholder*="GL"]');
+        if (optionInput) { optionInput.value = e.option || ''; optionInput.disabled = true; optionInput.style.background = '#eee'; }
+
+        // Niveau
+        const niveauSelect = form.querySelector('select');
+        if (niveauSelect && e.niveau) {
+          for (const opt of niveauSelect.options) {
+            if (opt.text === e.niveau) { niveauSelect.value = opt.value; break; }
+          }
+          niveauSelect.disabled = true;
+          niveauSelect.style.background = '#eee';
+        }
+      } catch(e) {
+        console.error('Erreur auto-remplissage:', e);
+      }
+    }
+
+    // Attacher auto-remplissage à l'affichage du formulaire réclamation
+    const origAfficher = afficherFormulaire;
+    afficherFormulaire = function(type) {
+      origAfficher(type);
+      if (type === 'reclamation') {
+        chargerProfesseurs();
+        chargerMatieres();
+        autoRemplirInfosEtudiant();
+      }
+    };
 
     // Ouvrir automatiquement si type dans URL
     const urlParams = new URLSearchParams(window.location.search);
@@ -8831,15 +10096,22 @@ FICHIER : ./frontend/app/pages/demandes/nouvelle.html
       document.getElementById('choix-type').style.display = 'block';
       document.getElementById('form-title').textContent = '➕ Nouvelle demande';
     }
+    function collectCheckedValues(containerId) {
+      const container = document.getElementById(containerId);
+      if (!container) return [];
+      return Array.from(container.querySelectorAll('input[type="checkbox"]:checked'))
+        .map(cb => cb.value);
+    }
     async function envoyer() {
       const typeActif = document.querySelector('.formulaire[style*="block"]')?.id;
-      
+      if (!typeActif) return;
+
+      // Duplicata → paiement puis soumission
       if (typeActif === 'form-duplicata') {
         payerDuplicata();
         return;
       }
 
-      // Déterminer le type de demande
       const typeMap = {
         'form-reclamation': 'reclamation',
         'form-derogation': 'derogation',
@@ -8847,24 +10119,52 @@ FICHIER : ./frontend/app/pages/demandes/nouvelle.html
       };
       const type_demande = typeMap[typeActif] || 'autre';
 
-      // Récupérer les champs selon le type
-      let objet = '';
-      let description = '';
+      let body = { type_demande, statut: 'soumise' };
 
       if (typeActif === 'form-reclamation') {
-        const matiere = document.querySelector('#form-reclamation input[placeholder*="Math"]')?.value || '';
-        const motif = document.querySelector('#form-reclamation textarea')?.value || '';
-        objet = 'Réclamation de note - ' + matiere;
-        description = motif;
+        const annee_universitaire = document.getElementById('rec-annee-univ')?.value || '';
+        const semestre = document.getElementById('rec-semestre')?.value || '';
+        const session = document.querySelector('input[name="rec-session"]:checked')?.value || '';
+        const correspondant = collectCheckedValues('rec-correspondant').join(', ');
+        const motif_labels = collectCheckedValues('rec-motifs');
+        const motif_autres = document.getElementById('rec-motif-autres')?.value || '';
+        const ecue1 = document.getElementById('rec-ecue1')?.value || '';
+        const ecue1Label = document.getElementById('rec-ecue1')?.selectedOptions?.[0]?.text || ecue1;
+        const description = document.getElementById('rec-description')?.value || '';
+        const telephone = document.querySelector('#form-reclamation input[type="tel"]')?.value || '';
+        const id_professeur = document.getElementById('rec-professeur')?.value || '';
+        const objet = 'Réclamation de note - ' + ecue1Label;
+
+        body = {
+          ...body,
+          objet,
+          description,
+          telephone,
+          id_professeur: id_professeur ? parseInt(id_professeur, 10) : undefined,
+          annee_universitaire,
+          correspondant: correspondant || undefined,
+          id_semestre: semestre,
+          session: session || undefined,
+          motif_labels,
+          motif_autres,
+          id_matiere: ecue1 ? parseInt(ecue1, 10) : undefined
+        };
       } else if (typeActif === 'form-derogation') {
-        objet = document.querySelector('#form-derogation input')?.value || 'Dérogation';
-        description = document.querySelector('#form-derogation textarea')?.value || '';
+        const objet = document.getElementById('der-objet')?.value || 'Dérogation';
+        const motif = document.getElementById('der-motif')?.value || '';
+        body = { ...body, objet, description: motif, motif };
       } else if (typeActif === 'form-attestation') {
-        objet = document.querySelector('#form-attestation select')?.value || 'Attestation';
-        description = objet;
+        const typeAttestation = document.getElementById('att-type')?.value || '';
+        const nombre_exemplaires = parseInt(document.querySelector('input[name="exemplaires"]:checked')?.value || '1');
+        body = {
+          ...body,
+          objet: typeAttestation || 'Attestation',
+          description: typeAttestation,
+          id_type_attestation: typeAttestation,
+          nombre_exemplaires
+        };
       }
 
-      // Envoyer au backend
       try {
         const token = getAuthToken();
         const response = await fetch(API_BASE + '/demandes', {
@@ -8873,12 +10173,27 @@ FICHIER : ./frontend/app/pages/demandes/nouvelle.html
             'Content-Type': 'application/json',
             'Authorization': 'Bearer ' + token
           },
-          body: JSON.stringify({ type_demande, objet, description })
+          body: JSON.stringify(body)
         });
 
         const data = await response.json();
 
         if (data.success) {
+          const demandeId = data.demande?.id_demande;
+
+          // Uploader le fichier si présent
+          const fileInput = document.getElementById('copieFile');
+          if (fileInput && fileInput.files && fileInput.files[0] && demandeId) {
+            const formData = new FormData();
+            formData.append('fichier', fileInput.files[0]);
+
+            await fetch(API_BASE + '/documents/upload/' + demandeId, {
+              method: 'POST',
+              headers: { 'Authorization': 'Bearer ' + token },
+              body: formData
+            });
+          }
+
           document.querySelectorAll('.formulaire').forEach(f => f.style.display = 'none');
           document.getElementById('confirmation').style.display = 'block';
         } else {
