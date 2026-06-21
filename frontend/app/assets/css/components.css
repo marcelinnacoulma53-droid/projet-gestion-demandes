@@ -892,3 +892,31 @@ body.dashboard-body {
 @media (max-width: 768px) {
   .table-responsive { margin: 0 -4px; }
 }
+
+/* DASHBOARD 2-COL GRID */
+.dashboard-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+/* FLEX FORM HELPERS */
+.flex-1 { flex: 1; min-width: 0; }
+.flex-2 { flex: 2; min-width: 0; }
+
+/* DETAIL GRID */
+.detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+@media (max-width: 768px) {
+  .dashboard-grid-2 { grid-template-columns: 1fr; }
+  .detail-grid { grid-template-columns: 1fr; }
+  .frais-recap-row { flex-direction: column; gap: 2px; }
+  .flex-1, .flex-2 { flex: none; width: 100%; }
+  .etape-block { flex-direction: column !important; }
+  .etape-block .ussd-code { font-size: 16px !important; flex-wrap: wrap; word-break: break-all; }
+  .btn-om, .btn-scolarite { flex-wrap: wrap; gap: 8px; }
+  .btn-om img, .btn-scolarite img { width: 36px !important; height: 36px !important; }
+  .om-header img { width: 60px !important; }
+  .fiche-header { flex-direction: column; gap: 8px; text-align: center; }
+  .fiche-header-left, .fiche-header-right { text-align: center; }
+}
