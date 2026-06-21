@@ -105,7 +105,8 @@ async function findById(id_demande) {
             d.id_etudiant,
             d.id_statut,
             d.id_type_demande,
-            d.id_etape_courante
+            d.id_etape_courante,
+            r.id_professeur
         FROM demandes d
         LEFT JOIN statuts s
             ON d.id_statut = s.id_statut
@@ -113,6 +114,8 @@ async function findById(id_demande) {
             ON d.id_type_demande = td.id_type_demande
         LEFT JOIN etapes_workflow ew
             ON d.id_etape_courante = ew.id_etape
+        LEFT JOIN reclamations r
+            ON r.id_demande = d.id_demande
         WHERE d.id_demande = $1
         `,
         [id_demande]

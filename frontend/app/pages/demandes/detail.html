@@ -189,6 +189,7 @@
     // Récupérer les paramètres de l'URL
     const urlP = new URLSearchParams(window.location.search);
     const typeD = urlP.get('type') || 'reclamation';
+    const idDemande = urlP.get('id');
 
     const titres = {
       reclamation: '📝 Réclamation de note',
@@ -265,6 +266,78 @@
       const box = document.getElementById('complement-box');
       if (box) box.style.display = 'none';
       if (msg) msg.value = '';
+    }
+    const STATUT_BADGE = {
+      brouillon:               { classe: 'yellow', texte: '🟡 Brouillon' },
+      soumise:                 { classe: 'yellow', texte: '🟡 Soumise' },
+      'en cours de traitement':{ classe: 'yellow', texte: '🟡 En cours de traitement' },
+      acceptee:                { classe: 'green',  texte: '🟢 Acceptée' },
+      terminee:                { classe: 'green',  texte: '🟢 Terminée' },
+      rejetee:                 { classe: 'red',    texte: '🔴 Rejetée' }
+    };
+
+    async function chargerVraieDemande() {
+      if (!idDemande) return;
+
+      try {
+        const token = getAuthToken();
+        const response = await fetch(API_BASE + '/demandes/' + idDemande, {
+          headers: { 'Authorization': 'Bearer ' + token }
+        });
+        const data = await response.json();
+        const demande = data.demande || data;
+        if (!demande || !demande.id_demande) return;
+
+        // Badge statut en haut
+        const badge = document.querySelector('.badge');
+        const infos = STATUT_BADGE[demande.statut] || { classe: 'yellow', texte: demande.statut };
+        if (badge) {
+          badge.className = 'badge ' + infos.classe;
+          badge.textContent = infos.texte;
+        }
+
+        // N° demande
+        const numEl = document.querySelector('.detail-row:nth-child(1) strong');
+        if (numEl) numEl.textContent = '#' + (demande.reference || demande.id_demande);
+
+        // Type
+        const typeEl = document.querySelector('.detail-row:nth-child(2) strong');
+        if (typeEl) typeEl.textContent = titres[demande.type_demande] || demande.type_demande;
+
+        // Date
+        const dateEl = document.querySelector('.detail-row:nth-child(4) strong');
+        if (dateEl && demande.date_creation) {
+          dateEl.textContent = new Date(demande.date_creation).toLocaleDateString('fr-FR');
+        }
+
+        // Étudiant
+        const etuEl = document.querySelector('.detail-row:nth-child(5) strong');
+        if (etuEl && demande.nom_etudiant) {
+          etuEl.textContent = demande.nom_etudiant;
+        }
+
+        // Description
+        const descEl = document.querySelector('.fiche-section p');
+        if (descEl && demande.description) {
+          descEl.textContent = demande.description;
+        }
+
+        // Cacher les actions staff si étudiant ou demande terminée
+        const actionsStaff = document.getElementById('actions-staff');
+        const role = (urlP.get('role') || 'etudiant').toLowerCase();
+        const nonTraitable = ['rejetee', 'terminee', 'acceptee'].includes(demande.statut);
+        if (actionsStaff && (role === 'etudiant' || nonTraitable)) {
+          actionsStaff.style.display = 'none';
+        }
+
+      } catch (e) {
+        console.error('Erreur chargement détail:', e);
+      }
+    }
+
+    // Charger la vraie demande si un id est présent
+    if (idDemande) {
+      window.addEventListener('DOMContentLoaded', chargerVraieDemande);
     }
   </script>
 </body>
