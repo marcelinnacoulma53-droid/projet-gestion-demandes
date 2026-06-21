@@ -11,7 +11,7 @@
   <nav class="navbar">
     <div class="navbar-brand">🎓 EduRequest</div>
     <div class="navbar-user">
-      <span>👤 Étudiant</span>
+      <span id="roleLabel">👤 Étudiant</span>
       <a href="../auth/login.html" class="btn-logout" onclick="clearAuthSession()">Déconnexion</a>
     </div>
   </nav>
@@ -34,7 +34,7 @@
           <p style="color:#666; font-size:13px; margin-bottom:20px;">Demande de documents académiques</p>
           <div class="frais-recap">
             <div class="frais-recap-row"><span>Type</span><strong>Documents académiques</strong></div>
-            <div class="frais-recap-row"><span>Étudiant</span><strong>Koné Mamadou</strong></div>
+            <div class="frais-recap-row"><span>Étudiant</span><strong id="nomEtudiant">Koné Mamadou</strong></div>
             <div class="frais-recap-row"><span>Document</span><strong id="doc-label">1 document</strong></div>
             <div class="frais-recap-row total"><span>Montant</span><strong id="montant-label" style="color:#e65100;">10 000 FCFA</strong></div>
           </div>
@@ -189,6 +189,14 @@
       document.getElementById('date-limite').textContent = dateLimite;
       document.getElementById('refPaiement').textContent = '#OM' + Date.now().toString().slice(-8);
       document.getElementById('ref-scolarite').textContent = '#ESI' + Date.now().toString().slice(-8);
+
+      // Afficher le vrai nom de l'étudiant connecté
+      const user = getCurrentUser();
+      const nomEl = document.getElementById('nomEtudiant');
+      if (nomEl && user && (user.nom || user.prenom)) {
+        nomEl.textContent = (user.prenom || '') + ' ' + (user.nom || '');
+      }
+      afficherRoleNavbar('roleLabel');
     });
 
     function afficherOM() {

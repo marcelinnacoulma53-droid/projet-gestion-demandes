@@ -11,18 +11,14 @@
   <nav class="navbar">
     <div class="navbar-brand">🎓 EduRequest</div>
     <div class="navbar-user">
-      <span>👤 Étudiant</span>
+      <span id="roleLabel">👤 Étudiant</span>
       <a href="../auth/login.html" class="btn-logout" onclick="clearAuthSession()">Déconnexion</a>
     </div>
   </nav>
 
   <div class="dashboard-layout">
     <aside class="sidebar">
-      <ul>
-        <li onclick="location.href='../dashboard/etudiant.html'">🏠 Tableau de bord</li>
-        <li class="active">📋 Mes demandes</li>
-        <li onclick="location.href='nouvelle.html'">➕ Nouvelle demande</li>
-      </ul>
+      <ul id="sidebar-nav"></ul>
     </aside>
 
     <main class="main-content">
@@ -191,6 +187,37 @@
     const typeD = urlP.get('type') || 'reclamation';
     const idDemande = urlP.get('id');
 
+    const DASHBOARD_MAP = {
+      etudiant: '../dashboard/etudiant.html',
+      secretaire: '../dashboard/staff.html',
+      da: '../dashboard/staff.html',
+      sp: '../dashboard/sp.html',
+      scolarite: '../dashboard/staff.html',
+      directrice: '../dashboard/staff.html',
+      presidence: '../dashboard/staff.html',
+      professeur: '../dashboard/enseignant.html',
+      enseignant: '../dashboard/enseignant.html',
+      administrateur: '../dashboard/admin.html',
+      admin: '../dashboard/admin.html'
+    };
+
+    function afficherSidebarRole() {
+      const role = resolveCurrentRole();
+      const sidebar = document.getElementById('sidebar-nav');
+      if (!sidebar) return;
+
+      const dashboardUrl = DASHBOARD_MAP[role] || '../dashboard/etudiant.html';
+      const isStudent = role === 'etudiant';
+
+      sidebar.innerHTML = `
+        <li onclick="location.href='${dashboardUrl}'">🏠 Tableau de bord</li>
+        <li class="active">📋 Mes demandes</li>
+        ${isStudent ? '<li onclick="location.href=\'nouvelle.html\'">➕ Nouvelle demande</li>' : ''}
+      `;
+
+      afficherRoleNavbar('roleLabel');
+    }
+
     const titres = {
       reclamation: '📝 Réclamation de note',
       attestation: '🎓 Demande d\'attestation',
@@ -206,6 +233,9 @@
     };
 
     window.addEventListener('DOMContentLoaded', function() {
+      // Adapter la sidebar et la navbar au rôle connecté
+      afficherSidebarRole();
+
       // Changer le badge type
       const typeBadge = document.querySelector('.detail-row strong');
       if (typeBadge) typeBadge.textContent = titres[typeD] || titres['reclamation'];
@@ -228,7 +258,7 @@
       }
 
       // Cacher les actions si c'est un étudiant
-      const role = urlP.get('role') || 'etudiant';
+      const role = resolveCurrentRole();
       if (role === 'etudiant') {
         const actionsStaff = document.getElementById('actions-staff');
         if (actionsStaff) actionsStaff.style.display = 'none';
@@ -324,9 +354,9 @@
 
         // Cacher les actions staff si étudiant ou demande terminée
         const actionsStaff = document.getElementById('actions-staff');
-        const role = (urlP.get('role') || 'etudiant').toLowerCase();
+        const roleUser = resolveCurrentRole();
         const nonTraitable = ['rejetee', 'terminee', 'acceptee'].includes(demande.statut);
-        if (actionsStaff && (role === 'etudiant' || nonTraitable)) {
+        if (actionsStaff && (roleUser === 'etudiant' || nonTraitable)) {
           actionsStaff.style.display = 'none';
         }
 
