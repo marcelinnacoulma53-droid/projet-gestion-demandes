@@ -139,8 +139,22 @@
   <script>
     // Récupérer les paramètres de l'URL
     const urlP = new URLSearchParams(window.location.search);
-    const typeD = urlP.get('type') || 'reclamation';
     const idDemande = urlP.get('id');
+    const urlRef = urlP.get('ref') || '';
+    const urlEtu = urlP.get('etu') || '';
+    const urlType = urlP.get('type') || '';
+    const urlDate = urlP.get('date') || '';
+    const urlStatut = urlP.get('statut') || '';
+    const urlIne = urlP.get('ine') || '';
+    const urlTel = urlP.get('tel') || '';
+    const urlFiliere = urlP.get('filiere') || '';
+    const urlOption = urlP.get('option') || '';
+    const urlNiveau = urlP.get('niveau') || '';
+    const urlSemestre = urlP.get('semestre') || '';
+    const urlSession = urlP.get('session') || '';
+    const urlAnnee = urlP.get('annee') || '';
+    const urlDesc = urlP.get('desc') || '';
+    const typeD = urlType || 'reclamation';
 
     const DASHBOARD_MAP = {
       etudiant: '../dashboard/etudiant.html',
@@ -257,7 +271,7 @@
         renderTimeline(typeD, 1);
       }
 
-      // Cacher section enseignant si pas réclamation
+      // Cacher sections spécifiques si pas réclamation
       if (typeD !== 'reclamation') {
         document.querySelectorAll('.detail-row').forEach(row => {
           const label = row.querySelector('span');
@@ -265,6 +279,14 @@
             row.style.display = 'none';
           }
         });
+        const ecueSection = document.querySelector('.fiche-section .section-label');
+        if (ecueSection) {
+          const sections = document.querySelectorAll('.fiche-section');
+          sections.forEach(s => {
+            const lb = s.querySelector('.section-label');
+            if (lb && lb.textContent.includes('ECUES')) s.style.display = 'none';
+          });
+        }
       }
 
       // Cacher les actions si c'est un étudiant
@@ -326,50 +348,74 @@
       rejetee:                 { classe: 'red',    texte: '🔴 Rejetée' }
     };
 
+    function remplirChampsDepuisSource(source) {
+      if (!source) return;
+      const map = [
+        [1, source.ref || source.reference, v => v.startsWith('#') ? v : '#' + v],
+        [2, source.type],
+        [3, source.annee_universitaire || source.annee],
+        [4, source.date],
+        [5, source.nom_etudiant || source.etu],
+        [6, source.ine],
+        [7, source.telephone || source.tel],
+        [8, source.filiere],
+        [9, source.option],
+        [10, source.niveau],
+        [11, source.semestre],
+        [12, source.session]
+      ];
+      map.forEach(([n, val, fmt]) => {
+        if (!val) return;
+        const el = document.querySelector('.detail-row:nth-child(' + n + ') strong');
+        if (el) el.textContent = fmt ? fmt(val) : val;
+      });
+
+      const s = source.statut || source.statut;
+      if (s) {
+        const badge = document.querySelector('.badge');
+        if (badge) badge.textContent = s;
+      }
+
+      if (source.description || source.desc) {
+        const descEl = document.querySelector('.fiche-section p');
+        if (descEl) descEl.textContent = source.description || source.desc;
+      }
+    }
+
+    function appliquerFallbackDepuisUrl() {
+      if (!idDemande) return;
+      remplirChampsDepuisSource({
+        ref: urlRef,
+        etu: urlEtu,
+        type: urlType,
+        date: urlDate,
+        statut: urlStatut,
+        ine: urlIne,
+        tel: urlTel,
+        filiere: urlFiliere,
+        option: urlOption,
+        niveau: urlNiveau,
+        semestre: urlSemestre,
+        session: urlSession,
+        annee: urlAnnee,
+        desc: urlDesc
+      });
+    }
+
     function appliquerFallbackDepuisSession() {
       if (!idDemande) return;
       try {
         const saved = sessionStorage.getItem('detail_demande_' + idDemande);
         if (!saved) return;
-        const fb = JSON.parse(saved);
-
-        const map = [
-          [1, 'reference', v => v.startsWith('#') ? v : '#' + v],
-          [2, 'type'],
-          [3, 'annee_universitaire'],
-          [4, 'date'],
-          [5, 'nom_etudiant'],
-          [6, 'ine'],
-          [7, 'telephone'],
-          [8, 'filiere'],
-          [9, 'option'],
-          [10, 'niveau'],
-          [11, 'semestre'],
-          [12, 'session']
-        ];
-        map.forEach(([n, key, fmt]) => {
-          const val = fb[key];
-          if (!val) return;
-          const el = document.querySelector('.detail-row:nth-child(' + n + ') strong');
-          if (el) el.textContent = fmt ? fmt(val) : val;
-        });
-
-        if (fb.statut) {
-          const badge = document.querySelector('.badge');
-          if (badge) badge.textContent = fb.statut;
-        }
-
-        if (fb.description) {
-          const descEl = document.querySelector('.fiche-section p');
-          if (descEl) descEl.textContent = fb.description;
-        }
+        remplirChampsDepuisSource(JSON.parse(saved));
       } catch(e) {}
     }
 
     async function chargerVraieDemande() {
       if (!idDemande) return;
 
-      // Fallback immédiat depuis sessionStorage
+      // Fallback immédiat depuis l'URL, puis sessionStorage
+      appliquerFallbackDepuisUrl();
       appliquerFallbackDepuisSession();
 
       try {
@@ -436,10 +482,17 @@
         renderTimeline(demande.type_demande, step);
 
         // Mettre à jour les sections spécifiques au type
+        const estReclamation = demande.type_demande === 'reclamation';
         document.querySelectorAll('.detail-row').forEach(row => {
           const label = row.querySelector('span');
           if (label && ['Matière :', 'Enseignant :', 'Note obtenue :'].includes(label.textContent)) {
-            row.style.display = demande.type_demande === 'reclamation' ? '' : 'none';
+            row.style.display = estReclamation ? '' : 'none';
+          }
+        });
+        document.querySelectorAll('.fiche-section').forEach(s => {
+          const lb = s.querySelector('.section-label');
+          if (lb && lb.textContent.includes('ECUES')) {
+            s.style.display = estReclamation ? '' : 'none';
           }
         });
 

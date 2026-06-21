@@ -385,41 +385,38 @@
 
     async function ouvrirModalDetail(id) {
       const token = getAuthToken();
+      let demande = { id };
       try {
         const response = await fetch(API_BASE + '/demandes/' + id, {
           headers: { 'Authorization': 'Bearer ' + token }
         });
         const data = await response.json();
-        const demande = data.demande || data;
+        demande = data.demande || data;
         document.getElementById('d-etudiant').textContent = demande.nom_etudiant || 'N/A';
         document.getElementById('d-type').textContent = demande.type_demande || demande.objet || 'N/A';
         document.getElementById('d-date').textContent = demande.date_creation ? new Date(demande.date_creation).toLocaleDateString('fr-FR') : 'N/A';
         document.getElementById('d-statut').textContent = demande.statut || 'N/A';
-        document.getElementById('lien-detail-complet').href = '../demandes/detail.html?id=' + id;
-        document.getElementById('modalDetail').style.display = 'flex';
-        // Sauvegarder en sessionStorage pour le fallback dans detail.html
-        try {
-          sessionStorage.setItem('detail_demande_' + id, JSON.stringify({
-            id,
-            reference: demande.reference || demande.id_demande || 'N/A',
-            nom_etudiant: demande.nom_etudiant || 'N/A',
-            type: demande.type_demande || demande.objet || 'N/A',
-            date: demande.date_creation ? new Date(demande.date_creation).toLocaleDateString('fr-FR') : 'N/A',
-            statut: demande.statut || 'N/A',
-            ine: demande.ine || '',
-            telephone: demande.telephone || '',
-            filiere: demande.filiere || '',
-            option: demande.option || '',
-            niveau: demande.niveau || '',
-            semestre: demande.semestre || '',
-            session: demande.session || '',
-            annee_universitaire: demande.annee_universitaire || '',
-            description: demande.description || ''
-          }));
-        } catch(e) {}
       } catch(e) {
         afficherInfo('⚠️', 'Erreur lors du chargement du détail.');
       }
+      // Passer les données dans l'URL (fonctionne même si l'API a échoué)
+      const params = new URLSearchParams({ id: String(id) });
+      if (demande.nom_etudiant) params.set('etu', demande.nom_etudiant);
+      if (demande.type_demande || demande.objet) params.set('type', demande.type_demande || demande.objet);
+      if (demande.date_creation) params.set('date', new Date(demande.date_creation).toLocaleDateString('fr-FR'));
+      if (demande.statut) params.set('statut', demande.statut);
+      if (demande.reference || demande.id_demande) params.set('ref', demande.reference || demande.id_demande);
+      if (demande.ine) params.set('ine', demande.ine);
+      if (demande.telephone) params.set('tel', demande.telephone);
+      if (demande.filiere) params.set('filiere', demande.filiere);
+      if (demande.option) params.set('option', demande.option);
+      if (demande.niveau) params.set('niveau', demande.niveau);
+      if (demande.semestre) params.set('semestre', demande.semestre);
+      if (demande.session) params.set('session', demande.session);
+      if (demande.annee_universitaire) params.set('annee', demande.annee_universitaire);
+      if (demande.description) params.set('desc', demande.description);
+      document.getElementById('lien-detail-complet').href = '../demandes/detail.html?' + params.toString();
+      document.getElementById('modalDetail').style.display = 'flex';
     }
 
     // ============================================

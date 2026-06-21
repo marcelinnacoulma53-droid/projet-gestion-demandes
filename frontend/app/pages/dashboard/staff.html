@@ -404,19 +404,17 @@
       document.getElementById('d-type').textContent = cells[2].textContent;
       document.getElementById('d-date').textContent = cells[3].textContent;
       document.getElementById('d-statut').textContent = cells[4].textContent.trim();
-      document.getElementById('lien-detail-complet').href = '../demandes/detail.html?id=' + idDemande;
+      // Passer toutes les données dans l'URL
+      const params = new URLSearchParams({
+        id: idDemande,
+        ref: cells[0].textContent.trim(),
+        etu: cells[1].textContent,
+        type: cells[2].textContent,
+        date: cells[3].textContent,
+        statut: cells[4].textContent.trim()
+      });
+      document.getElementById('lien-detail-complet').href = '../demandes/detail.html?' + params.toString();
       document.getElementById('modal').style.display = 'flex';
-      // Sauvegarder en sessionStorage pour le fallback dans detail.html
-      try {
-        sessionStorage.setItem('detail_demande_' + idDemande, JSON.stringify({
-          id: idDemande,
-          reference: cells[0].textContent.trim(),
-          nom_etudiant: cells[1].textContent,
-          type: cells[2].textContent,
-          date: cells[3].textContent,
-          statut: cells[4].textContent.trim()
-        }));
-      } catch(e) {}
     }
 
     function changerStatut(btn, nouveauStatut) {
