@@ -130,28 +130,28 @@ ON CONFLICT DO NOTHING;
 
 -- Options (filières) disponibles
 
-INSERT INTO options (libelle, description)
+INSERT INTO options (libelle)
 VALUES
-('GL', 'Génie Logiciel'),
-('SR', 'Sécurité des Réseaux'),
-('SIC', 'Systèmes d Information et Communication'),
-('CD', 'Concepteur Développeur'),
-('RSI', 'Réseaux et Systèmes Informatiques'),
-('IOT', 'Internet des Objets'),
-('MI', 'Mathématiques pour l Informatique')
+('GL'),
+('SR'),
+('SIC'),
+('CD'),
+('RSI'),
+('IOT'),
+('MI')
 ON CONFLICT (libelle) DO NOTHING;
 
 -- Motifs de réclamation
 
-INSERT INTO motifs (libelle, description)
+INSERT INTO motifs (libelle)
 VALUES
-('Comptabilité des notes sur la copie', 'Vérification de la comptabilité entre les notes portées sur la copie et celles enregistrées'),
-('Rectification de note', 'Demande de correction d une note erronée'),
-('Note non répertoriée', 'Note absente du relevé ou du procès-verbal'),
-('Annulation de note', 'Demande d annulation d une note'),
-('Rectification du nom', 'Correction d une erreur sur le nom dans les documents'),
-('Rectification du n° matricule', 'Correction du numéro matricule sur les relevés'),
-('Rectification du lieu de naissance', 'Correction du lieu de naissance sur les documents'),
-('Rectification de la date de naissance', 'Correction de la date de naissance sur les documents'),
-('Insertion du nom sur le PV', 'Ajout du nom sur le procès-verbal')
+('Comptabilité des notes sur la copie'),
+('Rectification de note'),
+('Note non répertoriée'),
+('Annulation de note'),
+('Rectification du nom'),
+('Rectification du n° matricule'),
+('Rectification du lieu de naissance'),
+('Rectification de la date de naissance'),
+('Insertion du nom sur le PV')
 ON CONFLICT (libelle) DO NOTHING;
