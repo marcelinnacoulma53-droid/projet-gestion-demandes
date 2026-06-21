@@ -266,7 +266,7 @@
 
       // Changer le badge type seulement si pas d'API (pas d'id)
       if (!idDemande) {
-        const typeBadge = document.querySelector('.detail-row strong');
+        const typeBadge = document.querySelector('.detail-row:nth-child(3) strong');
         if (typeBadge) typeBadge.textContent = titres[typeD] || titres['reclamation'];
         renderTimeline(typeD, 1);
       }
@@ -351,18 +351,18 @@
     function remplirChampsDepuisSource(source) {
       if (!source) return;
       const map = [
-        [1, source.ref || source.reference, v => v.startsWith('#') ? v : '#' + v],
-        [2, source.type],
-        [3, source.annee_universitaire || source.annee],
-        [4, source.date],
-        [5, source.nom_etudiant || source.etu],
-        [6, source.ine],
-        [7, source.telephone || source.tel],
-        [8, source.filiere],
-        [9, source.option],
-        [10, source.niveau],
-        [11, source.semestre],
-        [12, source.session]
+        [2, source.ref || source.reference, v => v.startsWith('#') ? v : '#' + v],
+        [3, source.type],
+        [4, source.annee_universitaire || source.annee],
+        [5, source.date],
+        [6, source.nom_etudiant || source.etu],
+        [7, source.ine],
+        [8, source.telephone || source.tel],
+        [9, source.filiere],
+        [10, source.option],
+        [11, source.niveau],
+        [12, source.semestre],
+        [13, source.session]
       ];
       map.forEach(([n, val, fmt]) => {
         if (!val) return;
@@ -440,18 +440,18 @@
 
         // Toutes les infos générales (12 lignes)
         const rows = [
-          [1, demande.reference || demande.id_demande, v => '#' + v],
-          [2, titres[demande.type_demande] || demande.type_demande],
-          [3, demande.annee_universitaire || ''],
-          [4, demande.date_creation ? new Date(demande.date_creation).toLocaleDateString('fr-FR') : ''],
-          [5, demande.nom_etudiant || ''],
-          [6, demande.ine || ''],
-          [7, demande.telephone || ''],
-          [8, demande.filiere || ''],
-          [9, demande.option || ''],
-          [10, demande.niveau || ''],
-          [11, demande.semestre || ''],
-          [12, demande.session || '']
+          [2, demande.reference || demande.id_demande, v => '#' + v],
+          [3, titres[demande.type_demande] || demande.type_demande],
+          [4, demande.annee_universitaire || ''],
+          [5, demande.date_creation ? new Date(demande.date_creation).toLocaleDateString('fr-FR') : ''],
+          [6, demande.nom_etudiant || ''],
+          [7, demande.ine || ''],
+          [8, demande.telephone || ''],
+          [9, demande.filiere || ''],
+          [10, demande.option || ''],
+          [11, demande.niveau || ''],
+          [12, demande.semestre || ''],
+          [13, demande.session || '']
         ];
         rows.forEach(([n, val, fmt]) => {
           if (!val) return;
