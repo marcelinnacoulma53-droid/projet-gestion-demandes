@@ -205,16 +205,29 @@ const login = async (req, res) => {
 // ============================================================
 const getMe = async (req, res) => {
     try {
-        // ✅ L'ID utilisateur vient du middleware authenticate
         const userId = req.user.userId;
-
-        // ✅ VRAI appel (plus de simulation) - Cherche l'utilisateur par ID
         const user = await userRepo.findById(userId);
 
-        // ✅ Réponse au frontend
+        // Si étudiant, récupérer aussi les infos de la table etudiants
+        let etudiant = null;
+        if (req.user.role === 'etudiant') {
+            const db = require('../../db/connection');
+            const result = await db.query(
+                `SELECT e.id_etudiant, e.matricule AS ine,
+                        f.libelle AS filiere, n.libelle AS niveau, o.libelle AS option
+                 FROM etudiants e
+                 LEFT JOIN filieres f ON e.id_filiere = f.id_filiere
+                 LEFT JOIN niveaux n ON e.id_niveau = n.id_niveau
+                 LEFT JOIN options o ON e.id_option = o.id_option
+                 WHERE e.id_utilisateur = $1`,
+                [userId]
+            );
+            etudiant = result.rows[0] || null;
+        }
+
         res.json({
             success: true,
-            user: user
+            user: { ...user, etudiant }
         });
 
     } catch (error) {
