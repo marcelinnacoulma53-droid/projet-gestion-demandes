@@ -120,6 +120,8 @@
     </div>
   </div>
 
+  <div id="notification-bar" style="display:none; padding:12px 16px; border-radius:8px; margin:12px auto; max-width:720px; font-weight:600; font-size:14px; text-align:center; position:fixed; top:16px; left:50%; transform:translateX(-50%); z-index:9999;"></div>
+
   <script src="../../assets/js/core/api.js"></script>
   <script src="../../assets/js/core/auth.js"></script>
   <script>
@@ -131,6 +133,17 @@
 
     let demandesData = [];
     let currentDemandeId = null;
+
+    function afficherNotif(icone, message, type) {
+      const el = document.getElementById('notification-bar');
+      if (!el) return;
+      el.textContent = icone + ' ' + message;
+      el.style.display = 'block';
+      el.style.background = type === 'success' ? '#e8f5e9' : type === 'error' ? '#ffebee' : '#fff8e1';
+      el.style.color = type === 'success' ? '#2e7d32' : type === 'error' ? '#c62828' : '#e65100';
+      el.style.border = '1px solid ' + (type === 'success' ? '#a5d6a7' : type === 'error' ? '#ef9a9a' : '#ffe0b2');
+      setTimeout(() => { el.style.display = 'none'; }, 4000);
+    }
 
     async function chargerDemandes() {
       const token = getAuthToken();
@@ -189,8 +202,8 @@
         const statutClean = isTraitee ? 'traitee' : 'en_attente';
 
         const actionBtn = isTraitee
-          ? `<button class="btn-voir" onclick="alert('Déjà traitée.')">👁 Voir</button>`
-          : `<button class="btn-voir" onclick="ouvrirCorrection(${d.id_demande}, '${etudiant}', '${matiere.replace(/'/g, "\\'")}')">✏️ Traiter</button>`;
+          ? `<button class="btn-voir" onclick="afficherNotif('👁', 'Déjà traitée.', 'info')">👁 Voir</button>`
+          : `<button class="btn-voir" onclick="ouvrirCorrection(${d.id_demande}, '${etudiant.replace(/'/g, "\\'")}', '${matiere.replace(/'/g, "\\'")}')">✏️ Traiter</button>`;
 
         return `<tr data-statut="${statutClean}">
           <td data-label="N°">${d.reference || '#' + d.id_demande}</td>
@@ -240,12 +253,12 @@
       const decision = document.querySelector('input[name="decision"]:checked');
       const commentaire = document.getElementById('commentaire').value;
 
-      if (!decision) { alert('Choisissez une décision.'); return; }
-      if (!commentaire) { alert('Le commentaire est obligatoire.'); return; }
+      if (!decision) { afficherNotif('⚠️', 'Choisissez une décision.', 'warning'); return; }
+      if (!commentaire) { afficherNotif('⚠️', 'Le commentaire est obligatoire.', 'warning'); return; }
 
       if (decision.value === 'modifier') {
         const note = document.getElementById('nouvelleNote').value;
-        if (!note || note < 0 || note > 20) { alert('Entrez une note valide (0-20).'); return; }
+        if (!note || note < 0 || note > 20) { afficherNotif('⚠️', 'Entrez une note valide (0-20).', 'warning'); return; }
       }
 
       try {
@@ -265,14 +278,14 @@
 
         if (result.success) {
           document.getElementById('modalCorrection').style.display = 'none';
-          alert('✅ Décision envoyée au DA avec succès !');
+          afficherNotif('✅', 'Décision envoyée au DA avec succès !', 'success');
           chargerDemandes();
         } else {
-          alert('Erreur : ' + (result.message || 'Une erreur est survenue'));
+          afficherNotif('❌', result.message || 'Une erreur est survenue.', 'error');
         }
       } catch (e) {
         console.error('Erreur soumission:', e);
-        alert('Erreur de connexion au serveur.');
+        afficherNotif('❌', 'Erreur de connexion au serveur.', 'error');
       }
     }
 
