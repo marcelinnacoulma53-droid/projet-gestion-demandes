@@ -466,35 +466,35 @@
         if (!e) return;
 
         const form = document.getElementById('form-reclamation');
-        const inputs = form.querySelectorAll('input, select');
 
         // INE
-        const ineInput = Array.from(inputs).find(i => i.placeholder?.includes('INE'));
-        if (ineInput) { ineInput.value = e.ine || ''; ineInput.disabled = true; }
+        const ineInput = form.querySelector('input[placeholder*="INE"]');
+        if (ineInput) { ineInput.value = e.ine || ''; ineInput.disabled = true; ineInput.style.background = '#eee'; }
 
         // Nom et prénom
-        const nomInput = Array.from(inputs).find(i => i.placeholder?.includes('nom complet'));
-        if (nomInput) { nomInput.value = (u.nom || '') + ' ' + (u.prenom || ''); nomInput.disabled = true; }
+        const nomInput = form.querySelector('input[placeholder*="nom complet"]');
+        if (nomInput) { nomInput.value = (u.prenom || '') + ' ' + (u.nom || ''); nomInput.disabled = true; nomInput.style.background = '#eee'; }
 
         // Téléphone
-        const telInput = Array.from(inputs).find(i => i.placeholder?.includes('+226'));
-        if (telInput) { telInput.value = u.telephone || ''; telInput.disabled = true; }
+        const telInput = form.querySelector('input[placeholder*="+226"]');
+        if (telInput) { telInput.value = u.telephone || ''; telInput.disabled = true; telInput.style.background = '#eee'; }
 
         // Filière
-        const filiereInput = Array.from(inputs).find(i => i.placeholder?.includes('Filière') || i.placeholder?.includes('Informatique'));
-        if (filiereInput) { filiereInput.value = e.filiere || ''; filiereInput.disabled = true; }
+        const filiereInput = form.querySelector('input[placeholder*="Informatique"]');
+        if (filiereInput) { filiereInput.value = e.filiere || ''; filiereInput.disabled = true; filiereInput.style.background = '#eee'; }
 
         // Option
-        const optionInput = Array.from(inputs).find(i => i.placeholder?.includes('Option') || i.placeholder?.includes('GL'));
-        if (optionInput) { optionInput.value = e.option || ''; optionInput.disabled = true; }
+        const optionInput = form.querySelector('input[placeholder*="GL"]');
+        if (optionInput) { optionInput.value = e.option || ''; optionInput.disabled = true; optionInput.style.background = '#eee'; }
 
         // Niveau
-        const niveauSelect = Array.from(inputs).find(i => i.tagName === 'SELECT' && Array.from(i.options).some(o => o.text.match(/^L[1-3]|M[1-2]$/)));
+        const niveauSelect = form.querySelector('select');
         if (niveauSelect && e.niveau) {
           for (const opt of niveauSelect.options) {
-            if (opt.text === e.niveau) { niveauSelect.value = opt.value || opt.text; break; }
+            if (opt.text === e.niveau) { niveauSelect.value = opt.value; break; }
           }
           niveauSelect.disabled = true;
+          niveauSelect.style.background = '#eee';
         }
       } catch(e) {
         console.error('Erreur auto-remplissage:', e);
