@@ -323,7 +323,7 @@ const createStaff = async (req, res, next) => {
 // ============================================================
 const changerIdentifiants = async (req, res, next) => {
     const userId = req.user.userId;
-    const { nouveau_email, nouveau_mot_de_passe, confirmation_mot_de_passe, nom } = req.body;
+    const { nouveau_email, nouveau_mot_de_passe, confirmation_mot_de_passe, nom, grade, specialite } = req.body;
 
     if (!nouveau_email || !nouveau_mot_de_passe || !confirmation_mot_de_passe) {
         return res.status(400).json({ message: 'Tous les champs sont requis' });
@@ -350,6 +350,17 @@ const changerIdentifiants = async (req, res, next) => {
             premiere_connexion: false,
             nom: nom || undefined
         });
+
+        // Si c'est un professeur, mettre à jour grade et spécialité
+        if (grade || specialite) {
+            const prof = await professeurRepo.findByUserId(userId);
+            if (prof) {
+                const updates = {};
+                if (grade) updates.grade = grade;
+                if (specialite) updates.specialite = specialite;
+                await professeurRepo.update(userId, updates);
+            }
+        }
 
         // Récupérer le rôle pour le nouveau token
         const roleResult = await userRepo.findByEmailWithRole(nouveau_email);

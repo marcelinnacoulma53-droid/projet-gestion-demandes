@@ -81,8 +81,30 @@ async function findAll() {
     return result.rows;
 }
 
+// =======================================
+// Mettre à jour un professeur
+// =======================================
+async function update(id_utilisateur, data) {
+    const fields = [];
+    const values = [];
+    let index = 1;
+    for (const key in data) {
+        fields.push(`${key} = $${index}`);
+        values.push(data[key]);
+        index++;
+    }
+    if (fields.length === 0) return null;
+    values.push(id_utilisateur);
+    const result = await db.query(
+        `UPDATE professeurs SET ${fields.join(', ')} WHERE id_utilisateur = $${index} RETURNING id_professeur`,
+        values
+    );
+    return result.rows[0] || null;
+}
+
 module.exports = {
     create,
     findByUserId,
-    findAll
+    findAll,
+    update
 };
