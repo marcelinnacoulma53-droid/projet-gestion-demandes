@@ -460,23 +460,34 @@
 
     async function chargerMatieres() {
       const select = document.getElementById('rec-ecue1');
-      if (!select) return;
+      if (!select || select.options.length > 1) return;
       try {
         const token = getAuthToken();
         const res = await fetch(API_BASE + '/data/matieres', {
           headers: { 'Authorization': 'Bearer ' + token }
         });
+        if (!res.ok) {
+          select.style.border = '1px solid #d32f2f';
+          const optionDefaut = select.querySelector('option');
+          if (optionDefaut) optionDefaut.textContent = '⚠ Erreur chargement';
+          return;
+        }
         const data = await res.json();
-        if (data.success && data.matieres) {
+        if (data.success && data.matieres && data.matieres.length > 0) {
           data.matieres.forEach(m => {
             const opt = document.createElement('option');
             opt.value = m.id_matiere;
             opt.textContent = m.libelle + (m.code ? ' (' + m.code + ')' : '');
             select.appendChild(opt);
           });
+        } else {
+          const optionDefaut = select.querySelector('option');
+          if (optionDefaut) optionDefaut.textContent = '⚠ Aucune matière disponible';
         }
       } catch(e) {
         console.error('Erreur chargement matieres:', e);
+        const optionDefaut = select.querySelector('option');
+        if (optionDefaut) optionDefaut.textContent = '⚠ Erreur réseau';
       }
     }
 

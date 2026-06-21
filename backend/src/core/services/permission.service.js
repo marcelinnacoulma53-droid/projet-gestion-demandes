@@ -15,19 +15,38 @@ const permissionService = {
     peutValider: async (id_demande, id_utilisateur, role) => {
         try {
             const demande = await demandeRepo.findById(id_demande);
-            if (!demande) return false;
+            if (!demande) {
+                console.warn('[peutValider] Demande introuvable:', id_demande);
+                return false;
+            }
             
             const rolesAutorises = workflowRules.getRolesAutorisesPourEtape(
                 demande.type_demande, 
                 demande.etape_courante
             );
             
-            if (!rolesAutorises.includes(role)) return false;
+            if (!rolesAutorises.includes(role)) {
+                console.warn(
+                    '[peutValider] Role non autorise. type=%s etape=%s role=%s autorises=%j',
+                    demande.type_demande, demande.etape_courante, role, rolesAutorises
+                );
+                return false;
+            }
             
             // Vérification supplémentaire pour les professeurs
             if (role === 'professeur') {
                 const professeur = await professeurRepo.findByUserId(id_utilisateur);
-                return demande.id_professeur === professeur.id_professeur;
+                if (!professeur) {
+                    console.warn('[peutValider] Professeur introuvable pour userId:', id_utilisateur);
+                    return false;
+                }
+                if (demande.id_professeur !== professeur.id_professeur) {
+                    console.warn(
+                        '[peutValider] Professeur non assigne. demande.id_prof=%s, professeur.id_prof=%s',
+                        demande.id_professeur, professeur.id_professeur
+                    );
+                    return false;
+                }
             }
             
             return true;
