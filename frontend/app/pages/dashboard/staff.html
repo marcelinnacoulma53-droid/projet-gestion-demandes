@@ -410,6 +410,7 @@
       try {
         sessionStorage.setItem('detail_demande_' + idDemande, JSON.stringify({
           id: idDemande,
+          reference: cells[0].textContent.trim(),
           nom_etudiant: cells[1].textContent,
           type: cells[2].textContent,
           date: cells[3].textContent,

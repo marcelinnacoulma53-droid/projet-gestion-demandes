@@ -400,10 +400,21 @@
         // Sauvegarder en sessionStorage pour le fallback dans detail.html
         try {
           sessionStorage.setItem('detail_demande_' + id, JSON.stringify({
-            id, nom_etudiant: demande.nom_etudiant || 'N/A',
+            id,
+            reference: demande.reference || demande.id_demande || 'N/A',
+            nom_etudiant: demande.nom_etudiant || 'N/A',
             type: demande.type_demande || demande.objet || 'N/A',
             date: demande.date_creation ? new Date(demande.date_creation).toLocaleDateString('fr-FR') : 'N/A',
-            statut: demande.statut || 'N/A'
+            statut: demande.statut || 'N/A',
+            ine: demande.ine || '',
+            telephone: demande.telephone || '',
+            filiere: demande.filiere || '',
+            option: demande.option || '',
+            niveau: demande.niveau || '',
+            semestre: demande.semestre || '',
+            session: demande.session || '',
+            annee_universitaire: demande.annee_universitaire || '',
+            description: demande.description || ''
           }));
         } catch(e) {}
       } catch(e) {
