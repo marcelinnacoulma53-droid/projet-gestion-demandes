@@ -254,7 +254,7 @@
           headers: { 'Authorization': 'Bearer ' + token }
         });
         const data = await response.json();
-        const demandes = data.demandes || [];
+        const demandes = (data.demandes || []).filter(d => d.statut !== 'brouillon');
 
         document.querySelector('.stat-card:nth-child(1) .stat-number').textContent = demandes.length;
         const enAttente = demandes.filter(d => d.statut === 'soumise' || d.statut === 'en cours de traitement').length;

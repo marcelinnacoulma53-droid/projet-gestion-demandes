@@ -225,7 +225,7 @@
           headers: { 'Authorization': 'Bearer ' + token }
         });
         const data = await response.json();
-        toutesLesDemandes = data.demandes || [];
+        toutesLesDemandes = (data.demandes || []).filter(d => d.statut !== 'brouillon');
 
         document.getElementById('totalDemandes').textContent = toutesLesDemandes.length;
         document.getElementById('enAttente').textContent = toutesLesDemandes.filter(d => {
@@ -311,7 +311,7 @@
           headers: { 'Authorization': 'Bearer ' + token }
         });
         const data = await response.json();
-        toutesLesDemandes = data.demandes || [];
+        toutesLesDemandes = (data.demandes || []).filter(d => d.statut !== 'brouillon');
         demandesFiltre = [...toutesLesDemandes];
         remplirTableDemandes();
         remplirFiltreType();
