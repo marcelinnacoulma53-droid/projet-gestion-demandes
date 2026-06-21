@@ -467,12 +467,14 @@
         const motif_autres = document.getElementById('rec-motif-autres')?.value || '';
         const ecue1 = document.getElementById('rec-ecue1')?.value || '';
         const description = document.getElementById('rec-description')?.value || '';
+        const telephone = document.querySelector('#form-reclamation input[type="tel"]')?.value || '';
         const objet = 'Réclamation de note - ' + ecue1;
 
         body = {
           ...body,
           objet,
           description,
+          telephone,
           annee_universitaire,
           correspondant: correspondant || undefined,
           id_semestre: semestre,

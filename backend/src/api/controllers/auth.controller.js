@@ -84,7 +84,8 @@ const register = async (req, res) => {
             nom, prenom, email,
             mot_de_passe: motDePasseHash,
             id_role: roleEtudiant.id_role,
-            premiere_connexion: false
+            premiere_connexion: false,
+            telephone: req.body.telephone || null
         });
 
         // ✅ Crée l'étudiant dans la table etudiants

@@ -106,6 +106,27 @@ VALUES
 ('M1'), ('M2')
 ON CONFLICT (libelle) DO NOTHING;
 
+-- Semestres
+
+INSERT INTO semestres (libelle)
+VALUES
+('S1'), ('S2'), ('S3'), ('S4')
+ON CONFLICT (libelle) DO NOTHING;
+
+-- Matières
+
+INSERT INTO matieres (code, libelle)
+VALUES
+('ALGO1', 'Algorithmique et structures de données'),
+('BDD1', 'Bases de données'),
+('PROG1', 'Programmation orientée objet'),
+('RES1', 'Réseaux'),
+('WEB1', 'Développement Web'),
+('MATH1', 'Mathématiques pour l informatique'),
+('SYS1', 'Systèmes d exploitation'),
+('GL1', 'Génie Logiciel')
+ON CONFLICT (code) DO NOTHING;
+
 -- Utilisateur administrateur (email: administrateur@esi.bf, mot de passe: Admin2026!)
 INSERT INTO utilisateurs (nom, prenom, email, mot_de_passe, id_role, actif, premiere_connexion)
 SELECT 'Admin', 'Système', 'administrateur@esi.bf',

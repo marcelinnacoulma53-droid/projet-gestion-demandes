@@ -111,16 +111,16 @@ async function findById(id) {
 // Créer un utilisateur
 // =======================================
 async function create(userData) {
-    const { nom, prenom, email, mot_de_passe, id_role, premiere_connexion } = userData;
+    const { nom, prenom, email, mot_de_passe, id_role, premiere_connexion, telephone } = userData;
     
     const result = await db.query(
         `
         INSERT INTO utilisateurs
-        (nom, prenom, email, mot_de_passe, id_role, premiere_connexion)
-        VALUES ($1, $2, $3, $4, $5, $6)
+        (nom, prenom, email, mot_de_passe, id_role, premiere_connexion, telephone)
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
         RETURNING id_utilisateur, nom, prenom, email
         `,
-        [nom, prenom, email, mot_de_passe, id_role, premiere_connexion !== undefined ? premiere_connexion : true]
+        [nom, prenom, email, mot_de_passe, id_role, premiere_connexion !== undefined ? premiere_connexion : true, telephone || null]
     );
     return result.rows[0];
 }

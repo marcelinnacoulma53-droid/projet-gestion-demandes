@@ -65,6 +65,12 @@ const createDemande = async (req, res, next) => {
         const premiereEtape = workflowRules.getFirstStep(type_demande.toLowerCase());
         const id_etape_courante = await demandeRepo.getEtapeId(premiereEtape);
 
+        // Mettre à jour le téléphone si fourni
+        const telephone = req.body.telephone;
+        if (telephone) {
+            await db.query('UPDATE utilisateurs SET telephone = $1 WHERE id_utilisateur = $2', [telephone, userId]);
+        }
+
         const reference = generateReference(type_demande);
         const nouvelleDemande = await demandeRepo.create({
             reference: reference,
