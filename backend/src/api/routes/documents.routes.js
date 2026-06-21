@@ -35,6 +35,12 @@ router.post(
 );
 
 /**
+ * GET /api/documents/demande/:demandeId
+ * Lister tous les documents d'une demande
+ */
+router.get('/demande/:demandeId', authenticate, documentController.getDocumentsByDemande);
+
+/**
  * GET /api/documents/:documentId
  * Télécharger un fichier
  * 

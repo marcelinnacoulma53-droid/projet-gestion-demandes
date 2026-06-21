@@ -11,7 +11,7 @@
   <nav class="navbar">
     <div class="navbar-brand">🎓 EduRequest</div>
     <div class="navbar-user">
-      <span>👤 Enseignant</span>
+      <span id="roleLabel">👤 Enseignant</span>
       <a href="../auth/login.html" class="btn-logout" onclick="clearAuthSession()">Déconnexion</a>
     </div>
   </nav>
@@ -30,67 +30,39 @@
       <div class="stats-grid">
         <div class="stat-card">
           <h3>Total reçues</h3>
-          <p class="stat-number">3</p>
+          <p class="stat-number" id="stat-total">0</p>
         </div>
         <div class="stat-card yellow">
           <h3>En attente</h3>
-          <p class="stat-number">2</p>
+          <p class="stat-number" id="stat-attente">0</p>
         </div>
         <div class="stat-card green">
           <h3>Traitées</h3>
-          <p class="stat-number">1</p>
+          <p class="stat-number" id="stat-traitees">0</p>
         </div>
       </div>
 
       <!-- TABLEAU RÉCLAMATIONS -->
       <section class="section-card" id="reclamations">
-        <h2>📋 Réclamations à traiter</h2>
+        <h2>📋 Réclamations reçues</h2>
+        <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
+          <button class="btn-filter active-filter" onclick="filtrer('all',this)">📋 Toutes</button>
+          <button class="btn-filter" onclick="filtrer('en_attente',this)">🟡 En attente</button>
+          <button class="btn-filter" onclick="filtrer('traitee',this)">🟢 Traitées</button>
+        </div>
         <table class="demandes-table" id="reclamTable">
           <thead>
             <tr>
               <th>N°</th>
               <th>Étudiant</th>
               <th>Matière</th>
-              <th>Note actuelle</th>
               <th>Date</th>
               <th>Statut</th>
               <th>Action</th>
             </tr>
           </thead>
-          <tbody>
-            <tr data-statut="en_attente">
-              <td data-label="N°">001</td>
-              <td data-label="Étudiant">Koné Mamadou</td>
-              <td data-label="Matière">Mathématiques</td>
-              <td data-label="Note actuelle"><strong>08/20</strong></td>
-              <td data-label="Date">10/06/2026</td>
-              <td data-label="Statut"><span class="badge yellow">🟡 En attente</span></td>
-              <td data-label="Action">
-                <button class="btn-voir" onclick="ouvrirCorrection(this, '08', 'Koné Mamadou', 'Mathématiques')">✏️ Traiter</button>
-              </td>
-            </tr>
-            <tr data-statut="en_attente">
-              <td data-label="N°">002</td>
-              <td data-label="Étudiant">Traoré Fatoumata</td>
-              <td data-label="Matière">Algorithmique</td>
-              <td data-label="Note actuelle"><strong>10/20</strong></td>
-              <td data-label="Date">09/06/2026</td>
-              <td data-label="Statut"><span class="badge yellow">🟡 En attente</span></td>
-              <td data-label="Action">
-                <button class="btn-voir" onclick="ouvrirCorrection(this, '10', 'Traoré Fatoumata', 'Algorithmique')">✏️ Traiter</button>
-              </td>
-            </tr>
-            <tr data-statut="traitee">
-              <td data-label="N°">003</td>
-              <td data-label="Étudiant">Sawadogo Issouf</td>
-              <td data-label="Matière">Réseaux</td>
-              <td data-label="Note actuelle"><strong>12/20</strong></td>
-              <td data-label="Date">08/06/2026</td>
-              <td data-label="Statut"><span class="badge green">🟢 Traitée</span></td>
-              <td data-label="Action">
-                <button class="btn-voir" onclick="alert('Déjà traitée.')">👁 Voir</button>
-              </td>
-            </tr>
+          <tbody id="reclam-tbody">
+            <tr><td colspan="6" style="text-align:center;color:#888;padding:20px;">Chargement...</td></tr>
           </tbody>
         </table>
       </section>
@@ -110,10 +82,8 @@
         <div class="fiche-section" style="margin-bottom:14px;">
           <div class="detail-row"><span>Étudiant :</span><strong id="c-etudiant"></strong></div>
           <div class="detail-row"><span>Matière :</span><strong id="c-matiere"></strong></div>
-          <div class="detail-row"><span>Note actuelle :</span><strong id="c-note-actuelle" style="color:#c62828;"></strong></div>
         </div>
 
-        <!-- CHOIX ENSEIGNANT -->
         <div class="fiche-section">
           <label class="section-label">Décision de l'enseignant</label>
           <div class="checkbox-group" style="margin-bottom:16px;">
@@ -127,7 +97,6 @@
             </label>
           </div>
 
-          <!-- NOUVELLE NOTE (visible si modifier) -->
           <div id="noteField" style="display:none;">
             <div class="form-group">
               <label>Nouvelle note <span style="color:#c62828;">*</span></label>
@@ -146,7 +115,7 @@
       </div>
       <div class="modal-footer">
         <button class="btn-retour" onclick="document.getElementById('modalCorrection').style.display='none'">Annuler</button>
-        <button class="btn-envoyer" onclick="soumettrDecision()">Envoyer au DA</button>
+        <button class="btn-envoyer" onclick="soumettreDecision()">Envoyer au DA</button>
       </div>
     </div>
   </div>
@@ -154,13 +123,108 @@
   <script src="../../assets/js/core/api.js"></script>
   <script src="../../assets/js/core/auth.js"></script>
   <script>
+    if (!isAuthenticated()) {
+      window.location.href = '../auth/login.html';
+    }
+
+    afficherRoleNavbar('roleLabel');
+
+    let demandesData = [];
+    let currentDemandeId = null;
+
+    async function chargerDemandes() {
+      const token = getAuthToken();
+      if (!token) return;
+
+      try {
+        const response = await fetch(API_BASE + '/demandes/mes-demandes', {
+          headers: { 'Authorization': 'Bearer ' + token }
+        });
+        const data = await response.json();
+        const demandes = data.demandes || data || [];
+
+        if (Array.isArray(demandes)) {
+          demandesData = demandes;
+          renderTable(demandes);
+          updateStats(demandes);
+        }
+      } catch (e) {
+        console.error('Erreur chargement demandes:', e);
+        document.getElementById('reclam-tbody').innerHTML =
+          '<tr><td colspan="6" style="text-align:center;color:#c62828;padding:20px;">Erreur de chargement</td></tr>';
+      }
+    }
+
+    function updateStats(demandes) {
+      const total = demandes.length;
+      const attente = demandes.filter(d =>
+        d.statut === 'soumise' || d.statut === 'en cours de traitement'
+      ).length;
+      const traitees = demandes.filter(d =>
+        d.statut === 'acceptee' || d.statut === 'terminee' || d.statut === 'rejetee'
+      ).length;
+
+      document.getElementById('stat-total').textContent = total;
+      document.getElementById('stat-attente').textContent = attente;
+      document.getElementById('stat-traitees').textContent = traitees;
+    }
+
+    function renderTable(demandes) {
+      const tbody = document.getElementById('reclam-tbody');
+
+      if (demandes.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#888;padding:20px;">Aucune réclamation pour le moment</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = demandes.map((d, i) => {
+        const statut = d.statut || 'soumise';
+        const s = statut.toLowerCase();
+        const isTraitee = s === 'acceptee' || s === 'terminee' || s === 'rejetee';
+        const badgeClass = isTraitee ? 'green' : 'yellow';
+        const badgeText = isTraitee ? '🟢 Traitée' : '🟡 En attente';
+        const date = d.date_creation ? new Date(d.date_creation).toLocaleDateString('fr-FR') : 'N/A';
+        const etudiant = ((d.prenom_etudiant || '') + ' ' + (d.nom_etudiant || '')).trim() || 'N/A';
+        const matiere = d.matiere || '—';
+        const statutClean = isTraitee ? 'traitee' : 'en_attente';
+
+        const actionBtn = isTraitee
+          ? `<button class="btn-voir" onclick="alert('Déjà traitée.')">👁 Voir</button>`
+          : `<button class="btn-voir" onclick="ouvrirCorrection(${d.id_demande}, '${etudiant}', '${matiere.replace(/'/g, "\\'")}')">✏️ Traiter</button>`;
+
+        return `<tr data-statut="${statutClean}">
+          <td data-label="N°">${d.reference || '#' + d.id_demande}</td>
+          <td data-label="Étudiant">${etudiant}</td>
+          <td data-label="Matière">${matiere}</td>
+          <td data-label="Date">${date}</td>
+          <td data-label="Statut"><span class="badge ${badgeClass}">${badgeText}</span></td>
+          <td data-label="Action">${actionBtn}</td>
+        </tr>`;
+      }).join('');
+    }
+
+    function filtrer(groupe, btn) {
+      document.querySelectorAll('.btn-filter').forEach(b => b.classList.remove('active-filter'));
+      if (btn) btn.classList.add('active-filter');
+
+      const filtered = groupe === 'all'
+        ? demandesData
+        : demandesData.filter(d => {
+            const s = d.statut ? d.statut.toLowerCase() : '';
+            if (groupe === 'en_attente') return s === 'soumise' || s === 'en cours de traitement';
+            if (groupe === 'traitee') return s === 'acceptee' || s === 'terminee' || s === 'rejetee';
+            return true;
+          });
+
+      renderTable(filtered);
+    }
+
     let currentRow = null;
 
-    function ouvrirCorrection(btn, noteActuelle, etudiant, matiere) {
-      currentRow = btn.closest('tr');
+    function ouvrirCorrection(demandeId, etudiant, matiere) {
+      currentDemandeId = demandeId;
       document.getElementById('c-etudiant').textContent = etudiant;
       document.getElementById('c-matiere').textContent = matiere;
-      document.getElementById('c-note-actuelle').textContent = noteActuelle + '/20';
       document.getElementById('nouvelleNote').value = '';
       document.getElementById('commentaire').value = '';
       document.querySelectorAll('input[name="decision"]').forEach(r => r.checked = false);
@@ -172,7 +236,7 @@
       document.getElementById('noteField').style.display = show ? 'block' : 'none';
     }
 
-    function soumettrDecision() {
+    async function soumettreDecision() {
       const decision = document.querySelector('input[name="decision"]:checked');
       const commentaire = document.getElementById('commentaire').value;
 
@@ -182,26 +246,42 @@
       if (decision.value === 'modifier') {
         const note = document.getElementById('nouvelleNote').value;
         if (!note || note < 0 || note > 20) { alert('Entrez une note valide (0-20).'); return; }
-        // Mettre à jour la note dans le tableau
-        currentRow.querySelectorAll('td')[3].innerHTML = '<strong style="color:#2e7d32;">' + note + '/20</strong>';
       }
 
-      // Mettre à jour le statut
-      const badge = currentRow.querySelector('.badge');
-      badge.className = 'badge green';
-      badge.textContent = '🟢 Traitée';
-      currentRow.dataset.statut = 'traitee';
-      currentRow.querySelector('button').textContent = '👁 Voir';
-      currentRow.querySelector('button').onclick = () => alert('Déjà traitée.');
+      try {
+        const token = getAuthToken();
+        const response = await fetch(API_BASE + '/workflow/' + currentDemandeId + '/valider', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + token
+          },
+          body: JSON.stringify({
+            commentaire: commentaire + (decision.value === 'modifier' ? ' (Nouvelle note: ' + document.getElementById('nouvelleNote').value + '/20)' : '')
+          })
+        });
 
-      document.getElementById('modalCorrection').style.display = 'none';
-      alert('✅ Décision envoyée au DA avec succès !');
+        const result = await response.json();
+
+        if (result.success) {
+          document.getElementById('modalCorrection').style.display = 'none';
+          alert('✅ Décision envoyée au DA avec succès !');
+          chargerDemandes();
+        } else {
+          alert('Erreur : ' + (result.message || 'Une erreur est survenue'));
+        }
+      } catch (e) {
+        console.error('Erreur soumission:', e);
+        alert('Erreur de connexion au serveur.');
+      }
     }
 
     function fermerModal(e) {
       if (e.target.id === 'modalCorrection')
         document.getElementById('modalCorrection').style.display = 'none';
     }
+
+    chargerDemandes();
   </script>
 </body>
 </html>

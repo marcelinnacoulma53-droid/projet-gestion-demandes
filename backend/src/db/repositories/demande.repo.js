@@ -367,12 +367,14 @@ async function findByProfesseur(id_professeur) {
             d.id_demande, d.reference, d.objet, d.description, d.date_creation,
             d.id_etudiant, LOWER(td.libelle) AS type_demande, LOWER(s.libelle) AS statut,
             LOWER(ew.libelle) AS etape_courante,
-            u.nom AS nom_etudiant, u.prenom AS prenom_etudiant
+            u.nom AS nom_etudiant, u.prenom AS prenom_etudiant,
+            m.libelle AS matiere
         FROM demandes d
         LEFT JOIN types_demande td ON d.id_type_demande = td.id_type_demande
         LEFT JOIN statuts s ON d.id_statut = s.id_statut
         LEFT JOIN etapes_workflow ew ON d.id_etape_courante = ew.id_etape
         LEFT JOIN reclamations r ON r.id_demande = d.id_demande
+        LEFT JOIN matieres m ON r.id_matiere = m.id_matiere
         LEFT JOIN etudiants e ON d.id_etudiant = e.id_etudiant
         LEFT JOIN utilisateurs u ON e.id_utilisateur = u.id_utilisateur
         WHERE r.id_professeur = $1

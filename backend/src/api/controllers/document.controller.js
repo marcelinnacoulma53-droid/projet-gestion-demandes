@@ -180,9 +180,28 @@ const supprimerFichier = async (req, res, next) => {
     }
 };
 
+// ============================================================
+// LISTER LES DOCUMENTS D'UNE DEMANDE
+// GET /api/documents/demande/:demandeId
+// ============================================================
+const getDocumentsByDemande = async (req, res, next) => {
+    const demandeId = req.params.demandeId;
+
+    try {
+        const documents = await documentRepo.findByDemande(demandeId);
+        res.json({
+            success: true,
+            documents: documents
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
 module.exports = {
     upload,
     uploadFichier,
     telechargerFichier,
-    supprimerFichier
+    supprimerFichier,
+    getDocumentsByDemande
 };

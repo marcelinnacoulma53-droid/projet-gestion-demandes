@@ -383,7 +383,7 @@
         [3, source.type],
         [4, source.annee_universitaire || source.annee],
         [5, source.date],
-        [6, source.nom_etudiant || source.etu],
+        [6, source.prenom_etudiant ? source.prenom_etudiant + ' ' + (source.nom_etudiant || '') : (source.nom_etudiant || source.etu || '')],
         [7, source.ine],
         [8, source.telephone || source.tel],
         [9, source.filiere],
@@ -472,7 +472,7 @@
           [3, titres[demande.type_demande] || demande.type_demande],
           [4, demande.annee_universitaire || ''],
           [5, demande.date_creation ? new Date(demande.date_creation).toLocaleDateString('fr-FR') : ''],
-          [6, demande.nom_etudiant || ''],
+          [6, ((demande.prenom_etudiant || '') + ' ' + (demande.nom_etudiant || '')).trim() || ''],
           [7, demande.ine || ''],
           [8, demande.telephone || ''],
           [9, demande.filiere || ''],
@@ -513,11 +513,12 @@
           ecue1El.textContent = demande.matiere;
         }
 
-        // Matière, Enseignant (réclamation)
+        // Matière, Enseignant, Note obtenue (réclamation)
         if (demande.type_demande === 'reclamation') {
           const rows = document.querySelectorAll('#section-reclamation-infos .detail-row');
           if (rows[0]) rows[0].querySelector('strong').textContent = demande.matiere || '—';
           if (rows[1]) rows[1].querySelector('strong').textContent = demande.enseignant || '—';
+          if (rows[2]) rows[2].querySelector('strong').textContent = demande.note_obtenue || '—';
         }
 
         // Nombre d'exemplaires (duplicata / attestation)
@@ -531,6 +532,30 @@
         const descEl = document.querySelector('.fiche-section p');
         if (descEl) {
           descEl.textContent = demande.description || '—';
+        }
+
+        // Charger les documents (pièces jointes)
+        try {
+          const docRes = await fetch(API_BASE + '/documents/demande/' + idDemande, {
+            headers: { 'Authorization': 'Bearer ' + token }
+          });
+          const docData = await docRes.json();
+          if (docData.success && docData.documents && docData.documents.length > 0) {
+            const copieSection = document.querySelector('.fiche-section[style*="background:#e8eaf6"]');
+            if (copieSection) {
+              copieSection.innerHTML = `
+                <label class="section-label">📄 Copie jointe</label>
+                <div style="display:flex; flex-direction:column; gap:8px;">
+                  ${docData.documents.map(d =>
+                    `<a href="${API_BASE}/documents/${d.id_document}" target="_blank" style="color:#1a237e; font-weight:500;">
+                      📎 ${d.nom_original}
+                    </a>`
+                  ).join('')}
+                </div>`;
+            }
+          }
+        } catch(e) {
+          console.error('Erreur chargement documents:', e);
         }
 
         // Déterminer l'étape courante depuis le statut
