@@ -74,6 +74,12 @@
       <!-- TABLEAU DES DEMANDES -->
       <section id="mes-demandes" class="section-card">
         <h2>📋 Mes demandes</h2>
+        <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
+          <button class="btn-filter active-filter" onclick="filtrerEtudiant('all',this)">📋 Toutes</button>
+          <button class="btn-filter" onclick="filtrerEtudiant('en_attente',this)">🟡 En attente</button>
+          <button class="btn-filter" onclick="filtrerEtudiant('validee',this)">🟢 Validées</button>
+          <button class="btn-filter" onclick="filtrerEtudiant('rejetee',this)">🔴 Rejetées</button>
+        </div>
         <table class="demandes-table">
           <thead>
             <tr>
@@ -116,6 +122,16 @@
   <script>
     function showSection(id) {
       document.getElementById(id).scrollIntoView({behavior: 'smooth'});
+    }
+
+    function filtrerEtudiant(groupe, btn) {
+      document.querySelectorAll('.btn-filter').forEach(b => b.classList.remove('active-filter'));
+      if (btn) btn.classList.add('active-filter');
+      document.querySelectorAll('.demandes-table tbody tr').forEach(row => {
+        if (groupe === 'all') { row.style.display = ''; return; }
+        const s = (row.dataset.statut || '').toLowerCase();
+        row.style.display = s === groupe ? '' : 'none';
+      });
     }
   </script>
   <script src="../../assets/js/core/api.js"></script>
@@ -163,7 +179,8 @@
               const date = d.date_creation ? new Date(d.date_creation).toLocaleDateString('fr-FR') : 'N/A';
               const type = d.type_demande || d.objet || 'Demande';
               // APRÈS — avec data-label pour le mode mobile
-              return `<tr>
+              const statutClean = s === 'acceptee' || s === 'terminee' ? 'validee' : s === 'rejetee' ? 'rejetee' : 'en_attente';
+              return `<tr data-statut="${statutClean}">
                   <td data-label="N°">${i+1}</td>
                   <td data-label="Type">${type}</td>
                   <td data-label="Date">${date}</td>

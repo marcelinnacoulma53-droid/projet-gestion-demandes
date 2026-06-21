@@ -268,13 +268,14 @@
         if (demandes.length === 0) {
           tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:#888; padding:20px;">Aucune demande pour le moment</td></tr>';
         } else {
+          const roleUser = resolveCurrentRole();
           tbody.innerHTML = demandes.map((d) => {
             const statut = d.statut || 'soumise';
             const s = statut.toLowerCase();
             const badgeClass = s === 'acceptee' || s === 'terminee' ? 'green' : s === 'rejetee' ? 'red' : 'yellow';
             const date = d.date_creation ? new Date(d.date_creation).toLocaleDateString('fr-FR') : 'N/A';
             const etape = d.etape_courante || '';
-            const peutTraiter = statut !== 'rejetee' && statut !== 'terminee' && statut !== 'cloturee';
+            const peutTraiter = statut !== 'rejetee' && statut !== 'terminee' && statut !== 'cloturee' && (!etape || etape === roleUser);
             return `<tr data-statut="${statut}" data-id="${d.id_demande}">
               <td data-label="N°">${d.reference || d.id_demande}</td>
               <td data-label="Étudiant">${d.nom_etudiant || 'Étudiant'}</td>
@@ -405,6 +406,16 @@
       document.getElementById('d-statut').textContent = cells[4].textContent.trim();
       document.getElementById('lien-detail-complet').href = '../demandes/detail.html?id=' + idDemande;
       document.getElementById('modal').style.display = 'flex';
+      // Sauvegarder en sessionStorage pour le fallback dans detail.html
+      try {
+        sessionStorage.setItem('detail_demande_' + idDemande, JSON.stringify({
+          id: idDemande,
+          nom_etudiant: cells[1].textContent,
+          type: cells[2].textContent,
+          date: cells[3].textContent,
+          statut: cells[4].textContent.trim()
+        }));
+      } catch(e) {}
     }
 
     function changerStatut(btn, nouveauStatut) {

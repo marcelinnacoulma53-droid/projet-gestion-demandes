@@ -476,7 +476,7 @@
             'Content-Type': 'application/json',
             'Authorization': 'Bearer ' + token
           },
-          body: JSON.stringify({ type_demande, objet, description })
+          body: JSON.stringify({ type_demande, objet, description, statut: 'soumise' })
         });
 
         const data = await response.json();
