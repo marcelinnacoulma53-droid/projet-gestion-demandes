@@ -108,50 +108,7 @@
         <!-- TIMELINE -->
         <div class="fiche-section">
           <label class="section-label">📌 Suivi du traitement</label>
-          <div class="timeline">
-            <div class="timeline-item done">
-              <div class="timeline-dot green"></div>
-              <div class="timeline-content">
-                <strong>✅ Demande soumise</strong>
-                <span>10/06/2026 — par l'étudiant</span>
-              </div>
-            </div>
-            <div class="timeline-item done">
-              <div class="timeline-dot green"></div>
-              <div class="timeline-content">
-                <strong>✅ Reçue par la Secrétaire</strong>
-                <span>10/06/2026 — Transmise au DA</span>
-              </div>
-            </div>
-            <div class="timeline-item current">
-              <div class="timeline-dot yellow"></div>
-              <div class="timeline-content">
-                <strong>🟡 Examen par le DA</strong>
-                <span>En attente de traitement</span>
-              </div>
-            </div>
-            <div class="timeline-item pending">
-              <div class="timeline-dot grey"></div>
-              <div class="timeline-content">
-                <strong>Transmission à l'Enseignant</strong>
-                <span>En attente</span>
-              </div>
-            </div>
-            <div class="timeline-item pending">
-              <div class="timeline-dot grey"></div>
-              <div class="timeline-content">
-                <strong>Retour DA (décision finale)</strong>
-                <span>En attente</span>
-              </div>
-            </div>
-            <div class="timeline-item pending">
-              <div class="timeline-dot grey"></div>
-              <div class="timeline-content">
-                <strong>Exécution par la Scolarité</strong>
-                <span>En attente</span>
-              </div>
-            </div>
-          </div>
+          <div class="timeline" id="timelineContainer"></div>
         </div>
 
         <!-- ZONE ACTIONS STAFF -->
@@ -226,11 +183,70 @@
     };
 
     const timelines = {
-      reclamation: ['✅ Demande soumise', '✅ Reçue par la Secrétaire', '🟡 Examen par le DA', 'Transmission à l\'Enseignant', 'Retour DA (décision finale)', 'Exécution par la Scolarité'],
-      attestation: ['✅ Demande soumise', '✅ Reçue par la Secrétaire', '🟡 Examen par le SP', 'Transmission au DA', 'Décision Directrice', 'Exécution par la Scolarité'],
-      duplicata: ['✅ Demande soumise', '✅ Reçue par la Secrétaire', '🟡 Examen par le SP', 'Transmission au DA', 'Décision Directrice', 'Exécution par la Scolarité'],
-      derogation: ['✅ Demande soumise', '✅ Reçue par la Secrétaire', '🟡 Examen par le SP', 'Transmission au DA', 'Décision finale', 'Exécution']
+      reclamation: [
+        'Demande soumise',
+        'Reçue par la Secrétaire',
+        'Examen par le DA',
+        'Transmission à l\'Enseignant',
+        'Retour DA (décision finale)',
+        'Exécution par la Scolarité'
+      ],
+      derogation: [
+        'Demande soumise',
+        'Reçue par la Secrétaire',
+        'Examen par le SP',
+        'Retour à la Secrétaire',
+        'Examen par la Directrice',
+        'Examen par la Présidence',
+        'Exécution par la Scolarité'
+      ],
+      duplicata: [
+        'Demande soumise',
+        'Reçue par la Secrétaire',
+        'Examen par le SP',
+        'Retour à la Secrétaire',
+        'Décision par le DA'
+      ],
+      attestation: [
+        'Demande soumise',
+        'Reçue par la Secrétaire',
+        'Décision par le DA'
+      ]
     };
+
+    function renderTimeline(type, currentStep) {
+      const container = document.getElementById('timelineContainer');
+      if (!container) return;
+      const steps = timelines[type] || timelines['reclamation'];
+      container.innerHTML = '';
+      steps.forEach((label, i) => {
+        let cls = 'timeline-item';
+        let dotCls = 'grey';
+        let suffix = 'En attente';
+        let emoji = '';
+        if (currentStep > 0 && i < currentStep) {
+          cls += ' done';
+          dotCls = 'green';
+          suffix = 'Terminée';
+          emoji = '✅ ';
+        } else if (currentStep > 0 && i === currentStep) {
+          cls += ' current';
+          dotCls = 'yellow';
+          suffix = 'En cours';
+          emoji = '🟡 ';
+        }
+        if (i === 0 && currentStep > 0) suffix = 'Effectuée';
+        const div = document.createElement('div');
+        div.className = cls;
+        div.innerHTML = `
+          <div class="timeline-dot ${dotCls}"></div>
+          <div class="timeline-content">
+            <strong>${emoji}${label}</strong>
+            <span>${suffix}</span>
+          </div>`;
+        container.appendChild(div);
+      });
+    }
 
     window.addEventListener('DOMContentLoaded', function() {
       // Adapter la sidebar et la navbar au rôle connecté
@@ -240,12 +256,8 @@
       const typeBadge = document.querySelector('.detail-row strong');
       if (typeBadge) typeBadge.textContent = titres[typeD] || titres['reclamation'];
 
-      // Adapter la timeline
-      const tl = timelines[typeD] || timelines['reclamation'];
-      const contents = document.querySelectorAll('.timeline-content strong');
-      contents.forEach((el, i) => {
-        if (tl[i]) el.textContent = tl[i];
-      });
+      // Afficher la timeline pour le type de demande
+      renderTimeline(typeD, 1);
 
       // Cacher section enseignant si pas réclamation
       if (typeD !== 'reclamation') {
@@ -351,6 +363,30 @@
         if (descEl && demande.description) {
           descEl.textContent = demande.description;
         }
+
+        // Déterminer l'étape courante depuis le statut
+        const etapes = timelines[demande.type_demande] || timelines['reclamation'];
+        let step;
+        if (['terminee', 'acceptee'].includes(demande.statut)) {
+          step = etapes.length;
+        } else if (demande.statut === 'rejetee') {
+          step = Math.min(2, etapes.length);
+        } else if (demande.statut === 'en cours de traitement') {
+          step = Math.min(2, etapes.length);
+        } else if (demande.statut === 'soumise') {
+          step = 1;
+        } else {
+          step = 0;
+        }
+        renderTimeline(demande.type_demande, step);
+
+        // Mettre à jour les sections spécifiques au type
+        document.querySelectorAll('.detail-row').forEach(row => {
+          const label = row.querySelector('span');
+          if (label && ['Matière :', 'Enseignant :', 'Note obtenue :'].includes(label.textContent)) {
+            row.style.display = demande.type_demande === 'reclamation' ? '' : 'none';
+          }
+        });
 
         // Cacher les actions staff si étudiant ou demande terminée
         const actionsStaff = document.getElementById('actions-staff');
