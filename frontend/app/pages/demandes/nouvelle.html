@@ -109,6 +109,12 @@
                 <option value="S3">S3</option><option value="S4">S4</option>
               </select>
             </div>
+            <div class="form-group flex-1">
+              <label>Professeur / Enseignant</label>
+              <select id="rec-professeur">
+                <option value="">-- Sélectionner --</option>
+              </select>
+            </div>
           </div>
 
           <!-- Session -->
@@ -422,6 +428,29 @@
       document.getElementById('choix-type').style.display = 'none';
       document.getElementById('form-' + type).style.display = 'block';
       document.getElementById('form-title').textContent = '';
+      if (type === 'reclamation') chargerProfesseurs();
+    }
+
+    async function chargerProfesseurs() {
+      const select = document.getElementById('rec-professeur');
+      if (!select || select.options.length > 1) return;
+      try {
+        const token = getAuthToken();
+        const res = await fetch(API_BASE + '/professeurs', {
+          headers: { 'Authorization': 'Bearer ' + token }
+        });
+        const data = await res.json();
+        if (data.success && data.professeurs) {
+          data.professeurs.forEach(p => {
+            const opt = document.createElement('option');
+            opt.value = p.id_professeur;
+            opt.textContent = p.prenom + ' ' + p.nom + (p.grade ? ' (' + p.grade + ')' : '');
+            select.appendChild(opt);
+          });
+        }
+      } catch(e) {
+        console.error('Erreur chargement professeurs:', e);
+      }
     }
 
     // Ouvrir automatiquement si type dans URL
@@ -468,6 +497,7 @@
         const ecue1 = document.getElementById('rec-ecue1')?.value || '';
         const description = document.getElementById('rec-description')?.value || '';
         const telephone = document.querySelector('#form-reclamation input[type="tel"]')?.value || '';
+        const id_professeur = document.getElementById('rec-professeur')?.value || '';
         const objet = 'Réclamation de note - ' + ecue1;
 
         body = {
@@ -475,6 +505,7 @@
           objet,
           description,
           telephone,
+          id_professeur: id_professeur || undefined,
           annee_universitaire,
           correspondant: correspondant || undefined,
           id_semestre: semestre,

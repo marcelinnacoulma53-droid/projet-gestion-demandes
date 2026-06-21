@@ -88,6 +88,14 @@
           <div class="detail-row"><span>ECUE 2 :</span><strong>—</strong></div>
         </div>
 
+        <!-- INFOS RÉCLAMATION -->
+        <div class="fiche-section" id="section-reclamation-infos">
+          <label class="section-label">Détails de la réclamation</label>
+          <div class="detail-row"><span>Matière :</span><strong>—</strong></div>
+          <div class="detail-row"><span>Enseignant :</span><strong>—</strong></div>
+          <div class="detail-row"><span>Note obtenue :</span><strong>—</strong></div>
+        </div>
+
         <!-- NOMBRE D'EXEMPLAIRES -->
         <div class="fiche-section" id="section-exemplaires">
           <label class="section-label">Nombre d'exemplaires</label>
@@ -289,6 +297,7 @@
         sections.forEach(s => {
           const lb = s.querySelector('.section-label');
           if (lb && lb.textContent.includes('ECUES')) s.style.display = 'none';
+          if (lb && lb.textContent.includes('Détails de la réclamation')) s.style.display = 'none';
         });
       }
       // Sections spécifiques aux types
@@ -302,6 +311,9 @@
         }
         if (lb && lb.textContent.includes('Correspondant')) {
           s.style.display = (typeD === 'reclamation' || typeD === 'duplicata') ? '' : 'none';
+        }
+        if (lb && lb.textContent.includes('Détails de la réclamation')) {
+          s.style.display = (typeD === 'reclamation') ? '' : 'none';
         }
       });
 
@@ -501,6 +513,13 @@
           ecue1El.textContent = demande.matiere;
         }
 
+        // Matière, Enseignant (réclamation)
+        if (demande.type_demande === 'reclamation') {
+          const rows = document.querySelectorAll('#section-reclamation-infos .detail-row');
+          if (rows[0]) rows[0].querySelector('strong').textContent = demande.matiere || '—';
+          if (rows[1]) rows[1].querySelector('strong').textContent = demande.enseignant || '—';
+        }
+
         // Nombre d'exemplaires (duplicata / attestation)
         const ex = demande.duplicata_exemplaires || demande.attestation_exemplaires;
         if (ex) {
@@ -544,6 +563,9 @@
           if (lb && lb.textContent.includes('ECUES')) {
             s.style.display = estReclamation ? '' : 'none';
           }
+          if (lb && lb.textContent.includes('Détails de la réclamation')) {
+            s.style.display = estReclamation ? '' : 'none';
+          }
           if (lb && lb.textContent.includes('exemplaires')) {
             s.style.display = (typeD === 'duplicata' || typeD === 'attestation') ? '' : 'none';
           }
@@ -552,6 +574,9 @@
           }
           if (lb && lb.textContent.includes('Correspondant')) {
             s.style.display = (typeD === 'reclamation' || typeD === 'duplicata') ? '' : 'none';
+          }
+          if (lb && lb.textContent.includes('Détails de la réclamation')) {
+            s.style.display = estReclamation ? '' : 'none';
           }
         });
 

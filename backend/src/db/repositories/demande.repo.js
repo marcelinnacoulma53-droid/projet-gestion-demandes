@@ -122,6 +122,7 @@ async function findById(id_demande) {
             r.id_semestre,
             r.session,
             r.description_reclamation,
+            (SELECT u2.nom || ' ' || u2.prenom FROM professeurs p2 JOIN utilisateurs u2 ON p2.id_utilisateur = u2.id_utilisateur WHERE p2.id_professeur = r.id_professeur) AS enseignant,
             u.nom AS nom_etudiant,
             u.prenom AS prenom_etudiant,
             u.telephone,

@@ -59,7 +59,30 @@ async function findByUserId(id_utilisateur) {
     return result.rows[0] || null;
 }
 
+// =======================================
+// Lister tous les professeurs avec leurs noms
+// =======================================
+async function findAll() {
+    const result = await db.query(
+        `
+        SELECT
+            p.id_professeur,
+            p.id_utilisateur,
+            p.grade,
+            p.specialite,
+            u.nom,
+            u.prenom,
+            u.email
+        FROM professeurs p
+        JOIN utilisateurs u ON p.id_utilisateur = u.id_utilisateur
+        ORDER BY u.nom ASC
+        `
+    );
+    return result.rows;
+}
+
 module.exports = {
     create,
-    findByUserId
+    findByUserId,
+    findAll
 };
