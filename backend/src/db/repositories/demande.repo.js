@@ -98,15 +98,26 @@ async function findById(id_demande) {
             d.reference,
             d.objet,
             d.description,
+            d.date_creation,
+            d.date_soumission,
             LOWER(s.libelle) AS statut,
             LOWER(td.libelle) AS type_demande,
             LOWER(ew.libelle) AS etape_courante,
-            d.date_creation,
             d.id_etudiant,
             d.id_statut,
             d.id_type_demande,
             d.id_etape_courante,
-            r.id_professeur
+            r.id_professeur,
+            r.id_matiere,
+            r.id_semestre,
+            u.nom AS nom_etudiant,
+            u.prenom AS prenom_etudiant,
+            u.telephone,
+            e.matricule AS ine,
+            f.libelle AS filiere,
+            n.libelle AS niveau,
+            sm.libelle AS semestre,
+            m.libelle AS matiere
         FROM demandes d
         LEFT JOIN statuts s
             ON d.id_statut = s.id_statut
@@ -116,6 +127,18 @@ async function findById(id_demande) {
             ON d.id_etape_courante = ew.id_etape
         LEFT JOIN reclamations r
             ON r.id_demande = d.id_demande
+        LEFT JOIN etudiants e
+            ON d.id_etudiant = e.id_etudiant
+        LEFT JOIN utilisateurs u
+            ON e.id_utilisateur = u.id_utilisateur
+        LEFT JOIN filieres f
+            ON e.id_filiere = f.id_filiere
+        LEFT JOIN niveaux n
+            ON e.id_niveau = n.id_niveau
+        LEFT JOIN semestres sm
+            ON r.id_semestre = sm.id_semestre
+        LEFT JOIN matieres m
+            ON r.id_matiere = m.id_matiere
         WHERE d.id_demande = $1
         `,
         [id_demande]
