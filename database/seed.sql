@@ -143,13 +143,16 @@ ON CONFLICT DO NOTHING;
 
 INSERT INTO options (libelle)
 VALUES
-('GL'),
-('SR'),
-('SIC'),
-('CD'),
-('RSI'),
-('IOT'),
-('MI')
+('Tronc commun 1'),
+('Tronc commun 2'),
+('Ingénierie des Systèmes d''Information'),
+('Ingénierie des Réseaux et Systèmes'),
+('Systèmes d''Aide à la Décision'),
+('Conception et Architecture des Réseaux'),
+('Cybersécurité'),
+('Sciences des Données'),
+('Cybersécurité en Formation Continue'),
+('Sciences des Données en Formation Continue')
 ON CONFLICT (libelle) DO NOTHING;
 
 -- Motifs de réclamation
