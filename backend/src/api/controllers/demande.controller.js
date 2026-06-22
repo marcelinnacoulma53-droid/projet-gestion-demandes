@@ -426,8 +426,8 @@ const renvoyerComplement = async (req, res, next) => {
 
         await db.query(
             `INSERT INTO traitements (id_demande, id_utilisateur, id_decision, commentaire, date_traitement)
-             VALUES ($1, $2, $3, 'Documents complémentaires ajoutés par l\'étudiant.', NOW())`,
-            [demandeId, userId, id_decision]
+             VALUES ($1, $2, $3, $4, NOW())`,
+            [demandeId, userId, id_decision, "Documents complémentaires ajoutés par l'étudiant."]
         );
 
         res.json({ success: true, message: 'Documents complémentaires envoyés.' });
