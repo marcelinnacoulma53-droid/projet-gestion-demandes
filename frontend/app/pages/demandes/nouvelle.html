@@ -503,37 +503,37 @@
         const e = u.etudiant;
         if (!e) return;
 
-        const form = document.getElementById('form-reclamation');
+        document.querySelectorAll('.formulaire').forEach(form => {
+          // INE
+          const ineInput = form.querySelector('input[placeholder*="INE"]');
+          if (ineInput) { ineInput.value = e.ine || ''; ineInput.disabled = true; ineInput.style.background = '#eee'; }
 
-        // INE
-        const ineInput = form.querySelector('input[placeholder*="INE"]');
-        if (ineInput) { ineInput.value = e.ine || ''; ineInput.disabled = true; ineInput.style.background = '#eee'; }
+          // Nom et prénom
+          const nomInput = form.querySelector('input[placeholder*="nom complet"]');
+          if (nomInput) { nomInput.value = (u.prenom || '') + ' ' + (u.nom || ''); nomInput.disabled = true; nomInput.style.background = '#eee'; }
 
-        // Nom et prénom
-        const nomInput = form.querySelector('input[placeholder*="nom complet"]');
-        if (nomInput) { nomInput.value = (u.prenom || '') + ' ' + (u.nom || ''); nomInput.disabled = true; nomInput.style.background = '#eee'; }
+          // Téléphone
+          const telInput = form.querySelector('input[placeholder*="+226"]');
+          if (telInput) { telInput.value = u.telephone || ''; telInput.disabled = true; telInput.style.background = '#eee'; }
 
-        // Téléphone
-        const telInput = form.querySelector('input[placeholder*="+226"]');
-        if (telInput) { telInput.value = u.telephone || ''; telInput.disabled = true; telInput.style.background = '#eee'; }
+          // Filière
+          const filiereInput = form.querySelector('input[placeholder*="Informatique"]');
+          if (filiereInput) { filiereInput.value = e.filiere || ''; filiereInput.disabled = true; filiereInput.style.background = '#eee'; }
 
-        // Filière
-        const filiereInput = form.querySelector('input[placeholder*="Informatique"]');
-        if (filiereInput) { filiereInput.value = e.filiere || ''; filiereInput.disabled = true; filiereInput.style.background = '#eee'; }
+          // Option
+          const optionInput = form.querySelector('input[placeholder*="GL"]');
+          if (optionInput) { optionInput.value = e.option || ''; optionInput.disabled = true; optionInput.style.background = '#eee'; }
 
-        // Option
-        const optionInput = form.querySelector('input[placeholder*="GL"]');
-        if (optionInput) { optionInput.value = e.option || ''; optionInput.disabled = true; optionInput.style.background = '#eee'; }
-
-        // Niveau
-        const niveauSelect = form.querySelector('select');
-        if (niveauSelect && e.niveau) {
-          for (const opt of niveauSelect.options) {
-            if (opt.text === e.niveau) { niveauSelect.value = opt.value; break; }
+          // Niveau
+          const niveauSelect = form.querySelector('select');
+          if (niveauSelect && e.niveau) {
+            for (const opt of niveauSelect.options) {
+              if (opt.text === e.niveau) { niveauSelect.value = opt.value; break; }
+            }
+            niveauSelect.disabled = true;
+            niveauSelect.style.background = '#eee';
           }
-          niveauSelect.disabled = true;
-          niveauSelect.style.background = '#eee';
-        }
+        });
       } catch(e) {
         console.error('Erreur auto-remplissage:', e);
       }
