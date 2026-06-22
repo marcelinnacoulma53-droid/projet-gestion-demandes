@@ -234,11 +234,27 @@ async function findAll() {
 // Supprimer un utilisateur (admin)
 // =======================================
 async function deleteUser(id_utilisateur) {
-    const result = await db.query(
-        `DELETE FROM utilisateurs WHERE id_utilisateur = $1 RETURNING id_utilisateur`,
-        [id_utilisateur]
-    );
-    return result.rows[0] || null;
+    const client = await db.connect();
+    try {
+        await client.query('BEGIN');
+
+        await client.query(`DELETE FROM etudiants WHERE id_utilisateur = $1`, [id_utilisateur]);
+        await client.query(`DELETE FROM professeurs WHERE id_utilisateur = $1`, [id_utilisateur]);
+        await client.query(`DELETE FROM personnel_administratif WHERE id_utilisateur = $1`, [id_utilisateur]);
+
+        const result = await client.query(
+            `DELETE FROM utilisateurs WHERE id_utilisateur = $1 RETURNING id_utilisateur`,
+            [id_utilisateur]
+        );
+
+        await client.query('COMMIT');
+        return result.rows[0] || null;
+    } catch (error) {
+        await client.query('ROLLBACK');
+        throw error;
+    } finally {
+        client.release();
+    }
 }
 
 // Export du repository
