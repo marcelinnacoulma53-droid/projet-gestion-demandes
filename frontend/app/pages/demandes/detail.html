@@ -93,7 +93,6 @@
           <label class="section-label">Détails de la réclamation</label>
           <div class="detail-row"><span>Matière :</span><strong>—</strong></div>
           <div class="detail-row"><span>Enseignant :</span><strong>—</strong></div>
-          <div class="detail-row"><span>Note obtenue :</span><strong>—</strong></div>
         </div>
 
         <!-- NOMBRE D'EXEMPLAIRES -->
@@ -364,7 +363,7 @@
       if (typeD !== 'reclamation') {
         document.querySelectorAll('.detail-row').forEach(row => {
           const label = row.querySelector('span');
-          if (label && ['Matière :', 'Enseignant :', 'Note obtenue :'].includes(label.textContent)) {
+          if (label && ['Matière :', 'Enseignant :'].includes(label.textContent)) {
             row.style.display = 'none';
           }
         });
@@ -738,12 +737,11 @@
           ecue1El.textContent = demande.matiere;
         }
 
-        // Matière, Enseignant, Note obtenue (réclamation)
+        // Matière, Enseignant (réclamation)
         if (demande.type_demande === 'reclamation') {
           const rows = document.querySelectorAll('#section-reclamation-infos .detail-row');
           if (rows[0]) rows[0].querySelector('strong').textContent = demande.matiere || '—';
           if (rows[1]) rows[1].querySelector('strong').textContent = demande.enseignant || '—';
-          if (rows[2]) rows[2].querySelector('strong').textContent = demande.note_obtenue || '—';
         }
 
         // Nombre d'exemplaires (duplicata / attestation)
@@ -812,7 +810,7 @@
         const estReclamation = typeD === 'reclamation';
         document.querySelectorAll('.detail-row').forEach(row => {
           const label = row.querySelector('span');
-          if (label && ['Matière :', 'Enseignant :', 'Note obtenue :'].includes(label.textContent)) {
+          if (label && ['Matière :', 'Enseignant :'].includes(label.textContent)) {
             row.style.display = estReclamation ? '' : 'none';
           }
         });

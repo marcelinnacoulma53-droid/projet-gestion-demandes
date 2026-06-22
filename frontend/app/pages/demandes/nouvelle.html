@@ -92,7 +92,7 @@
             </div>
             <div class="form-group flex-1">
               <label>Option</label>
-              <input type="text" placeholder="Ex: GL"/>
+              <input type="text" placeholder="Ex: Cybersécurité"/>
             </div>
             <div class="form-group flex-1">
               <label>Niveau</label>
@@ -105,8 +105,9 @@
               <label>Semestre</label>
               <select id="rec-semestre">
                 <option value="">-- Sélectionner --</option>
-                <option value="S1">S1</option><option value="S2">S2</option>
-                <option value="S3">S3</option><option value="S4">S4</option>
+              <option value="S1">S1</option><option value="S2">S2</option>
+              <option value="S3">S3</option><option value="S4">S4</option>
+              <option value="S5">S5</option>
               </select>
             </div>
             <div class="form-group flex-1">
@@ -330,10 +331,10 @@
           <div class="fiche-section">
             <label class="section-label">Document demandé</label>
             <div class="checkbox-group">
-              <label><input type="radio" name="doc-duplicata" value="Relevés de notes"/> Relevés de notes</label>
-              <label><input type="radio" name="doc-duplicata" value="Certificat de scolarité"/> Certificat de scolarité</label>
+              <label><input type="radio" name="doc-duplicata" value="Diplome"/> Diplôme</label>
+              <label><input type="radio" name="doc-duplicata" value="Releve de notes"/> Relevé de notes</label>
               <label><input type="radio" name="doc-duplicata" value="Attestation provisoire"/> Attestation provisoire</label>
-              <label><input type="radio" name="doc-duplicata" value="Attestation de niveau"/> Attestation de niveau</label>
+              <label><input type="radio" name="doc-duplicata" value="Certificat de scolarite"/> Certificat de scolarité</label>
               <label><input type="radio" name="doc-duplicata" value="Correction"/> Correction (préciser la correction)</label>
               <label><input type="radio" name="doc-duplicata" value="Autres"/> Autres (à préciser)</label>
             </div>
@@ -520,7 +521,7 @@
           if (filiereInput) { filiereInput.value = e.filiere || ''; filiereInput.disabled = true; filiereInput.style.background = '#eee'; }
 
           // Option
-          const optionInput = form.querySelector('input[placeholder*="GL"]');
+          const optionInput = form.querySelector('input[placeholder*="Cybersécurité"]');
           if (optionInput) { optionInput.value = e.option || ''; optionInput.disabled = true; optionInput.style.background = '#eee'; }
 
           // Niveau

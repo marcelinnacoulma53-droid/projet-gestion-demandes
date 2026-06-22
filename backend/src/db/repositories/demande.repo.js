@@ -358,20 +358,21 @@ async function findByRoleAndEtape(role) {
     const filters = roleFilters[role];
     if (!filters) return await findAll();
 
-    const conditions = [];
     const params = [];
 
+    let etapeCondition = '';
     if (filters.etapes && filters.etapes.length > 0) {
-        conditions.push(`LOWER(ew.libelle) = ANY($${params.length + 1})`);
+        etapeCondition = `LOWER(ew.libelle) = ANY($${params.length + 1})`;
         params.push(filters.etapes);
     }
 
-    conditions.push(`LOWER(s.libelle) IN ('acceptee', 'terminee', 'rejetee')`);
+    // Demandes actives à cette étape + toutes les demandes finalisées (historique)
+    const whereClause = `(${etapeCondition} AND LOWER(s.libelle) NOT IN ('acceptee', 'terminee', 'rejetee'))
+        OR LOWER(s.libelle) IN ('acceptee', 'terminee', 'rejetee')`;
 
-    let whereClause = conditions.join(' OR ');
-
+    let finalWhere = whereClause;
     if (filters.types && filters.types.length > 0) {
-        whereClause = `(${whereClause}) AND LOWER(td.libelle) = ANY($${params.length + 1})`;
+        finalWhere = `(${whereClause}) AND LOWER(td.libelle) = ANY($${params.length + 1})`;
         params.push(filters.types);
     }
 
@@ -387,7 +388,7 @@ async function findByRoleAndEtape(role) {
         LEFT JOIN etapes_workflow ew ON d.id_etape_courante = ew.id_etape
         LEFT JOIN etudiants e ON d.id_etudiant = e.id_etudiant
         LEFT JOIN utilisateurs u ON e.id_utilisateur = u.id_utilisateur
-        WHERE ${whereClause}
+        WHERE ${finalWhere}
         ORDER BY d.date_creation DESC
     `, params);
 
