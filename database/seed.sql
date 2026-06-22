@@ -86,18 +86,15 @@ ON CONFLICT (libelle) DO NOTHING;
 
 INSERT INTO types_attestation (libelle)
 VALUES
-('Attestation provisoire Licence'),
-('Attestation provisoire Master'),
-('Attestation de scolarite')
+('Attestation provisoire'),
+('Attestation d''inscription')
 ON CONFLICT (libelle) DO NOTHING;
 
 -- Filières
 
 INSERT INTO filieres (code, libelle)
 VALUES
-('INFO', 'Informatique'),
-('MI', 'Mathématiques et Informatique'),
-('RIT', 'Réseaux et Technologies Internet')
+('INFO', 'Informatique')
 ON CONFLICT (code) DO NOTHING;
 
 -- Niveaux
