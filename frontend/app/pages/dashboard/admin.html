@@ -196,6 +196,20 @@
     </div>
   </div>
 
+  <!-- MODAL CONFIRM (remplace confirm()) -->
+  <div id="modalConfirm" class="modal-overlay" style="display:none;" onclick="fermerModal(event, 'modalConfirm')">
+    <div class="modal-box" style="max-width:400px;">
+      <div class="modal-body" style="text-align:center;padding:28px 20px 20px;">
+        <div style="font-size:36px;margin-bottom:10px;">⚠️</div>
+        <p id="confirmMessage" style="font-size:14px;color:#333;margin:0 0 20px;"></p>
+      </div>
+      <div class="modal-footer" style="justify-content:center;gap:10px;">
+        <button class="btn-retour" onclick="fermerConfirm()">Annuler</button>
+        <button class="btn-rejeter" id="btnConfirmOk" onclick="executerConfirm()">Confirmer</button>
+      </div>
+    </div>
+  </div>
+
   <script src="../../assets/js/core/api.js"></script>
   <script src="../../assets/js/core/auth.js"></script>
   <script>
@@ -507,24 +521,25 @@
       }
     }
 
-    async function supprimerUtilisateur(id) {
-      if (!confirm('Supprimer cet utilisateur ? Cette action est irréversible.')) return;
-      const token = getAuthToken();
-      try {
-        const response = await fetch(API_BASE + '/auth/users/' + id, {
-          method: 'DELETE',
-          headers: { 'Authorization': 'Bearer ' + token }
-        });
-        const data = await response.json();
-        if (!data.success) {
-          afficherInfo('⚠️', data.message || 'Erreur lors de la suppression.');
-          return;
+    function supprimerUtilisateur(id) {
+      afficherConfirmation('Supprimer cet utilisateur ? Cette action est irréversible.', async () => {
+        const token = getAuthToken();
+        try {
+          const response = await fetch(API_BASE + '/auth/users/' + id, {
+            method: 'DELETE',
+            headers: { 'Authorization': 'Bearer ' + token }
+          });
+          const data = await response.json();
+          if (!data.success) {
+            afficherInfo('⚠️', data.message || 'Erreur lors de la suppression.');
+            return;
+          }
+          afficherInfo('✅', 'Utilisateur supprimé.');
+          chargerUtilisateurs();
+        } catch(e) {
+          afficherInfo('⚠️', 'Erreur de connexion au serveur.');
         }
-        afficherInfo('✅', 'Utilisateur supprimé.');
-        chargerUtilisateurs();
-      } catch(e) {
-        afficherInfo('⚠️', 'Erreur de connexion au serveur.');
-      }
+      });
     }
 
     // ============================================
@@ -584,33 +599,54 @@
       }
     }
 
-    async function supprimerType(id) {
-      if (!confirm('Supprimer ce type de demande ?')) return;
-      const token = getAuthToken();
-      try {
-        const response = await fetch(API_BASE + '/types-demandes/' + id, {
-          method: 'DELETE',
-          headers: { 'Authorization': 'Bearer ' + token }
-        });
-        const data = await response.json();
-        if (!data.success) {
-          afficherInfo('⚠️', data.message || 'Impossible de supprimer (peut-être utilisé par des demandes).');
-          return;
+    function supprimerType(id) {
+      afficherConfirmation('Supprimer ce type de demande ?', async () => {
+        const token = getAuthToken();
+        try {
+          const response = await fetch(API_BASE + '/types-demandes/' + id, {
+            method: 'DELETE',
+            headers: { 'Authorization': 'Bearer ' + token }
+          });
+          const data = await response.json();
+          if (!data.success) {
+            afficherInfo('⚠️', data.message || 'Impossible de supprimer (peut-être utilisé par des demandes).');
+            return;
+          }
+          afficherInfo('✅', 'Type de demande supprimé.');
+          chargerTypes();
+        } catch(e) {
+          afficherInfo('⚠️', 'Erreur de connexion au serveur.');
         }
-        afficherInfo('✅', 'Type de demande supprimé.');
-        chargerTypes();
-      } catch(e) {
-        afficherInfo('⚠️', 'Erreur de connexion au serveur.');
-      }
+      });
     }
 
     // ============================================
     // UTILITAIRES
     // ============================================
+    let confirmCallback = null;
+
     function afficherInfo(icone, message) {
       document.getElementById('infoIcone').textContent = icone;
       document.getElementById('infoMessage').textContent = message;
       document.getElementById('modalInfo').style.display = 'flex';
+    }
+
+    function afficherConfirmation(message, callback) {
+      document.getElementById('confirmMessage').textContent = message;
+      confirmCallback = callback;
+      document.getElementById('modalConfirm').style.display = 'flex';
+    }
+
+    function fermerConfirm() {
+      document.getElementById('modalConfirm').style.display = 'none';
+      confirmCallback = null;
+    }
+
+    function executerConfirm() {
+      document.getElementById('modalConfirm').style.display = 'none';
+      const cb = confirmCallback;
+      confirmCallback = null;
+      if (cb) cb();
     }
 
     function fermerModal(e, modalId) {
