@@ -539,15 +539,15 @@
       }
     }
 
-    // Attacher auto-remplissage à l'affichage du formulaire réclamation
+    // Attacher auto-remplissage à l'affichage du formulaire
     const origAfficher = afficherFormulaire;
     afficherFormulaire = function(type) {
       origAfficher(type);
       if (type === 'reclamation') {
         chargerProfesseurs();
         chargerMatieres();
-        autoRemplirInfosEtudiant();
       }
+      autoRemplirInfosEtudiant();
     };
 
     // Ouvrir automatiquement si type dans URL
