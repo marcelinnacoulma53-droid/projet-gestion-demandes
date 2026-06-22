@@ -11,66 +11,119 @@
   <nav class="navbar">
     <div class="navbar-brand">🎓 EduRequest</div>
     <div class="navbar-user">
-      <span>👤 Étudiant</span>
+      <span id="roleLabel">👤 Étudiant</span>
       <a href="../auth/login.html" class="btn-logout" onclick="clearAuthSession()">Déconnexion</a>
     </div>
   </nav>
-  <div class="dashboard-layout">
-    <aside class="sidebar">
-      <ul>
-        <li onclick="location.href='../dashboard/etudiant.html'">🏠 Tableau de bord</li>
-        <li class="active">📋 Mes demandes</li>
-        <li onclick="location.href='nouvelle.html'">➕ Nouvelle demande</li>
-      </ul>
-    </aside>
-    <main class="main-content">
-      <div class="section-card">
-        <h2>📋 Suivi de mes demandes</h2>
-        <div style="margin:16px 0; display:flex; gap:10px; flex-wrap:wrap;">
-          <button class="btn-filter active-filter" onclick="filtrer('all',this)">Toutes</button>
-          <button class="btn-filter" onclick="filtrer('en_attente',this)">🟡 En attente</button>
-          <button class="btn-filter" onclick="filtrer('validee',this)">🟢 Validées</button>
-          <button class="btn-filter" onclick="filtrer('rejetee',this)">🔴 Rejetées</button>
+    <div class="dashboard-layout">
+      <aside class="sidebar">
+        <ul id="sidebar-nav"></ul>
+      </aside>
+      <main class="main-content">
+        <div class="section-card">
+          <h2>📋 Suivi de mes demandes</h2>
+          <div style="margin:16px 0; display:flex; gap:10px; flex-wrap:wrap;">
+            <button class="btn-filter active-filter" onclick="filtrer('all',this)">Toutes</button>
+            <button class="btn-filter" onclick="filtrer('en_attente',this)">🟡 En attente</button>
+            <button class="btn-filter" onclick="filtrer('validee',this)">🟢 Validées</button>
+            <button class="btn-filter" onclick="filtrer('rejetee',this)">🔴 Rejetées</button>
+          </div>
+          <table class="demandes-table" id="suiviTable">
+            <thead>
+              <tr><th>N°</th><th>Type</th><th>Date</th><th>Statut</th><th>Étape actuelle</th><th>Action</th></tr>
+            </thead>
+            <tbody id="suiviBody">
+              <tr><td colspan="6" style="text-align:center; color:#888; padding:20px;">Chargement...</td></tr>
+            </tbody>
+          </table>
         </div>
-        <table class="demandes-table" id="suiviTable">
-          <thead>
-            <tr><th>N°</th><th>Type</th><th>Date</th><th>Statut</th><th>Étape actuelle</th><th>Action</th></tr>
-          </thead>
-          <tbody>
-            <tr data-statut="en_attente">
-              <td data-label="N°">001</td><td data-label="Type">Réclamation</td><td data-label="Date">10/06/2026</td>
-              <td data-label="Statut"><span class="badge yellow">🟡 En attente</span></td>
-              <td data-label="Étape">Examen SP</td>
-              <td data-label="Action"><a href="detail.html" class="btn-detail">Voir détail</a></td>
-            </tr>
-            <tr data-statut="validee">
-              <td data-label="N°">002</td><td data-label="Type">Attestation</td><td data-label="Date">08/06/2026</td>
-              <td data-label="Statut"><span class="badge green">🟢 Validée</span></td>
-              <td data-label="Étape">Terminé</td>
-              <td data-label="Action"><a href="detail.html" class="btn-detail">Voir détail</a></td>
-            </tr>
-            <tr data-statut="rejetee">
-              <td data-label="N°">003</td><td data-label="Type">Duplicata</td><td data-label="Date">05/06/2026</td>
-              <td data-label="Statut"><span class="badge red">🔴 Rejetée</span></td>
-              <td data-label="Étape">Terminé</td>
-              <td data-label="Action"><a href="detail.html" class="btn-detail">Voir détail</a></td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </main>
-  </div>
+      </main>
+    </div>
 
-  <script src="../../assets/js/core/api.js"></script>
-  <script src="../../assets/js/core/auth.js"></script>
-  <script>
-    function filtrer(statut, btn) {
-      document.querySelectorAll('.btn-filter').forEach(b => b.classList.remove('active-filter'));
-      btn.classList.add('active-filter');
-      document.querySelectorAll('#suiviTable tbody tr').forEach(row => {
-        row.style.display = (statut === 'all' || row.dataset.statut === statut) ? '' : 'none';
+    <script src="../../assets/js/core/api.js"></script>
+    <script src="../../assets/js/core/auth.js"></script>
+    <script>
+      function afficherSidebar() {
+        const role = resolveCurrentRole();
+        const sidebar = document.getElementById('sidebar-nav');
+        if (!sidebar) return;
+        const dashboardUrl = role === 'etudiant' ? '../dashboard/etudiant.html' : '../dashboard/staff.html';
+        sidebar.innerHTML = `
+          <li onclick="location.href='${dashboardUrl}'">🏠 Tableau de bord</li>
+          <li class="active">📋 Mes demandes</li>
+          ${role === 'etudiant' ? '<li onclick="location.href=\'nouvelle.html\'">➕ Nouvelle demande</li>' : ''}
+        `;
+        afficherRoleNavbar('roleLabel');
+      }
+
+      const ETAPE_LABEL = {
+        secretaire: 'Secrétariat',
+        da: 'Examen DA',
+        sp: 'Examen SP',
+        professeur: 'Enseignant',
+        da_final: 'Décision DA',
+        scolarite: 'Scolarité',
+        secretaire_retour: 'Retour Secrét.',
+        directrice: 'Directrice',
+        presidence: 'Présidence'
+      };
+
+      function getBadgeInfo(statut) {
+        const s = statut.toLowerCase();
+        if (['acceptee', 'terminee'].includes(s)) return { classe: 'green', texte: '🟢 ' + statut, groupe: 'validee' };
+        if (s === 'rejetee') return { classe: 'red', texte: '🔴 ' + statut, groupe: 'rejetee' };
+        if (s === 'soumise') return { classe: 'yellow', texte: '🟡 ' + statut, groupe: 'en_attente' };
+        return { classe: 'yellow', texte: '🟡 ' + statut, groupe: 'en_attente' };
+      }
+
+      async function chargerDemandes() {
+        const token = getAuthToken();
+        if (!token) return;
+        try {
+          const response = await fetch(API_BASE + '/demandes/mes-demandes', {
+            headers: { 'Authorization': 'Bearer ' + token }
+          });
+          const data = await response.json();
+          const demandes = data.demandes || data || [];
+          const tbody = document.getElementById('suiviBody');
+          if (!Array.isArray(demandes) || demandes.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:#888; padding:20px;">Aucune demande pour le moment</td></tr>';
+            return;
+          }
+          tbody.innerHTML = demandes.map((d, i) => {
+            const statut = d.statut || 'Soumise';
+            const badge = getBadgeInfo(statut);
+            const date = d.date_creation ? new Date(d.date_creation).toLocaleDateString('fr-FR') : 'N/A';
+            const type = d.type_demande || d.objet || 'Demande';
+            const etapeLabel = ETAPE_LABEL[d.etape_courante] || d.etape_courante || '—';
+            const statutClean = badge.groupe;
+            return `<tr data-statut="${statutClean}">
+                <td data-label="N°">${i+1}</td>
+                <td data-label="Type">${type}</td>
+                <td data-label="Date">${date}</td>
+                <td data-label="Statut"><span class="badge ${badge.classe}">${badge.texte}</span></td>
+                <td data-label="Étape">${etapeLabel}</td>
+                <td data-label="Action"><a href="detail.html?id=${d.id_demande}" class="btn-detail">Voir détail</a></td>
+            </tr>`;
+          }).join('');
+        } catch(e) {
+          console.error('Erreur chargement demandes:', e);
+          document.getElementById('suiviBody').innerHTML = '<tr><td colspan="6" style="text-align:center; color:#c62828; padding:20px;">⚠ Erreur de chargement</td></tr>';
+        }
+      }
+
+      function filtrer(statut, btn) {
+        document.querySelectorAll('.btn-filter').forEach(b => b.classList.remove('active-filter'));
+        btn.classList.add('active-filter');
+        document.querySelectorAll('#suiviBody tr').forEach(row => {
+          row.style.display = (statut === 'all' || row.dataset.statut === statut) ? '' : 'none';
+        });
+      }
+
+      document.addEventListener('DOMContentLoaded', function() {
+        afficherSidebar();
+        chargerDemandes();
       });
-    }
-  </script>
+    </script>
 </body>
 </html>

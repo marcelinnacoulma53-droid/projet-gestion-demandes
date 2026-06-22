@@ -558,15 +558,23 @@
           console.error('Erreur chargement documents:', e);
         }
 
-        // Déterminer l'étape courante depuis le statut
+        // Déterminer l'étape courante depuis etape_courante
         const etapes = timelines[demande.type_demande] || timelines['reclamation'];
+        const etapeSteps = {
+          reclamation: ['secretaire', 'da', 'professeur', 'da_final', 'scolarite'],
+          derogation: ['secretaire', 'sp', 'secretaire_retour', 'directrice', 'presidence', 'scolarite'],
+          duplicata: ['secretaire', 'sp', 'secretaire_retour', 'da'],
+          attestation: ['secretaire', 'da']
+        };
+        const etapesList = etapeSteps[demande.type_demande] || etapeSteps.reclamation;
+        const etapeIndex = etapesList.indexOf(demande.etape_courante);
         let step;
         if (['terminee', 'acceptee'].includes(demande.statut)) {
           step = etapes.length;
         } else if (demande.statut === 'rejetee') {
-          step = Math.min(2, etapes.length);
+          step = etapeIndex >= 0 ? etapeIndex + 1 : Math.min(2, etapes.length);
         } else if (demande.statut === 'en cours de traitement') {
-          step = Math.min(2, etapes.length);
+          step = etapeIndex >= 0 ? etapeIndex + 1 : 1;
         } else if (demande.statut === 'soumise') {
           step = 1;
         } else {

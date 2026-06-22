@@ -87,6 +87,7 @@
               <th>Type</th>
               <th>Date</th>
               <th>Statut</th>
+              <th>Étape actuelle</th>
               <th>Action</th>
             </tr>
           </thead>
@@ -169,8 +170,19 @@
 
           // Mettre à jour le tableau
           const tbody = document.querySelector('.demandes-table tbody');
+          const ETAPE_LABEL = {
+            secretaire: 'Secrétariat',
+            da: 'Examen DA',
+            sp: 'Examen SP',
+            professeur: 'Enseignant',
+            da_final: 'Décision DA',
+            scolarite: 'Scolarité',
+            secretaire_retour: 'Retour Secrét.',
+            directrice: 'Directrice',
+            presidence: 'Présidence'
+          };
           if (demandes.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#888; padding:20px;">Aucune demande pour le moment</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:#888; padding:20px;">Aucune demande pour le moment</td></tr>';
           } else {
             tbody.innerHTML = demandes.map((d, i) => {
               const statut = d.statut || 'Soumise';
@@ -178,13 +190,14 @@
               const badgeClass = s === 'acceptee' || s === 'terminee' ? 'green' : s === 'rejetee' ? 'red' : 'yellow';
               const date = d.date_creation ? new Date(d.date_creation).toLocaleDateString('fr-FR') : 'N/A';
               const type = d.type_demande || d.objet || 'Demande';
-              // APRÈS — avec data-label pour le mode mobile
+              const etapeLabel = ETAPE_LABEL[d.etape_courante] || d.etape_courante || '—';
               const statutClean = s === 'acceptee' || s === 'terminee' ? 'validee' : s === 'rejetee' ? 'rejetee' : 'en_attente';
               return `<tr data-statut="${statutClean}">
                   <td data-label="N°">${i+1}</td>
                   <td data-label="Type">${type}</td>
                   <td data-label="Date">${date}</td>
                   <td data-label="Statut"><span class="badge ${badgeClass}">${statut}</span></td>
+                  <td data-label="Étape">${etapeLabel}</td>
                   <td data-label="Action"><a href="../demandes/detail.html?id=${d.id_demande}" class="btn-detail">Voir</a></td>
               </tr>`;
             }).join('');
