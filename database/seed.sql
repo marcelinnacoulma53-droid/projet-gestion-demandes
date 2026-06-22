@@ -78,7 +78,7 @@ INSERT INTO types_document_academique (libelle)
 VALUES
 ('Diplome'),
 ('Releve de notes'),
-('Attestation de reussite'),
+('Attestation provisoire'),
 ('Certificat de scolarite')
 ON CONFLICT (libelle) DO NOTHING;
 
@@ -109,7 +109,7 @@ ON CONFLICT (libelle) DO NOTHING;
 
 INSERT INTO semestres (libelle)
 VALUES
-('S1'), ('S2'), ('S3'), ('S4')
+('S1'), ('S2'), ('S3'), ('S4'), ('S5')
 ON CONFLICT (libelle) DO NOTHING;
 
 -- Les matières (ECUE) sont gérées dans la migration 004_seed_matieres.sql
