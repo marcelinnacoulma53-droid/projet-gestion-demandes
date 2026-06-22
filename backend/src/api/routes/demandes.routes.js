@@ -30,4 +30,10 @@ router.put('/:id/brouillon', authenticate, demandeController.updateBrouillon);
 // Soumettre une demande (l'envoyer pour traitement)
 router.post('/:id/soumettre', authenticate, demandeController.soumettreDemande);
 
+// Demander un complément à l'étudiant (staff → étudiant)
+router.post('/:id/complement', authenticate, demandeController.demanderComplement);
+
+// Renvoyer la demande après complément (étudiant → staff)
+router.post('/:id/renvoyer-complement', authenticate, demandeController.renvoyerComplement);
+
 module.exports = router;

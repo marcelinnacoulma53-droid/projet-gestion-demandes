@@ -11,7 +11,7 @@
   <nav class="navbar">
     <div class="navbar-brand">🎓 EduRequest</div>
     <div class="navbar-user">
-      <span>👤 Secrétaire Permanent (SP)</span>
+      <span id="roleLabel">👤 Secrétaire Permanent (SP)</span>
       <a href="../auth/login.html" class="btn-logout" onclick="clearAuthSession()">Déconnexion</a>
     </div>
   </nav>
@@ -60,53 +60,8 @@
               <th>Actions</th>
             </tr>
           </thead>
-          <tbody>
-            <tr data-statut="en_attente">
-              <td data-label="N°">001</td>
-              <td data-label="Étudiant">Koné Mamadou</td>
-              <td data-label="Type">Attestation</td>
-              <td data-label="Date">10/06/2026</td>
-              <td data-label="Statut"><span class="badge yellow">🟡 En attente</span></td>
-              <td data-label="Actions" class="actions-cell">
-                <button class="btn-voir" onclick="voirDetail(this)">👁 Voir</button>
-                <button class="btn-valider" onclick="changerStatut(this,'validee')">✅ Transmettre au DA</button>
-                <button class="btn-rejeter" onclick="changerStatut(this,'rejetee')">❌ Rejeter</button>
-                <button class="btn-complement" onclick="demanderComplement(this)">📝 Complément</button>
-              </td>
-            </tr>
-            <tr data-statut="en_attente">
-              <td data-label="N°">002</td>
-              <td data-label="Étudiant">Traoré Fatoumata</td>
-              <td data-label="Type">Duplicata</td>
-              <td data-label="Date">09/06/2026</td>
-              <td data-label="Statut"><span class="badge yellow">🟡 En attente</span></td>
-              <td data-label="Actions" class="actions-cell">
-                <button class="btn-voir" onclick="voirDetail(this)">👁 Voir</button>
-                <button class="btn-valider" onclick="changerStatut(this,'validee')">✅ Transmettre au DA</button>
-                <button class="btn-rejeter" onclick="changerStatut(this,'rejetee')">❌ Rejeter</button>
-                <button class="btn-complement" onclick="demanderComplement(this)">📝 Complément</button>
-              </td>
-            </tr>
-            <tr data-statut="validee">
-              <td data-label="N°">003</td>
-              <td data-label="Étudiant">Sawadogo Issouf</td>
-              <td data-label="Type">Attestation</td>
-              <td data-label="Date">08/06/2026</td>
-              <td data-label="Statut"><span class="badge green">🟢 Transmise au DA</span></td>
-              <td data-label="Actions" class="actions-cell">
-                <button class="btn-voir" onclick="voirDetail(this)">👁 Voir</button>
-              </td>
-            </tr>
-            <tr data-statut="rejetee">
-              <td data-label="N°">004</td>
-              <td data-label="Étudiant">Coulibaly Mariam</td>
-              <td data-label="Type">Duplicata</td>
-              <td data-label="Date">07/06/2026</td>
-              <td data-label="Statut"><span class="badge red">🔴 Rejetée</span></td>
-              <td data-label="Actions" class="actions-cell">
-                <button class="btn-voir" onclick="voirDetail(this)">👁 Voir</button>
-              </td>
-            </tr>
+          <tbody id="sp-tbody">
+            <tr><td colspan="6" style="text-align:center;color:#888;padding:20px;">Chargement...</td></tr>
           </tbody>
         </table>
       </section>
@@ -115,7 +70,7 @@
   </div>
 
   <!-- MODAL DÉTAIL -->
-  <div id="modal" class="modal-overlay" style="display:none;" onclick="fermerModal(event)">
+  <div id="modal" class="modal-overlay" style="display:none;" onclick="fermerModal('modal', event)">
     <div class="modal-box">
       <div class="modal-header">
         <h3>Détail de la demande</h3>
@@ -129,15 +84,13 @@
       </div>
       <div class="modal-footer">
         <button class="btn-retour" onclick="document.getElementById('modal').style.display='none'">Fermer</button>
-        <a href="../demandes/detail.html?role=sp&type=attestation" class="btn-envoyer" style="text-decoration:none;">
-          Voir détail complet
-        </a>
+        <a id="lien-detail-complet" href="../demandes/detail.html" class="btn-envoyer" style="text-decoration:none;">Voir détail complet</a>
       </div>
     </div>
   </div>
 
   <!-- MODAL COMPLÉMENT -->
-  <div id="modalComplement" class="modal-overlay" style="display:none;" onclick="fermerModalComplement(event)">
+  <div id="modalComplement" class="modal-overlay" style="display:none;" onclick="fermerModal('modalComplement', event)">
     <div class="modal-box">
       <div class="modal-header">
         <h3>📝 Demander un complément</h3>
@@ -145,8 +98,8 @@
       </div>
       <div class="modal-body">
         <div class="form-group">
-          <label>Message à l'étudiant</label>
-          <textarea id="complementMsg" placeholder="Précisez ce que l'étudiant doit compléter..."></textarea>
+          <label>Message à l'étudiant <span style="color:#c62828;">*</span></label>
+          <textarea id="complement-message" placeholder="Ex: Relevé de notes manquant"></textarea>
         </div>
       </div>
       <div class="modal-footer">
@@ -159,46 +112,193 @@
   <script src="../../assets/js/core/api.js"></script>
   <script src="../../assets/js/core/auth.js"></script>
   <script>
+    if (!isAuthenticated()) {
+      window.location.href = '../auth/login.html';
+    }
+    afficherRoleNavbar('roleLabel');
+
+    let demandesData = [];
+    let idEnCours = null;
+
+    function afficherInfo(icone, message) {
+      document.getElementById('infoIcone').textContent = icone;
+      document.getElementById('infoMessage').textContent = message;
+      document.getElementById('modalInfo').style.display = 'flex';
+    }
+
+    function fermerModal(modalId, event) {
+      if (event.target.id === modalId) {
+        document.getElementById(modalId).style.display = 'none';
+      }
+    }
+
+    async function chargerDemandesSP() {
+      const token = getAuthToken();
+      if (!token) return;
+      try {
+        const response = await fetch(API_BASE + '/demandes/mes-demandes', {
+          headers: { 'Authorization': 'Bearer ' + token }
+        });
+        const data = await response.json();
+        const demandes = (data.demandes || []).filter(d => d.statut !== 'brouillon' && d.etape_courante === 'sp');
+        demandesData = demandes;
+        renderTable(demandes);
+        updateStats(demandes);
+      } catch (e) {
+        console.error('Erreur chargement:', e);
+        document.getElementById('sp-tbody').innerHTML = '<tr><td colspan="6" style="text-align:center;color:#c62828;padding:20px;">Erreur de chargement</td></tr>';
+      }
+    }
+
+    function updateStats(demandes) {
+      const total = demandes.length;
+      const attente = demandes.filter(d => d.statut === 'en cours de traitement' || d.statut === 'soumise').length;
+      const transmises = demandes.filter(d => d.statut === 'acceptee' || d.statut === 'terminee').length;
+      document.querySelector('.stat-card:nth-child(1) .stat-number').textContent = total;
+      document.querySelector('.stat-card.yellow .stat-number').textContent = attente;
+      document.querySelector('.stat-card.green .stat-number').textContent = transmises;
+    }
+
+    function renderTable(demandes) {
+      const tbody = document.getElementById('sp-tbody');
+      if (demandes.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#888;padding:20px;">Aucune demande pour le moment</td></tr>';
+        return;
+      }
+      tbody.innerHTML = demandes.map(d => {
+        const s = (d.statut || '').toLowerCase();
+        const isFinalisee = s === 'acceptee' || s === 'terminee' || s === 'rejetee';
+        const date = d.date_creation ? new Date(d.date_creation).toLocaleDateString('fr-FR') : 'N/A';
+        const etudiant = ((d.prenom_etudiant || '') + ' ' + (d.nom_etudiant || '')).trim() || 'N/A';
+        const type = d.type_demande || 'N/A';
+        const statutClean = isFinalisee ? 'validee' : 'en_attente';
+        return `<tr data-statut="${statutClean}" data-id="${d.id_demande}">
+          <td data-label="N°">${d.reference || d.id_demande}</td>
+          <td data-label="Étudiant">${etudiant}</td>
+          <td data-label="Type">${type}</td>
+          <td data-label="Date">${date}</td>
+          <td data-label="Statut"><span class="badge ${isFinalisee ? 'green' : 'yellow'}">${d.statut}</span></td>
+          <td data-label="Actions" class="actions-cell">
+            <button class="btn-voir" onclick="voirDetailSP(${d.id_demande})">👁 Voir</button>
+            ${!isFinalisee ? `
+              <button class="btn-valider" onclick="ouvrirTransmettre(${d.id_demande})">→ Transmettre</button>
+              <button class="btn-rejeter" onclick="ouvrirRejeter(${d.id_demande})">✗ Rejeter</button>
+              <button class="btn-complement" onclick="ouvrirComplement(${d.id_demande})">📝 Complément</button>
+            ` : ''}
+          </td>
+        </tr>`;
+      }).join('');
+    }
+
     function filterDemandes(statut) {
-      document.querySelectorAll('#demandesTable tbody tr').forEach(row => {
+      document.querySelectorAll('#sp-tbody tr').forEach(row => {
         row.style.display = (statut === 'all' || row.dataset.statut === statut) ? '' : 'none';
       });
     }
-    function voirDetail(btn) {
-      const row = btn.closest('tr');
-      const cells = row.querySelectorAll('td');
-      document.getElementById('d-etudiant').textContent = cells[1].textContent;
-      document.getElementById('d-type').textContent = cells[2].textContent;
-      document.getElementById('d-date').textContent = cells[3].textContent;
-      document.getElementById('d-statut').textContent = cells[4].textContent.trim();
+
+    function voirDetailSP(id) {
+      const d = demandesData.find(x => x.id_demande === id) || {};
+      document.getElementById('d-etudiant').textContent = ((d.prenom_etudiant || '') + ' ' + (d.nom_etudiant || '')).trim() || 'N/A';
+      document.getElementById('d-type').textContent = d.type_demande || 'N/A';
+      document.getElementById('d-date').textContent = d.date_creation ? new Date(d.date_creation).toLocaleDateString('fr-FR') : 'N/A';
+      document.getElementById('d-statut').textContent = d.statut || 'N/A';
+      document.getElementById('lien-detail-complet').href = '../demandes/detail.html?id=' + id;
       document.getElementById('modal').style.display = 'flex';
     }
-    function changerStatut(btn, statut) {
-      const row = btn.closest('tr');
-      const badge = row.querySelector('.badge');
-      row.dataset.statut = statut;
-      if (statut === 'validee') {
-        badge.className = 'badge green';
-        badge.textContent = '🟢 Transmise au DA';
-      } else {
-        badge.className = 'badge red';
-        badge.textContent = '🔴 Rejetée';
-      }
-      row.querySelectorAll('.btn-valider, .btn-rejeter, .btn-complement').forEach(b => b.remove());
+
+    function ouvrirTransmettre(id) {
+      idEnCours = id;
+      document.getElementById('transmettre-commentaire').value = '';
+      document.getElementById('modalTransmettre').style.display = 'flex';
     }
-    function demanderComplement(btn) {
+
+    async function confirmerTransmission() {
+      const commentaire = document.getElementById('transmettre-commentaire').value;
+      document.getElementById('modalTransmettre').style.display = 'none';
+      try {
+        const token = getAuthToken();
+        const response = await fetch(API_BASE + '/workflow/' + idEnCours + '/valider', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+          body: JSON.stringify({ commentaire })
+        });
+        const data = await response.json();
+        if (!data.success) {
+          afficherInfo('⚠️', data.message || 'Erreur');
+          return;
+        }
+        afficherInfo('✅', 'Demande transmise avec succès !');
+        chargerDemandesSP();
+      } catch (e) {
+        afficherInfo('⚠️', 'Erreur de connexion.');
+      }
+    }
+
+    function ouvrirRejeter(id) {
+      idEnCours = id;
+      document.getElementById('rejeter-motif').value = '';
+      document.getElementById('modalRejeter').style.display = 'flex';
+    }
+
+    async function confirmerRejet() {
+      const motif = document.getElementById('rejeter-motif').value.trim();
+      if (!motif) {
+        afficherInfo('⚠️', 'Le motif est obligatoire.');
+        return;
+      }
+      document.getElementById('modalRejeter').style.display = 'none';
+      try {
+        const token = getAuthToken();
+        const response = await fetch(API_BASE + '/workflow/' + idEnCours + '/rejeter', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+          body: JSON.stringify({ motif })
+        });
+        const data = await response.json();
+        if (!data.success) {
+          afficherInfo('⚠️', data.message || 'Erreur');
+          return;
+        }
+        afficherInfo('✅', 'Demande rejetée.');
+        chargerDemandesSP();
+      } catch (e) {
+        afficherInfo('⚠️', 'Erreur de connexion.');
+      }
+    }
+
+    function ouvrirComplement(id) {
+      idEnCours = id;
+      document.getElementById('complement-message').value = '';
       document.getElementById('modalComplement').style.display = 'flex';
     }
-    function envoyerComplement() {
-      alert('Message envoyé à l\'étudiant !');
+
+    async function confirmerComplement() {
+      const message = document.getElementById('complement-message').value.trim();
+      if (!message) {
+        afficherInfo('⚠️', 'Le message est obligatoire.');
+        return;
+      }
       document.getElementById('modalComplement').style.display = 'none';
+      try {
+        const token = getAuthToken();
+        const response = await fetch(API_BASE + '/demandes/' + idEnCours + '/complement', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+          body: JSON.stringify({ message })
+        });
+        const data = await response.json();
+        if (!data.success) {
+          afficherInfo('⚠️', data.message || 'Erreur');
+          return;
+        }
+        afficherInfo('📝', 'Demande de complément envoyée.');
+        chargerDemandesSP();
+      } catch (e) {
+        afficherInfo('⚠️', 'Erreur de connexion.');
+      }
     }
-    function fermerModal(e) {
-      if (e.target.id === 'modal') document.getElementById('modal').style.display = 'none';
-    }
-    function fermerModalComplement(e) {
-      if (e.target.id === 'modalComplement') document.getElementById('modalComplement').style.display = 'none';
-    }
+
+    chargerDemandesSP();
   </script>
 </body>
 </html>

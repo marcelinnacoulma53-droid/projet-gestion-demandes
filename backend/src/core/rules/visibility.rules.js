@@ -32,18 +32,8 @@ const visibilityRules = {
                 return await demandeRepo.findByProfesseur(professeur.id_professeur);
             }
             
-            // SP : seulement dérogations et duplicatas
-            if (role === 'sp') {
-                return await demandeRepo.findByTypeLibelles(['Derogation', 'Duplicata']);
-            }
-            
-            // DA : réclamations, duplicatas, attestations
-            if (role === 'da') {
-                return await demandeRepo.findByTypeLibelles(['Reclamation', 'Duplicata', 'Attestation']);
-            }
-            
-            // Secrétaire, directrice, présidence, scolarité : voir tout
-            return await demandeRepo.findAll();
+            // SP, DA, secrétaire, directrice, présidence, scolarité : filtré par étape
+            return await demandeRepo.findByRoleAndEtape(role);
         } catch (error) {
             console.error('Erreur getDemandesVisibles:', error);
             return [];

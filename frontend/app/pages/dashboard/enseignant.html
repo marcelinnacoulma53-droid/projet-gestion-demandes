@@ -176,7 +176,7 @@
       ).length;
       const traitees = demandes.filter(d =>
         d.etape_courante === 'da_final' || d.etape_courante === 'scolarite' ||
-        d.statut === 'acceptee' || d.statut === 'terminee' || d.statut === 'rejetee'
+        (d.statut && ['acceptee', 'terminee', 'rejetee'].includes(d.statut.toLowerCase()))
       ).length;
 
       document.getElementById('stat-total').textContent = total;
@@ -242,7 +242,7 @@
             const etape = d.etape_courante || '';
             if (groupe === 'en_attente') return etape === 'professeur' || etape === 'secretaire' || etape === 'da';
             if (groupe === 'transmise') return etape === 'da_final' || etape === 'scolarite';
-            if (groupe === 'traitee') return s === 'acceptee' || s === 'terminee' || s === 'rejetee';
+            if (groupe === 'traitee') return etape === 'da_final' || etape === 'scolarite' || s === 'acceptee' || s === 'terminee' || s === 'rejetee';
             return true;
           });
 

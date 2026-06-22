@@ -296,6 +296,14 @@ async function getEtapeId(libelleEtape) {
     return result.rows[0]?.id_etape || null;
 }
 
+async function getDecisionId(libelleDecision) {
+    const result = await db.query(
+        `SELECT id_decision FROM decisions WHERE libelle ILIKE $1`,
+        [libelleDecision]
+    );
+    return result.rows[0]?.id_decision || null;
+}
+
 async function findByStatutLibelle(libelleStatut) {
     const result = await db.query(
         `
@@ -334,6 +342,55 @@ async function findByEtapeLibelle(libelleEtape) {
         `,
         [libelleEtape]
     );
+    return result.rows;
+}
+
+async function findByRoleAndEtape(role) {
+    const roleFilters = {
+        secretaire: { etapes: ['secretaire', 'secretaire_retour'] },
+        da: { etapes: ['da', 'da_final'], types: ['reclamation', 'duplicata', 'attestation'] },
+        sp: { etapes: ['sp'], types: ['derogation', 'duplicata'] },
+        directrice: { etapes: ['directrice'] },
+        presidence: { etapes: ['presidence'] },
+        scolarite: { etapes: ['scolarite'] }
+    };
+
+    const filters = roleFilters[role];
+    if (!filters) return await findAll();
+
+    const conditions = [];
+    const params = [];
+
+    if (filters.etapes && filters.etapes.length > 0) {
+        conditions.push(`LOWER(ew.libelle) = ANY($${params.length + 1})`);
+        params.push(filters.etapes);
+    }
+
+    conditions.push(`LOWER(s.libelle) IN ('acceptee', 'terminee', 'rejetee')`);
+
+    let whereClause = conditions.join(' OR ');
+
+    if (filters.types && filters.types.length > 0) {
+        whereClause = `(${whereClause}) AND LOWER(td.libelle) = ANY($${params.length + 1})`;
+        params.push(filters.types);
+    }
+
+    const result = await db.query(`
+        SELECT
+            d.id_demande, d.reference, d.objet, d.description, d.date_creation, d.date_soumission,
+            d.id_etudiant, LOWER(s.libelle) AS statut, LOWER(td.libelle) AS type_demande,
+            LOWER(ew.libelle) AS etape_courante,
+            u.nom AS nom_etudiant, u.prenom AS prenom_etudiant
+        FROM demandes d
+        LEFT JOIN statuts s ON d.id_statut = s.id_statut
+        LEFT JOIN types_demande td ON d.id_type_demande = td.id_type_demande
+        LEFT JOIN etapes_workflow ew ON d.id_etape_courante = ew.id_etape
+        LEFT JOIN etudiants e ON d.id_etudiant = e.id_etudiant
+        LEFT JOIN utilisateurs u ON e.id_utilisateur = u.id_utilisateur
+        WHERE ${whereClause}
+        ORDER BY d.date_creation DESC
+    `, params);
+
     return result.rows;
 }
 
@@ -462,9 +519,11 @@ module.exports = {
     getTypeDemandeId,
     getStatutId,
     getEtapeId,
+    getDecisionId,
     findByStatutLibelle,
     findByEtapeLibelle,
     findByTypeLibelles,
+    findByRoleAndEtape,
     findByProfesseur,
     createReclamation,
     createDerogation,

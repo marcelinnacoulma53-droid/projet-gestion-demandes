@@ -10,6 +10,7 @@ const userRepo = require('../../db/repositories/user.repo');
 const permissionService = require('../../core/services/permission.service');
 const visibilityRules = require('../../core/rules/visibility.rules'); 
 const workflowRules = require('../../core/rules/workflow.rules');
+const notificationService = require('../../core/services/notification.service');
 // ============================================================
 // 1. CRÉER UNE DEMANDE
 // ============================================================
@@ -364,10 +365,83 @@ const soumettreDemande = async (req, res, next) => {
     }
 };
 
+// ============================================================
+// 6. DEMANDER UN COMPLÉMENT (staff → étudiant)
+// ============================================================
+const demanderComplement = async (req, res, next) => {
+    const demandeId = req.params.id;
+    const userId = req.user.userId;
+    const { message } = req.body;
+
+    if (!message) {
+        return res.status(400).json({ message: 'Le message est requis.' });
+    }
+
+    try {
+        const demande = await demandeRepo.findById(demandeId);
+        if (!demande) {
+            return res.status(404).json({ message: 'Demande non trouvée.' });
+        }
+
+        const permission = await permissionService.peutVoir(demandeId, userId, req.user.role);
+        if (!permission) {
+            return res.status(403).json({ message: 'Accès refusé.' });
+        }
+
+        const id_decision = await demandeRepo.getDecisionId('A_COMPLETER');
+        const id_ancienne_etape = demande.id_etape_courante
+            ? await demandeRepo.getEtapeId(demande.etape_courante)
+            : null;
+
+        const traitement = await db.query(
+            `INSERT INTO traitements (id_demande, id_utilisateur, id_decision, commentaire, ancienne_etape, date_traitement)
+             VALUES ($1, $2, $3, $4, $5, NOW()) RETURNING *`,
+            [demandeId, userId, id_decision, message, id_ancienne_etape]
+        );
+
+        // Notifier l'étudiant
+        const notificationMessage = `📝 Complément demandé pour votre demande ${demande.reference || '#' + demandeId} : ${message}`;
+        await notificationService.notifierUtilisateur(demande.id_etudiant, notificationMessage, demandeId);
+
+        res.json({ success: true, message: 'Demande de complément envoyée à l\'étudiant.' });
+    } catch (error) {
+        next(error);
+    }
+};
+
+// ============================================================
+// 7. RENVOYER UN COMPLÉMENT (étudiant → staff)
+// ============================================================
+const renvoyerComplement = async (req, res, next) => {
+    const demandeId = req.params.id;
+    const userId = req.user.userId;
+
+    try {
+        const demande = await demandeRepo.findById(demandeId);
+        if (!demande) {
+            return res.status(404).json({ message: 'Demande non trouvée.' });
+        }
+
+        const id_decision = await demandeRepo.getDecisionId('COMPLEMENT_RENVOYE');
+
+        await db.query(
+            `INSERT INTO traitements (id_demande, id_utilisateur, id_decision, commentaire, date_traitement)
+             VALUES ($1, $2, $3, 'Documents complémentaires ajoutés par l\'étudiant.', NOW())`,
+            [demandeId, userId, id_decision]
+        );
+
+        res.json({ success: true, message: 'Documents complémentaires envoyés.' });
+    } catch (error) {
+        next(error);
+    }
+};
+
 module.exports = {
     createDemande,
     getMesDemandes,
     getDemandeById,
     updateBrouillon,
-    soumettreDemande
+    soumettreDemande,
+    demanderComplement,
+    renvoyerComplement
 };

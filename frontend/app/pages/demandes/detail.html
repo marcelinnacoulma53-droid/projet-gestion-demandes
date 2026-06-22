@@ -120,20 +120,94 @@
           <div class="timeline" id="timelineContainer"></div>
         </div>
 
+        <!-- COMPLÉMENT DEMANDÉ — visible pour l'étudiant -->
+        <div class="fiche-section" id="section-complement" style="display:none; background:#fff8e1; border:1px solid #ffe0b2;">
+          <label class="section-label">📝 Complément demandé</label>
+          <p id="complement-message" style="font-size:13px; color:#e65100; margin:8px 0;"></p>
+          <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:10px;">
+            <input type="file" id="complement-fichier" style="flex:1; padding:8px; border:1px solid #e0e0e0; border-radius:6px;"/>
+            <button class="btn-envoyer" onclick="renvoyerComplement()">📤 Renvoyer la demande</button>
+          </div>
+        </div>
+
+        <!-- HISTORIQUE DES TRAITEMENTS -->
+        <div class="fiche-section" id="section-historique">
+          <label class="section-label">📜 Historique du traitement</label>
+          <div id="historique-container">
+            <p style="color:#888; font-size:13px;">Chargement...</p>
+          </div>
+        </div>
+
         <!-- ZONE ACTIONS STAFF -->
         <div class="fiche-section" id="actions-staff" style="background:#f9f9f9;">
           <label class="section-label">⚡ Actions</label>
           <div class="actions-cell" style="gap:10px; flex-wrap:wrap;">
-            <button class="btn-valider" style="padding:10px 20px; font-size:14px;" onclick="changerStatut('validee')">✅ Valider</button>
-            <button class="btn-rejeter" style="padding:10px 20px; font-size:14px;" onclick="changerStatut('rejetee')">❌ Rejeter</button>
-            <button class="btn-complement" style="padding:10px 20px; font-size:14px;" onclick="demanderComplement()">📝 Demander complément</button>
+            <button class="btn-valider" style="padding:10px 20px; font-size:14px;" onclick="ouvrirModalTransmettre()">→ Transmettre</button>
+            <button class="btn-rejeter" style="padding:10px 20px; font-size:14px;" onclick="ouvrirModalRejeter()">✗ Rejeter</button>
+            <button class="btn-complement" style="padding:10px 20px; font-size:14px;" onclick="ouvrirModalComplement()">📝 Demander complément</button>
           </div>
-          <div id="complement-box" style="display:none; margin-top:14px;">
-            <div class="form-group">
-              <label>Message à l'étudiant</label>
-              <textarea id="msg-complement" placeholder="Précisez ce que l'étudiant doit compléter..."></textarea>
+          <div id="staff-complement-indicator" style="display:none; margin-top:10px; padding:10px; background:#e8f5e9; border-radius:6px; font-size:13px; color:#2e7d32;">
+            🟢 L'étudiant a répondu au complément
+          </div>
+        </div>
+
+        <!-- MODAL TRANSMETTRE -->
+        <div id="modalTransmettre" class="modal-overlay" style="display:none;" onclick="fermerModalId('modalTransmettre', event)">
+          <div class="modal-box">
+            <div class="modal-header">
+              <h3>→ Transmettre la demande</h3>
+              <button onclick="document.getElementById('modalTransmettre').style.display='none'" class="modal-close">✕</button>
             </div>
-            <button class="btn-envoyer" onclick="envoyerComplement()">Envoyer le message</button>
+            <div class="modal-body">
+              <div class="form-group">
+                <label>Commentaire <span style="color:#888; font-weight:400;">(optionnel)</span></label>
+                <textarea id="transmettre-commentaire" placeholder="Ex: Dossier complet"></textarea>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button class="btn-retour" onclick="document.getElementById('modalTransmettre').style.display='none'">Annuler</button>
+              <button class="btn-envoyer" onclick="confirmerTransmettre()">Confirmer</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- MODAL REJETER -->
+        <div id="modalRejeter" class="modal-overlay" style="display:none;" onclick="fermerModalId('modalRejeter', event)">
+          <div class="modal-box">
+            <div class="modal-header">
+              <h3>✗ Rejeter la demande</h3>
+              <button onclick="document.getElementById('modalRejeter').style.display='none'" class="modal-close">✕</button>
+            </div>
+            <div class="modal-body">
+              <div class="form-group">
+                <label>Motif du rejet <span style="color:#c62828;">*</span></label>
+                <textarea id="rejeter-motif" placeholder="Ex: Pièce jointe manquante"></textarea>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button class="btn-retour" onclick="document.getElementById('modalRejeter').style.display='none'">Annuler</button>
+              <button class="btn-envoyer" onclick="confirmerRejeter()">Confirmer le rejet</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- MODAL COMPLÉMENT -->
+        <div id="modalComplement" class="modal-overlay" style="display:none;" onclick="fermerModalId('modalComplement', event)">
+          <div class="modal-box">
+            <div class="modal-header">
+              <h3>📝 Demander un complément</h3>
+              <button onclick="document.getElementById('modalComplement').style.display='none'" class="modal-close">✕</button>
+            </div>
+            <div class="modal-body">
+              <div class="form-group">
+                <label>Message à l'étudiant <span style="color:#c62828;">*</span></label>
+                <textarea id="complement-message-input" placeholder="Ex: Relevé de notes manquant"></textarea>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button class="btn-retour" onclick="document.getElementById('modalComplement').style.display='none'">Annuler</button>
+              <button class="btn-envoyer" onclick="confirmerComplement()">Envoyer</button>
+            </div>
           </div>
         </div>
 
@@ -335,37 +409,188 @@
       setTimeout(() => { el.style.display = 'none'; }, 4000);
     }
 
-    function changerStatut(statut) {
-      const badge = document.querySelector('.badge');
-      if (statut === 'validee') {
-        badge.className = 'badge green';
-        badge.textContent = '🟢 Validée';
-      } else {
-        badge.className = 'badge red';
-        badge.textContent = '🔴 Rejetée';
-      }
-      const actionsStaff = document.getElementById('actions-staff');
-      if (actionsStaff) actionsStaff.style.display = 'none';
-      afficherNotification('✅', statut === 'validee' ? 'Demande validée !' : 'Demande rejetée !', 'success');
+    // ============================================
+    // ACTIONS STAFF — TRANSMETTRE / REJETER / COMPLÉMENT
+    // ============================================
+    let idEnCours = null;
+
+    function ouvrirModalTransmettre() {
+      idEnCours = idDemande;
+      document.getElementById('transmettre-commentaire').value = '';
+      document.getElementById('modalTransmettre').style.display = 'flex';
     }
 
-    function demanderComplement() {
-      const box = document.getElementById('complement-box');
-      if (box) {
-        box.style.display = box.style.display === 'none' ? 'block' : 'none';
+    async function confirmerTransmettre() {
+      const commentaire = document.getElementById('transmettre-commentaire').value;
+      document.getElementById('modalTransmettre').style.display = 'none';
+      try {
+        const token = getAuthToken();
+        const response = await fetch(API_BASE + '/workflow/' + idEnCours + '/valider', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+          body: JSON.stringify({ commentaire })
+        });
+        const data = await response.json();
+        if (!data.success) {
+          afficherNotification('⚠️', data.message || 'Erreur', 'error');
+          return;
+        }
+        afficherNotification('✅', 'Demande transmise avec succès !', 'success');
+        chargerVraieDemande();
+      } catch (e) {
+        afficherNotification('⚠️', 'Erreur de connexion.', 'error');
       }
     }
 
-    function envoyerComplement() {
-      const msg = document.getElementById('msg-complement');
-      if (!msg || !msg.value) {
-        afficherNotification('⚠️', 'Écrivez un message.', 'error');
+    function ouvrirModalRejeter() {
+      idEnCours = idDemande;
+      document.getElementById('rejeter-motif').value = '';
+      document.getElementById('modalRejeter').style.display = 'flex';
+    }
+
+    async function confirmerRejeter() {
+      const motif = document.getElementById('rejeter-motif').value.trim();
+      if (!motif) {
+        afficherNotification('⚠️', 'Le motif est obligatoire.', 'error');
         return;
       }
-      afficherNotification('📝', 'Message envoyé à l\'étudiant !', 'success');
-      const box = document.getElementById('complement-box');
-      if (box) box.style.display = 'none';
-      if (msg) msg.value = '';
+      document.getElementById('modalRejeter').style.display = 'none';
+      try {
+        const token = getAuthToken();
+        const response = await fetch(API_BASE + '/workflow/' + idEnCours + '/rejeter', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+          body: JSON.stringify({ motif })
+        });
+        const data = await response.json();
+        if (!data.success) {
+          afficherNotification('⚠️', data.message || 'Erreur', 'error');
+          return;
+        }
+        afficherNotification('✅', 'Demande rejetée.', 'success');
+        chargerVraieDemande();
+      } catch (e) {
+        afficherNotification('⚠️', 'Erreur de connexion.', 'error');
+      }
+    }
+
+    function ouvrirModalComplement() {
+      document.getElementById('complement-message-input').value = '';
+      document.getElementById('modalComplement').style.display = 'flex';
+    }
+
+    async function confirmerComplement() {
+      const message = document.getElementById('complement-message-input').value.trim();
+      if (!message) {
+        afficherNotification('⚠️', 'Le message est obligatoire.', 'error');
+        return;
+      }
+      document.getElementById('modalComplement').style.display = 'none';
+      try {
+        const token = getAuthToken();
+        const response = await fetch(API_BASE + '/demandes/' + idDemande + '/complement', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+          body: JSON.stringify({ message })
+        });
+        const data = await response.json();
+        if (!data.success) {
+          afficherNotification('⚠️', data.message || 'Erreur', 'error');
+          return;
+        }
+        afficherNotification('📝', 'Demande de complément envoyée à l\'étudiant.', 'success');
+        chargerVraieDemande();
+      } catch (e) {
+        afficherNotification('⚠️', 'Erreur de connexion.', 'error');
+      }
+    }
+
+    async function renvoyerComplement() {
+      const fichier = document.getElementById('complement-fichier');
+      try {
+        const token = getAuthToken();
+        // Upload document si présent
+        if (fichier && fichier.files && fichier.files[0]) {
+          const formData = new FormData();
+          formData.append('fichier', fichier.files[0]);
+          await fetch(API_BASE + '/documents/upload/' + idDemande, {
+            method: 'POST',
+            headers: { 'Authorization': 'Bearer ' + token },
+            body: formData
+          });
+        }
+        // Marquer le complément comme renvoyé
+        const response = await fetch(API_BASE + '/demandes/' + idDemande + '/renvoyer-complement', {
+          method: 'POST',
+          headers: { 'Authorization': 'Bearer ' + token }
+        });
+        const data = await response.json();
+        if (!data.success) {
+          afficherNotification('⚠️', data.message || 'Erreur', 'error');
+          return;
+        }
+        afficherNotification('📤', 'Documents complémentaires envoyés !', 'success');
+        document.getElementById('section-complement').style.display = 'none';
+      } catch (e) {
+        afficherNotification('⚠️', 'Erreur de connexion.', 'error');
+      }
+    }
+
+    function fermerModalId(modalId, event) {
+      if (event.target.id === modalId) {
+        document.getElementById(modalId).style.display = 'none';
+      }
+    }
+
+    // ============================================
+    // HISTORIQUE DES TRAITEMENTS
+    // ============================================
+    async function chargerHistorique() {
+      if (!idDemande) return;
+      const container = document.getElementById('historique-container');
+      if (!container) return;
+      try {
+        const token = getAuthToken();
+        const response = await fetch(API_BASE + '/workflow/' + idDemande + '/historique', {
+          headers: { 'Authorization': 'Bearer ' + token }
+        });
+        const data = await response.json();
+        const historique = data.historique || [];
+        if (historique.length === 0) {
+          container.innerHTML = '<p style="color:#888; font-size:13px;">Aucun traitement pour le moment.</p>';
+          return;
+        }
+        container.innerHTML = historique.map(h => {
+          const date = h.date_traitement ? new Date(h.date_traitement).toLocaleString('fr-FR') : '';
+          const user = (h.utilisateur_prenom || '') + ' ' + (h.utilisateur_nom || '');
+          const decision = h.decision_libelle || '—';
+          return `<div style="padding:10px 0; border-bottom:1px solid #e0e0e0;">
+            <div style="display:flex; justify-content:space-between; font-size:12px; color:#888;">
+              <span>${user}</span>
+              <span>${date}</span>
+            </div>
+            <div style="font-weight:600; font-size:13px; margin:4px 0;">${decision}</div>
+            ${h.commentaire ? '<p style="font-size:12px; color:#555; margin:0;">' + h.commentaire + '</p>' : ''}
+          </div>`;
+        }).join('');
+
+        // Vérifier si un complément est en attente ou a été renvoyé
+        const dernier = historique[historique.length - 1];
+        if (dernier && dernier.decision_libelle === 'A_COMPLETER') {
+          const role = resolveCurrentRole();
+          if (role === 'etudiant' || role === 'Étudiant') {
+            document.getElementById('section-complement').style.display = 'block';
+            document.getElementById('complement-message').textContent = dernier.commentaire || 'Veuillez fournir les documents demandés.';
+          } else {
+            document.getElementById('staff-complement-indicator').style.display = 'none';
+          }
+        } else if (dernier && dernier.decision_libelle === 'COMPLEMENT_RENVOYE') {
+          document.getElementById('staff-complement-indicator').style.display = 'block';
+        }
+      } catch (e) {
+        console.error('Erreur chargement historique:', e);
+        container.innerHTML = '<p style="color:#888; font-size:13px;">Impossible de charger l\'historique.</p>';
+      }
     }
     const STATUT_BADGE = {
       brouillon:               { classe: 'yellow', texte: '🟡 Brouillon' },
@@ -620,6 +845,9 @@
         if (actionsStaff && (roleUser === 'etudiant' || nonTraitable)) {
           actionsStaff.style.display = 'none';
         }
+
+        // Charger l'historique des traitements
+        chargerHistorique();
 
         // Nettoyer le sessionStorage une fois les données API chargées
         try { sessionStorage.removeItem('detail_demande_' + idDemande); } catch(e) {}

@@ -56,7 +56,9 @@ VALUES
 ('VALIDE'),
 ('REJETE'),
 ('Transmis'),
-('En attente')
+('En attente'),
+('A_COMPLETER'),
+('COMPLEMENT_RENVOYE')
 ON CONFLICT (libelle) DO NOTHING;
 
 -- Types de documents déposables
