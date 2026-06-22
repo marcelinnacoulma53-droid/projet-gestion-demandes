@@ -228,9 +228,38 @@
             <label>Motif</label>
             <textarea id="der-motif" placeholder="Expliquez votre motif..."></textarea>
           </div>
+          <div class="fiche-row">
+            <div class="form-group flex-1">
+              <label>Année universitaire</label>
+              <input type="text" id="der-annee-univ" placeholder="Ex: 2025-2026"/>
+            </div>
+            <div class="form-group flex-1">
+              <label>Semestre</label>
+              <select id="der-semestre">
+                <option value="">-- Choisir --</option>
+                <option value="S1">S1</option><option value="S2">S2</option>
+                <option value="S3">S3</option><option value="S4">S4</option>
+                <option value="S5">S5</option>
+              </select>
+            </div>
+            <div class="form-group flex-1">
+              <label>Session</label>
+              <select id="der-session">
+                <option value="">-- Choisir --</option>
+                <option value="Normale">Normale</option>
+                <option value="Rattrapage">Rattrapage</option>
+              </select>
+            </div>
+          </div>
           <div class="form-group">
             <label>Pièce jointe</label>
-            <input type="file" accept=".pdf,.jpg,.png"/>
+            <div class="upload-box" onclick="document.getElementById('der-copieFile').click()">
+              <div class="upload-icon">📄</div>
+              <span>Cliquez pour joindre un fichier (PDF, JPG, PNG)</span>
+              <span id="der-fileName" style="color:#1a237e; font-weight:600;"></span>
+            </div>
+            <input type="file" id="der-copieFile" accept=".pdf,.jpg,.png" style="display:none"
+              onchange="document.getElementById('der-fileName').textContent = this.files[0]?.name || ''"/>
           </div>
           <div class="form-actions">
             <button class="btn-retour" onclick="retour()">← Retour</button>
@@ -294,16 +323,19 @@
             </div>
             <div class="form-group flex-1">
               <label>Semestre</label>
-              <select>
-                <option>S1</option><option>S2</option>
-                <option>S3</option><option>S4</option>
+              <select id="dup-semestre">
+                <option value="">-- Choisir --</option>
+                <option value="S1">S1</option><option value="S2">S2</option>
+                <option value="S3">S3</option><option value="S4">S4</option>
+                <option value="S5">S5</option>
               </select>
             </div>
             <div class="form-group flex-1">
               <label>Session</label>
-              <select>
-                <option>Normale</option>
-                <option>Rattrapage</option>
+              <select id="dup-session">
+                <option value="">-- Choisir --</option>
+                <option value="Normale">Normale</option>
+                <option value="Rattrapage">Rattrapage</option>
               </select>
             </div>
           </div>
@@ -418,12 +450,18 @@
 
       const exemplaires = document.querySelector('input[name="exemplaires"]:checked')?.value || '1';
       const description = document.getElementById('docDupDescription')?.value || '';
+      const anneeDuplicata = document.getElementById('dup-annee-univ')?.value || '';
+      const semestreDuplicata = document.getElementById('dup-semestre')?.value || '';
+      const sessionDuplicata = document.getElementById('dup-session')?.value || '';
 
       const params = new URLSearchParams({
         montant: 10000,
         document: documentDemande,
         exemplaires: exemplaires,
-        description: description
+        description: description,
+        annee_universitaire: anneeDuplicata,
+        semestre: semestreDuplicata,
+        session: sessionDuplicata
       });
 
       window.location.href = 'paiement.html?' + params.toString();
@@ -527,11 +565,14 @@
           // Niveau
           const niveauSelect = form.querySelector('select');
           if (niveauSelect && e.niveau) {
+            let found = false;
             for (const opt of niveauSelect.options) {
-              if (opt.text === e.niveau) { niveauSelect.value = opt.value; break; }
+              if (opt.text === e.niveau) { niveauSelect.value = opt.value; found = true; break; }
             }
-            niveauSelect.disabled = true;
-            niveauSelect.style.background = '#eee';
+            if (found) {
+              niveauSelect.disabled = true;
+              niveauSelect.style.background = '#eee';
+            }
           }
         });
       } catch(e) {
@@ -615,7 +656,10 @@
       } else if (typeActif === 'form-derogation') {
         const objet = document.getElementById('der-objet')?.value || 'Dérogation';
         const motif = document.getElementById('der-motif')?.value || '';
-        body = { ...body, objet, description: motif, motif };
+        const anneeDerog = document.getElementById('der-annee-univ')?.value || '';
+        const semestreDerog = document.getElementById('der-semestre')?.value || '';
+        const sessionDerog = document.getElementById('der-session')?.value || '';
+        body = { ...body, objet, description: motif, motif, annee_universitaire: anneeDerog, id_semestre: semestreDerog, session: sessionDerog };
       } else if (typeActif === 'form-attestation') {
         const typeAttestation = document.getElementById('att-type')?.value || '';
         const nombre_exemplaires = parseInt(document.querySelector('input[name="exemplaires"]:checked')?.value || '1');
@@ -645,7 +689,7 @@
           const demandeId = data.demande?.id_demande;
 
           // Uploader le fichier si présent
-          const fileInput = document.getElementById('copieFile');
+          const fileInput = document.getElementById('copieFile') || document.getElementById('der-copieFile');
           if (fileInput && fileInput.files && fileInput.files[0] && demandeId) {
             const formData = new FormData();
             formData.append('fichier', fileInput.files[0]);

@@ -232,6 +232,9 @@
         const documentDemande = urlP.get('document') || 'Document non précisé';
         const exemplaires = urlP.get('exemplaires') || '1';
         const description = urlP.get('description') || '';
+        const anneeUniversitaire = urlP.get('annee_universitaire') || '';
+        const semestre = urlP.get('semestre') || '';
+        const sessionDuplicata = urlP.get('session') || '';
 
         const token = getAuthToken();
         const response = await fetch(API_BASE + '/demandes', {
@@ -246,7 +249,10 @@
             description: (description + ' (' + exemplaires + ' exemplaire(s))').trim(),
             statut: 'soumise',
             id_type_document_academique: documentDemande,
-            nombre_exemplaires: parseInt(exemplaires, 10) || 1
+            nombre_exemplaires: parseInt(exemplaires, 10) || 1,
+            annee_universitaire: anneeUniversitaire,
+            id_semestre: semestre,
+            session: sessionDuplicata
           })
         });
 

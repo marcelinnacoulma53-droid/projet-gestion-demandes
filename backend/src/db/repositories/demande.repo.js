@@ -120,7 +120,6 @@ async function findById(id_demande) {
             r.id_professeur,
             r.id_matiere,
             r.id_semestre,
-            r.session,
             r.description_reclamation,
             (SELECT u2.nom || ' ' || u2.prenom FROM professeurs p2 JOIN utilisateurs u2 ON p2.id_utilisateur = u2.id_utilisateur WHERE p2.id_professeur = r.id_professeur) AS enseignant,
             u.nom AS nom_etudiant,
@@ -130,7 +129,8 @@ async function findById(id_demande) {
             f.libelle AS filiere,
             n.libelle AS niveau,
             o.libelle AS option,
-            sm.libelle AS semestre,
+            COALESCE(sm.libelle, dp_sm.libelle, dg_sm.libelle) AS semestre,
+            COALESCE(r.session, dp.session, dg.session) AS session,
             m.libelle AS matiere,
             dg.motif AS derogation_motif,
             dg.annee_academique,
@@ -173,6 +173,10 @@ async function findById(id_demande) {
             ON e.id_option = o.id_option
         LEFT JOIN semestres sm
             ON r.id_semestre = sm.id_semestre
+        LEFT JOIN semestres dp_sm
+            ON dp.id_semestre = dp_sm.id_semestre
+        LEFT JOIN semestres dg_sm
+            ON dg.id_semestre = dg_sm.id_semestre
         LEFT JOIN matieres m
             ON r.id_matiere = m.id_matiere
         LEFT JOIN types_attestation ta
@@ -461,12 +465,12 @@ async function createReclamation(demandeId, data) {
 // Créer un enregistrement dans derogations
 // =======================================
 async function createDerogation(demandeId, data) {
-    const { motif, annee_academique } = data;
+    const { motif, annee_academique, id_semestre, session } = data;
     const result = await db.query(
-        `INSERT INTO derogations (id_demande, motif, annee_academique)
-         VALUES ($1,$2,$3)
+        `INSERT INTO derogations (id_demande, motif, annee_academique, id_semestre, session)
+         VALUES ($1,$2,$3,$4,$5)
          RETURNING id_derogation`,
-        [demandeId, motif || '', annee_academique || null]
+        [demandeId, motif || '', annee_academique || null, id_semestre || null, session || null]
     );
     return result.rows[0];
 }
@@ -475,12 +479,12 @@ async function createDerogation(demandeId, data) {
 // Créer un enregistrement dans duplicatas
 // =======================================
 async function createDuplicata(demandeId, data) {
-    const { id_type_document_academique, nombre_exemplaires } = data;
+    const { id_type_document_academique, nombre_exemplaires, id_semestre, session } = data;
     const result = await db.query(
-        `INSERT INTO duplicatas (id_demande, id_type_document_academique, nombre_exemplaires)
-         VALUES ($1,$2,$3)
+        `INSERT INTO duplicatas (id_demande, id_type_document_academique, nombre_exemplaires, id_semestre, session)
+         VALUES ($1,$2,$3,$4,$5)
          RETURNING id_duplicata`,
-        [demandeId, id_type_document_academique || null, nombre_exemplaires || 1]
+        [demandeId, id_type_document_academique || null, nombre_exemplaires || 1, id_semestre || null, session || null]
     );
     return result.rows[0];
 }

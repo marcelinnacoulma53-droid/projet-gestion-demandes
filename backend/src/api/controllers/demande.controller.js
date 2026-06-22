@@ -142,9 +142,20 @@ const createDemande = async (req, res, next) => {
             }
 
         } else if (typeCle === 'derogation') {
+            let resolvedSemestreDg = parseInt(id_semestre, 10);
+            if (isNaN(resolvedSemestreDg) && id_semestre && typeof id_semestre === 'string') {
+                const row = await db.query(
+                    'SELECT id_semestre FROM semestres WHERE libelle ILIKE $1 LIMIT 1',
+                    [id_semestre]
+                );
+                resolvedSemestreDg = row.rows[0]?.id_semestre || null;
+            }
+
             await demandeRepo.createDerogation(demandeId, {
                 motif: motif || description || '',
-                annee_academique: annee_universitaire || null
+                annee_academique: annee_universitaire || null,
+                id_semestre: resolvedSemestreDg,
+                session: session || null
             });
 
         } else if (typeCle === 'duplicata') {
@@ -158,9 +169,20 @@ const createDemande = async (req, res, next) => {
                 resolvedDoc = row.rows[0]?.id_type_document_academique || null;
             }
 
+            let resolvedSemestreDp = parseInt(id_semestre, 10);
+            if (isNaN(resolvedSemestreDp) && id_semestre && typeof id_semestre === 'string') {
+                const row = await db.query(
+                    'SELECT id_semestre FROM semestres WHERE libelle ILIKE $1 LIMIT 1',
+                    [id_semestre]
+                );
+                resolvedSemestreDp = row.rows[0]?.id_semestre || null;
+            }
+
             await demandeRepo.createDuplicata(demandeId, {
                 id_type_document_academique: resolvedDoc,
-                nombre_exemplaires: nombre_exemplaires || 1
+                nombre_exemplaires: nombre_exemplaires || 1,
+                id_semestre: resolvedSemestreDp,
+                session: session || null
             });
 
         } else if (typeCle === 'attestation') {
