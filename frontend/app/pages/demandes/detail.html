@@ -47,13 +47,13 @@
         </div>
 
         <!-- PIÈCES JUSTIFICATIVES -->
-        <div class="fiche-section">
+        <div class="fiche-section" id="section-pieces-justificatives">
           <label class="section-label">📎 Pièces justificatives jointes</label>
           <div class="checkbox-group flex-wrap">
-            <label style="color:#aaa;"><input type="checkbox" value="Relevés de notes" disabled/> Relevés de notes</label>
-            <label style="color:#aaa;"><input type="checkbox" value="Copies" disabled/> Copies</label>
-            <label style="color:#aaa;"><input type="checkbox" value="Attestation d'inscription" disabled/> Attestation d'inscription</label>
-            <label style="color:#aaa;"><input type="checkbox" value="Autres" disabled/> Autres</label>
+            <label><input type="checkbox" value="Relevés de notes" disabled/> Relevés de notes</label>
+            <label><input type="checkbox" value="Copies" disabled/> Copies</label>
+            <label><input type="checkbox" value="Attestation d'inscription" disabled/> Attestation d'inscription</label>
+            <label><input type="checkbox" value="Autres" disabled/> Autres</label>
           </div>
         </div>
 
@@ -745,13 +745,12 @@
         }
 
         // Pièces justificatives — cocher les cases correspondantes
-        if (demande.pieces_justificatives) {
+        if (demande.pieces_justificatives && demande.pieces_justificatives.trim()) {
           const pjList = demande.pieces_justificatives.toLowerCase().split(/\s*,\s*/);
-          document.querySelectorAll('.fiche-section .checkbox-group.flex-wrap input[type="checkbox"]').forEach(cb => {
+          document.querySelectorAll('#section-pieces-justificatives input[type="checkbox"]').forEach(cb => {
             if (pjList.includes(cb.value.toLowerCase())) {
               cb.checked = true;
             }
-            cb.disabled = true;
           });
         }
 

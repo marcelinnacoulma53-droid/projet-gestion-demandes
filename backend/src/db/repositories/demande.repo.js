@@ -59,6 +59,7 @@ async function create(demandeData) {
             pieces_justificatives || ''
         ]
     );
+    );
 
 
     return result.rows[0];

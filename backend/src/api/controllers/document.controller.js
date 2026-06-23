@@ -124,15 +124,26 @@ const telechargerFichier = async (req, res, next) => {
 
         // Vérifier les droits d'accès
         const demande = await demandeRepo.findById(document.id_demande);
-        const isOwner = demande.id_etudiant === req.user.userId;
-        const isStaff = ['secretaire', 'da', 'sp', 'admin'].includes(req.user.role);
+        let isOwner = false;
+        if (req.user.role === 'etudiant') {
+            const etudiant = await etudiantRepo.findByUserId(req.user.userId);
+            isOwner = etudiant && demande.id_etudiant === etudiant.id_etudiant;
+        }
+        const isStaff = ['secretaire', 'da', 'sp', 'admin', 'directrice', 'presidence', 'scolarite', 'professeur', 'enseignant'].includes(req.user.role);
 
         if (!isOwner && !isStaff) {
             return res.status(403).json({ message: 'Accès non autorisé' });
         }
 
         // Envoyer le fichier
-        res.download(document.chemin_stockage, document.nom_original);
+        res.download(document.chemin_stockage, document.nom_original, (err) => {
+            if (err) {
+                console.error('Erreur téléchargement fichier:', err);
+                if (!res.headersSent) {
+                    return res.status(500).json({ message: 'Fichier introuvable sur le serveur' });
+                }
+            }
+        });
 
     } catch (error) {
         next(error);
@@ -155,8 +166,12 @@ const supprimerFichier = async (req, res, next) => {
 
         // Vérifier les droits de suppression
         const demande = await demandeRepo.findById(document.id_demande);
-        const isOwner = demande.id_etudiant === userId;
-        const isStaff = ['secretaire', 'da', 'admin'].includes(req.user.role);
+        let isOwner = false;
+        if (req.user.role === 'etudiant') {
+            const etudiant = await etudiantRepo.findByUserId(userId);
+            isOwner = etudiant && demande.id_etudiant === etudiant.id_etudiant;
+        }
+        const isStaff = ['secretaire', 'da', 'sp', 'admin', 'directrice', 'presidence', 'scolarite', 'professeur', 'enseignant'].includes(req.user.role);
 
         if (!isOwner && !isStaff) {
             return res.status(403).json({ message: 'Accès non autorisé' });
