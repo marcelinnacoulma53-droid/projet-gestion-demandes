@@ -23,7 +23,7 @@
         <li class="active">🏠 Tableau de bord</li>
         <li onclick="filterDemandes('all')">📋 Toutes les demandes</li>
         <li onclick="filterDemandes('en_attente')">🟡 En attente</li>
-        <li onclick="filterDemandes('validee')">🟢 Validées</li>
+        <li onclick="filterDemandes('traitee')">🟢 Traitées</li>
         <li onclick="filterDemandes('rejetee')">🔴 Rejetées</li>
       </ul>
     </aside>
@@ -41,7 +41,7 @@
           <p class="stat-number">3</p>
         </div>
         <div class="stat-card green">
-          <h3>Validées</h3>
+          <h3>Traitées</h3>
           <p class="stat-number">2</p>
         </div>
         <div class="stat-card red">
@@ -74,7 +74,7 @@
               <td data-label="Statut"><span class="badge yellow">🟡 En attente</span></td>
               <td data-label="Actions" class="actions-cell">
                 <button class="btn-voir" onclick="voirDetail(this)">👁 Voir</button>
-                <button class="btn-valider" onclick="changerStatut(this,'validee')">✅ Valider</button>
+                <button class="btn-valider" onclick="changerStatut(this,'traitee')">✅ Valider</button>
                 <button class="btn-rejeter" onclick="changerStatut(this,'rejetee')">❌ Rejeter</button>
                 <button class="btn-complement" onclick="demanderComplement(this)">📝 Complément</button>
               </td>
@@ -87,7 +87,7 @@
               <td data-label="Statut"><span class="badge yellow">🟡 En attente</span></td>
               <td data-label="Actions" class="actions-cell">
                 <button class="btn-voir" onclick="voirDetail(this)">👁 Voir</button>
-                <button class="btn-valider" onclick="changerStatut(this,'validee')">✅ Valider</button>
+                <button class="btn-valider" onclick="changerStatut(this,'traitee')">✅ Valider</button>
                 <button class="btn-rejeter" onclick="changerStatut(this,'rejetee')">❌ Rejeter</button>
                 <button class="btn-complement" onclick="demanderComplement(this)">📝 Complément</button>
               </td>
@@ -100,27 +100,27 @@
               <td data-label="Statut"><span class="badge yellow">🟡 En attente</span></td>
               <td data-label="Actions" class="actions-cell">
                 <button class="btn-voir" onclick="voirDetail(this)">👁 Voir</button>
-                <button class="btn-valider" onclick="changerStatut(this,'validee')">✅ Valider</button>
+                <button class="btn-valider" onclick="changerStatut(this,'traitee')">✅ Valider</button>
                 <button class="btn-rejeter" onclick="changerStatut(this,'rejetee')">❌ Rejeter</button>
                 <button class="btn-complement" onclick="demanderComplement(this)">📝 Complément</button>
               </td>
             </tr>
-            <tr data-statut="validee">
+            <tr data-statut="traitee">
               <td data-label="N°">004</td>
               <td data-label="Étudiant">Coulibaly Mariam</td>
               <td data-label="Type">Duplicata</td>
               <td data-label="Date">07/06/2026</td>
-              <td data-label="Statut"><span class="badge green">🟢 Validée</span></td>
+              <td data-label="Statut"><span class="badge green">🟢 Traitée</span></td>
               <td data-label="Actions" class="actions-cell">
                 <button class="btn-voir" onclick="voirDetail(this)">👁 Voir</button>
               </td>
             </tr>
-            <tr data-statut="validee">
+            <tr data-statut="traitee">
               <td data-label="N°">005</td>
               <td data-label="Étudiant">Diallo Seydou</td>
               <td data-label="Type">Attestation</td>
               <td data-label="Date">06/06/2026</td>
-              <td data-label="Statut"><span class="badge green">🟢 Validée</span></td>
+              <td data-label="Statut"><span class="badge green">🟢 Traitée</span></td>
               <td data-label="Actions" class="actions-cell">
                 <button class="btn-voir" onclick="voirDetail(this)">👁 Voir</button>
               </td>
@@ -272,7 +272,7 @@
       if (d.derniere_action_role === 'rejete') return 'rejetee';
       const s = d.statut || '';
       if (s !== 'acceptee' && s !== 'terminee' && s !== 'rejetee' && mesEtapes.includes(d.etape_courante)) return 'en_attente';
-      return 'validee';
+      return 'traitee';
     }
 
     async function chargerDemandesStaff() {
@@ -289,11 +289,11 @@
         const mesEtapes = getEtapesForRole(roleUser);
 
         const enAttente = demandes.filter(d => getCategorie(d, mesEtapes) === 'en_attente').length;
-        const validees = demandes.filter(d => getCategorie(d, mesEtapes) === 'validee').length;
+        const traitees = demandes.filter(d => getCategorie(d, mesEtapes) === 'traitee').length;
         const rejetees = demandes.filter(d => getCategorie(d, mesEtapes) === 'rejetee').length;
         document.querySelector('.stat-card:nth-child(1) .stat-number').textContent = demandes.length;
         document.querySelector('.stat-card.yellow .stat-number').textContent = enAttente;
-        document.querySelector('.stat-card.green .stat-number').textContent = validees;
+        document.querySelector('.stat-card.green .stat-number').textContent = traitees;
         document.querySelector('.stat-card.red .stat-number').textContent = rejetees;
 
         const tbody = document.getElementById('demandesTable').querySelector('tbody');
@@ -323,6 +323,7 @@
               </td>
             </tr>`;
           }).join('');
+          filterDemandes('en_attente');
         }
       } catch(e) {
         console.error('Erreur chargement demandes staff:', e);
@@ -446,9 +447,9 @@
       const row = btn.closest('tr');
       const badge = row.querySelector('.badge');
       row.dataset.statut = nouveauStatut;
-      if (nouveauStatut === 'validee') {
+      if (nouveauStatut === 'traitee') {
         badge.className = 'badge green';
-        badge.textContent = '🟢 Validée';
+        badge.textContent = '🟢 Traitée';
       } else {
         badge.className = 'badge red';
         badge.textContent = '🔴 Rejetée';

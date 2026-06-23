@@ -22,7 +22,7 @@
         <li class="active">🏠 Tableau de bord</li>
         <li onclick="filterDemandes('all')">📋 Toutes</li>
         <li onclick="filterDemandes('en_attente')">🟡 En attente</li>
-        <li onclick="filterDemandes('validee')">🟢 Validées</li>
+        <li onclick="filterDemandes('traitee')">🟢 Traitées</li>
         <li onclick="filterDemandes('rejetee')">🔴 Rejetées</li>
       </ul>
     </aside>
@@ -39,8 +39,12 @@
           <p class="stat-number">2</p>
         </div>
         <div class="stat-card green">
-          <h3>Transmises</h3>
+          <h3>Traitées</h3>
           <p class="stat-number">2</p>
+        </div>
+        <div class="stat-card red">
+          <h3>Rejetées</h3>
+          <p class="stat-number">0</p>
         </div>
       </div>
 
@@ -207,16 +211,18 @@
       if (d.derniere_action_role === 'rejete') return 'rejetee';
       const s = d.statut || '';
       if (s !== 'acceptee' && s !== 'terminee' && s !== 'rejetee' && d.etape_courante === 'sp') return 'en_attente';
-      return 'validee';
+      return 'traitee';
     }
 
     function updateStats(demandes) {
       const total = demandes.length;
       const attente = demandes.filter(d => getCategorieSP(d) === 'en_attente').length;
-      const transmises = demandes.filter(d => getCategorieSP(d) === 'validee').length;
+      const traitees = demandes.filter(d => getCategorieSP(d) === 'traitee').length;
+      const rejetees = demandes.filter(d => getCategorieSP(d) === 'rejetee').length;
       document.querySelector('.stat-card:nth-child(1) .stat-number').textContent = total;
       document.querySelector('.stat-card.yellow .stat-number').textContent = attente;
-      document.querySelector('.stat-card.green .stat-number').textContent = transmises;
+      document.querySelector('.stat-card.green .stat-number').textContent = traitees;
+      document.querySelector('.stat-card.red .stat-number').textContent = rejetees;
     }
 
     function renderTable(demandes) {
@@ -241,7 +247,7 @@
           <td data-label="Statut"><span class="badge ${badgeClass}">${d.statut}</span></td>
           <td data-label="Actions" class="actions-cell">
             <button class="btn-voir" onclick="voirDetailSP(${d.id_demande})">👁 Voir</button>
-            ${!isFinalisee && isAtSP ? `
+            ${categorie === 'en_attente' ? `
               <button class="btn-valider" onclick="ouvrirTransmettre(${d.id_demande})">→ Transmettre</button>
               <button class="btn-rejeter" onclick="ouvrirRejeter(${d.id_demande})">✗ Rejeter</button>
               <button class="btn-complement" onclick="ouvrirComplement(${d.id_demande})">📝 Complément</button>
@@ -249,6 +255,7 @@
           </td>
         </tr>`;
       }).join('');
+      filterDemandes('en_attente');
     }
 
     function filterDemandes(statut) {

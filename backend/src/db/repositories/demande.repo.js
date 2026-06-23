@@ -444,7 +444,15 @@ async function findByProfesseur(id_professeur) {
             d.id_etudiant, LOWER(td.libelle) AS type_demande, LOWER(s.libelle) AS statut,
             LOWER(ew.libelle) AS etape_courante,
             u.nom AS nom_etudiant, u.prenom AS prenom_etudiant,
-            m.libelle AS matiere
+            m.libelle AS matiere,
+            (SELECT LOWER(dc.libelle) FROM traitements t3
+             JOIN decisions dc ON t3.id_decision = dc.id_decision
+             JOIN etapes_workflow te ON t3.ancienne_etape = te.id_etape
+             WHERE t3.id_demande = d.id_demande
+             AND LOWER(te.libelle) = 'professeur'
+             ORDER BY t3.date_traitement DESC
+             LIMIT 1
+            ) AS derniere_action_role
         FROM demandes d
         LEFT JOIN types_demande td ON d.id_type_demande = td.id_type_demande
         LEFT JOIN statuts s ON d.id_statut = s.id_statut

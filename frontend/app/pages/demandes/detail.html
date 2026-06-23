@@ -267,7 +267,7 @@
 
       sidebar.innerHTML = `
         <li onclick="location.href='${dashboardUrl}'">🏠 Tableau de bord</li>
-        <li class="active">📋 Mes demandes</li>
+        <li class="active" onclick="location.href='${dashboardUrl}'">📋 Mes demandes</li>
         ${isStudent ? '<li onclick="location.href=\'nouvelle.html\'">➕ Nouvelle demande</li>' : ''}
       `;
 

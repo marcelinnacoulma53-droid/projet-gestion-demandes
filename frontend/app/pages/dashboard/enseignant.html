@@ -20,7 +20,10 @@
     <aside class="sidebar">
       <ul>
         <li class="active">🏠 Tableau de bord</li>
-        <li onclick="location.href='#reclamations'">📋 Réclamations reçues</li>
+        <li onclick="filterDemandes('all')">📋 Toutes les demandes</li>
+        <li onclick="filterDemandes('en_attente')">🟡 En attente</li>
+        <li onclick="filterDemandes('traitee')">🟢 Traitées</li>
+        <li onclick="filterDemandes('rejetee')">🔴 Rejetées</li>
       </ul>
     </aside>
 
@@ -40,17 +43,16 @@
           <h3>Traitées</h3>
           <p class="stat-number" id="stat-traitees">0</p>
         </div>
+        <div class="stat-card red">
+          <h3>Rejetées</h3>
+          <p class="stat-number" id="stat-rejetees">0</p>
+        </div>
       </div>
 
       <!-- TABLEAU RÉCLAMATIONS -->
       <section class="section-card" id="reclamations">
         <h2>📋 Réclamations reçues</h2>
-        <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
-          <button class="btn-filter active-filter" onclick="filtrer('all',this)">📋 Toutes</button>
-          <button class="btn-filter" onclick="filtrer('en_attente',this)">🟡 En attente</button>
-          <button class="btn-filter" onclick="filtrer('transmise',this)">🔵 Transmises</button>
-          <button class="btn-filter" onclick="filtrer('traitee',this)">🟢 Traitées</button>
-        </div>
+
         <table class="demandes-table" id="reclamTable">
           <thead>
             <tr>
@@ -135,6 +137,13 @@
     let demandesData = [];
     let currentDemandeId = null;
 
+    function getCategorie(d) {
+      if (d.derniere_action_role === 'rejete') return 'rejetee';
+      const s = d.statut || '';
+      if (s !== 'acceptee' && s !== 'terminee' && s !== 'rejetee' && d.etape_courante === 'professeur') return 'en_attente';
+      return 'traitee';
+    }
+
     function afficherNotif(icone, message, type) {
       const el = document.getElementById('notification-bar');
       if (!el) return;
@@ -171,12 +180,14 @@
 
     function updateStats(demandes) {
       const total = demandes.length;
-      const attente = demandes.filter(d => d.etape_courante === 'professeur').length;
-      const traitees = total - attente;
+      const attente = demandes.filter(d => getCategorie(d) === 'en_attente').length;
+      const traitees = demandes.filter(d => getCategorie(d) === 'traitee').length;
+      const rejetees = demandes.filter(d => getCategorie(d) === 'rejetee').length;
 
       document.getElementById('stat-total').textContent = total;
       document.getElementById('stat-attente').textContent = attente;
       document.getElementById('stat-traitees').textContent = traitees;
+      document.getElementById('stat-rejetees').textContent = rejetees;
     }
 
     function renderTable(demandes) {
@@ -188,19 +199,22 @@
       }
 
       tbody.innerHTML = demandes.map((d, i) => {
+        const categorie = getCategorie(d);
         const statut = d.statut || 'soumise';
         const s = statut.toLowerCase();
         const etape = d.etape_courante || '';
-        const isFinalisee = s === 'acceptee' || s === 'terminee' || s === 'rejetee';
-        const isTransmise = etape === 'da_final' || etape === 'scolarite';
+        const isAtProf = etape === 'professeur';
 
         let badgeClass, badgeText;
-        if (isFinalisee) {
+        if (categorie === 'traitee') {
           badgeClass = 'green';
           badgeText = '🟢 Traitée';
-        } else if (isTransmise) {
+        } else if (categorie === 'rejetee') {
+          badgeClass = 'red';
+          badgeText = '🔴 Rejetée';
+        } else if (!isAtProf) {
           badgeClass = 'blue';
-          badgeText = '🔵 Transmise au DA';
+          badgeText = '🔵 Transmise';
         } else {
           badgeClass = 'yellow';
           badgeText = '🟡 En attente';
@@ -209,13 +223,12 @@
         const date = d.date_creation ? new Date(d.date_creation).toLocaleDateString('fr-FR') : 'N/A';
         const etudiant = ((d.prenom_etudiant || '') + ' ' + (d.nom_etudiant || '')).trim() || 'N/A';
         const matiere = d.matiere || '—';
-        const statutClean = isFinalisee ? 'traitee' : isTransmise ? 'transmise' : 'en_attente';
 
-        const actionBtn = isFinalisee || isTransmise
+        const actionBtn = categorie !== 'en_attente'
           ? `<button class="btn-voir" onclick="window.location.href='../demandes/detail.html?id=${d.id_demande}'">👁 Voir</button>`
           : `<button class="btn-voir" onclick="ouvrirCorrection(${d.id_demande}, '${etudiant.replace(/'/g, "\\'")}', '${matiere.replace(/'/g, "\\'")}')">✏️ Traiter</button>`;
 
-        return `<tr data-statut="${statutClean}">
+        return `<tr data-statut="${categorie}">
           <td data-label="N°">${d.reference || '#' + d.id_demande}</td>
           <td data-label="Étudiant">${etudiant}</td>
           <td data-label="Matière">${matiere}</td>
@@ -224,24 +237,14 @@
           <td data-label="Action">${actionBtn}</td>
         </tr>`;
       }).join('');
+      filterDemandes('en_attente');
     }
 
-    function filtrer(groupe, btn) {
-      document.querySelectorAll('.btn-filter').forEach(b => b.classList.remove('active-filter'));
-      if (btn) btn.classList.add('active-filter');
-
-      const filtered = groupe === 'all'
-        ? demandesData
-        : demandesData.filter(d => {
-            const s = d.statut ? d.statut.toLowerCase() : '';
-            const etape = d.etape_courante || '';
-            if (groupe === 'en_attente') return etape === 'professeur';
-            if (groupe === 'transmise') return etape === 'da_final' || etape === 'scolarite';
-            if (groupe === 'traitee') return etape !== 'professeur' || s === 'acceptee' || s === 'terminee' || s === 'rejetee';
-            return true;
-          });
-
-      renderTable(filtered);
+    function filterDemandes(groupe) {
+      const rows = document.querySelectorAll('#reclam-tbody tr');
+      rows.forEach(row => {
+        row.style.display = (groupe === 'all' || row.dataset.statut === groupe) ? '' : 'none';
+      });
     }
 
     let currentRow = null;
