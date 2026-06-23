@@ -421,13 +421,17 @@
 
     async function confirmerTransmettre() {
       const commentaire = document.getElementById('transmettre-commentaire').value;
+      const correspondant = Array.from(document.querySelectorAll('#section-correspondant input[type="checkbox"]:checked'))
+        .map(cb => cb.value).join(', ');
       document.getElementById('modalTransmettre').style.display = 'none';
       try {
         const token = getAuthToken();
+        const body = { commentaire };
+        if (correspondant) body.correspondant = correspondant;
         const response = await fetch(API_BASE + '/workflow/' + idEnCours + '/valider', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
-          body: JSON.stringify({ commentaire })
+          body: JSON.stringify(body)
         });
         const data = await response.json();
         if (!data.success) {
@@ -854,16 +858,23 @@
             s.style.display = estReclamation ? '' : 'none';
           }
           if (lb && lb.textContent.includes('Correspondant')) {
-            s.style.display = (typeD === 'reclamation' || typeD === 'duplicata') ? '' : 'none';
+            s.style.display = '';
           }
           if (lb && lb.textContent.includes('Détails de la réclamation')) {
             s.style.display = estReclamation ? '' : 'none';
           }
         });
 
+        // Activer les checkboxes correspondant pour le SP
+        const roleUser = resolveCurrentRole();
+        if (roleUser === 'sp' && ['attestation', 'derogation'].includes(demande.type_demande)) {
+          document.querySelectorAll('#section-correspondant input[type="checkbox"]').forEach(cb => {
+            cb.disabled = false;
+          });
+        }
+
         // Cacher les actions staff si étudiant ou demande terminée
         const actionsStaff = document.getElementById('actions-staff');
-        const roleUser = resolveCurrentRole();
         const nonTraitable = ['rejetee', 'terminee', 'acceptee'].includes(demande.statut);
         if (actionsStaff && (roleUser === 'etudiant' || nonTraitable)) {
           actionsStaff.style.display = 'none';

@@ -12,7 +12,7 @@ const workflowService = {
     /**
      * Avancer une demande à l'étape suivante
      */
-    avancerDemande: async (id_demande, id_utilisateur, commentaire) => {
+    avancerDemande: async (id_demande, id_utilisateur, commentaire, correspondant) => {
         try {
             // 1. Récupérer la demande
             const demande = await demandeRepo.findById(id_demande);
@@ -68,12 +68,17 @@ const workflowService = {
                 nouvelle_etape: nextStep
             });
             
-            // 5. Notifier le prochain acteur
+            // 5. Sauvegarder le correspondant si fourni (SP sur attestation/derogation)
+            if (correspondant) {
+                await demandeRepo.update(id_demande, { correspondant });
+            }
+
+            // 6. Notifier le prochain acteur
             await notificationService.notifierRole(nextStep, 
                 `Nouvelle demande ${demande.reference} à traiter`, 
                 id_demande);
 
-            // 6. Notifier l'étudiant de l'avancement
+            // 7. Notifier l'étudiant de l'avancement
             await notificationService.notifierUtilisateur(
                 demande.id_etudiant,
                 `Votre demande ${demande.reference} a avancé à l'étape suivante du traitement.`,

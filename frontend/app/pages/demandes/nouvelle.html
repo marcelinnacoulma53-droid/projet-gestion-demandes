@@ -261,6 +261,25 @@
             <input type="file" id="der-copieFile" accept=".pdf,.jpg,.png" style="display:none"
               onchange="document.getElementById('der-fileName').textContent = this.files[0]?.name || ''"/>
           </div>
+          <div class="fiche-section">
+            <label class="section-label">📎 Pièces justificatives jointes</label>
+            <div class="checkbox-group flex-wrap" id="der-pieces-justificatives">
+              <label><input type="checkbox" value="Relevés de notes"/> Relevés de notes</label>
+              <label><input type="checkbox" value="Copies"/> Copies</label>
+              <label><input type="checkbox" value="Attestation d'inscription"/> Attestation d'inscription</label>
+              <label><input type="checkbox" value="Autres"/> Autres</label>
+            </div>
+          </div>
+          <div class="fiche-section">
+            <label class="section-label">Correspondant</label>
+            <div class="checkbox-group flex-wrap" id="der-correspondant">
+              <label><input type="checkbox" value="Directeur" disabled/> Directeur</label>
+              <label><input type="checkbox" value="Directrice adjointe" disabled/> Directrice adjointe</label>
+              <label><input type="checkbox" value="Coordonnateur" disabled/> Coordonnateur</label>
+              <label><input type="checkbox" value="Chef de service Scolarité" disabled/> Chef de service Scolarité</label>
+            </div>
+            <p style="font-size:11px; color:#888; margin-top:4px;">Sélectionné par l'administration lors du traitement</p>
+          </div>
           <div class="form-actions">
             <button class="btn-retour" onclick="retour()">← Retour</button>
             <button class="btn-envoyer" onclick="envoyer()">Envoyer la demande</button>
@@ -425,6 +444,25 @@
             </div>
             <input type="file" id="attestation-file" accept=".pdf" style="display:none"
               onchange="document.getElementById('attestation-file-name').textContent = this.files[0]?.name || ''"/>
+          </div>
+          <div class="fiche-section">
+            <label class="section-label">📎 Pièces justificatives jointes</label>
+            <div class="checkbox-group flex-wrap" id="att-pieces-justificatives">
+              <label><input type="checkbox" value="Relevés de notes"/> Relevés de notes</label>
+              <label><input type="checkbox" value="Copies"/> Copies</label>
+              <label><input type="checkbox" value="Attestation d'inscription"/> Attestation d'inscription</label>
+              <label><input type="checkbox" value="Autres"/> Autres</label>
+            </div>
+          </div>
+          <div class="fiche-section">
+            <label class="section-label">Correspondant</label>
+            <div class="checkbox-group flex-wrap" id="att-correspondant">
+              <label><input type="checkbox" value="Directeur" disabled/> Directeur</label>
+              <label><input type="checkbox" value="Directrice adjointe" disabled/> Directrice adjointe</label>
+              <label><input type="checkbox" value="Coordonnateur" disabled/> Coordonnateur</label>
+              <label><input type="checkbox" value="Chef de service Scolarité" disabled/> Chef de service Scolarité</label>
+            </div>
+            <p style="font-size:11px; color:#888; margin-top:4px;">Sélectionné par l'administration lors du traitement</p>
           </div>
           <div class="form-actions">
             <button class="btn-retour" onclick="retour()">← Retour</button>
@@ -676,16 +714,19 @@
         const anneeDerog = document.getElementById('der-annee-univ')?.value || '';
         const semestreDerog = document.getElementById('der-semestre')?.value || '';
         const sessionDerog = document.getElementById('der-session')?.value || '';
-        body = { ...body, objet, description: motif, motif, annee_universitaire: anneeDerog, id_semestre: semestreDerog, session: sessionDerog };
+        pieces_justificatives = collectCheckedValues('der-pieces-justificatives').join(', ');
+        body = { ...body, objet, description: motif, motif, annee_universitaire: anneeDerog, id_semestre: semestreDerog, session: sessionDerog, pieces_justificatives };
       } else if (typeActif === 'form-attestation') {
         const typeAttestation = document.getElementById('att-type')?.value || '';
         const nombre_exemplaires = parseInt(document.querySelector('input[name="exemplaires"]:checked')?.value || '1');
+        pieces_justificatives = collectCheckedValues('att-pieces-justificatives').join(', ');
         body = {
           ...body,
           objet: typeAttestation || 'Attestation',
           description: typeAttestation,
           id_type_attestation: typeAttestation,
-          nombre_exemplaires
+          nombre_exemplaires,
+          pieces_justificatives
         };
       }
 

@@ -16,7 +16,7 @@ const validerDemande = async (req, res, next) => {
     const demandeId = req.params.id;
     const userId = req.user.userId;
     const role = req.user.role;
-    const { commentaire } = req.body;
+    const { commentaire, correspondant } = req.body;
 
     try {
         const peutValider = await permissionService.peutValider(demandeId, userId, role);
@@ -26,7 +26,7 @@ const validerDemande = async (req, res, next) => {
             });
         }
 
-         const resultat = await workflowService.avancerDemande(demandeId, userId, commentaire);
+         const resultat = await workflowService.avancerDemande(demandeId, userId, commentaire, correspondant);
          res.json({
              success: true,
              message: 'Demande validée avec succès',
