@@ -45,9 +45,9 @@
       </div>
 
       <section class="section-card">
-        <h2>📋 Demandes Attestation & Duplicata</h2>
+        <h2>📋 Demandes Dérogation & Duplicata</h2>
         <p style="font-size:13px; color:#888; margin-bottom:16px;">
-          Le SP examine les demandes d'attestation et de duplicata transmises par la secrétaire.
+          Le SP examine les demandes de dérogation et de duplicata transmises par la secrétaire.
         </p>
         <table class="demandes-table" id="demandesTable">
           <thead>
@@ -193,7 +193,7 @@
           headers: { 'Authorization': 'Bearer ' + token }
         });
         const data = await response.json();
-        const demandes = (data.demandes || []).filter(d => d.statut !== 'brouillon' && d.etape_courante === 'sp');
+        const demandes = (data.demandes || []).filter(d => d.statut !== 'brouillon');
         demandesData = demandes;
         renderTable(demandes);
         updateStats(demandes);
@@ -205,8 +205,14 @@
 
     function updateStats(demandes) {
       const total = demandes.length;
-      const attente = demandes.filter(d => d.statut === 'en cours de traitement' || d.statut === 'soumise').length;
-      const transmises = demandes.filter(d => d.statut === 'acceptee' || d.statut === 'terminee').length;
+      const attente = demandes.filter(d => {
+        const s = d.statut || '';
+        return s !== 'acceptee' && s !== 'terminee' && s !== 'rejetee' && d.etape_courante === 'sp';
+      }).length;
+      const transmises = demandes.filter(d => {
+        const s = d.statut || '';
+        return s !== 'rejetee' && d.etape_courante !== 'sp';
+      }).length;
       document.querySelector('.stat-card:nth-child(1) .stat-number').textContent = total;
       document.querySelector('.stat-card.yellow .stat-number').textContent = attente;
       document.querySelector('.stat-card.green .stat-number').textContent = transmises;
@@ -221,19 +227,21 @@
       tbody.innerHTML = demandes.map(d => {
         const s = (d.statut || '').toLowerCase();
         const isFinalisee = s === 'acceptee' || s === 'terminee' || s === 'rejetee';
+        const isAtSP = d.etape_courante === 'sp';
         const date = d.date_creation ? new Date(d.date_creation).toLocaleDateString('fr-FR') : 'N/A';
         const etudiant = ((d.prenom_etudiant || '') + ' ' + (d.nom_etudiant || '')).trim() || 'N/A';
         const type = d.type_demande || 'N/A';
-        const statutClean = isFinalisee ? 'validee' : 'en_attente';
+        const statutClean = s === 'rejetee' ? 'rejetee' : !isAtSP ? 'validee' : 'en_attente';
+        const badgeClass = s === 'acceptee' || s === 'terminee' ? 'green' : s === 'rejetee' ? 'red' : 'yellow';
         return `<tr data-statut="${statutClean}" data-id="${d.id_demande}">
           <td data-label="N°">${d.reference || d.id_demande}</td>
           <td data-label="Étudiant">${etudiant}</td>
           <td data-label="Type">${type}</td>
           <td data-label="Date">${date}</td>
-          <td data-label="Statut"><span class="badge ${isFinalisee ? 'green' : 'yellow'}">${d.statut}</span></td>
+          <td data-label="Statut"><span class="badge ${badgeClass}">${d.statut}</span></td>
           <td data-label="Actions" class="actions-cell">
             <button class="btn-voir" onclick="voirDetailSP(${d.id_demande})">👁 Voir</button>
-            ${!isFinalisee ? `
+            ${!isFinalisee && isAtSP ? `
               <button class="btn-valider" onclick="ouvrirTransmettre(${d.id_demande})">→ Transmettre</button>
               <button class="btn-rejeter" onclick="ouvrirRejeter(${d.id_demande})">✗ Rejeter</button>
               <button class="btn-complement" onclick="ouvrirComplement(${d.id_demande})">📝 Complément</button>

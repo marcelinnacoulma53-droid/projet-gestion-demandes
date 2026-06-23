@@ -370,9 +370,15 @@ async function findByRoleAndEtape(role) {
         params.push(filters.etapes);
     }
 
-    // Demandes actives à cette étape + toutes les demandes finalisées (historique)
-    const whereClause = `(${etapeCondition} AND LOWER(s.libelle) NOT IN ('acceptee', 'terminee', 'rejetee'))
-        OR LOWER(s.libelle) IN ('acceptee', 'terminee', 'rejetee')`;
+    // Demandes actuellement à mon étape + demandes que j'ai déjà traitées (via traitements)
+    const whereClause = `${etapeCondition}
+        OR EXISTS (
+            SELECT 1 FROM traitements t2
+            JOIN etapes_workflow te ON t2.ancienne_etape = te.id_etape
+            WHERE t2.id_demande = d.id_demande
+            AND LOWER(te.libelle) = ANY($${params.length + 1})
+        )`;
+    params.push(filters.etapes);
 
     let finalWhere = whereClause;
     if (filters.types && filters.types.length > 0) {

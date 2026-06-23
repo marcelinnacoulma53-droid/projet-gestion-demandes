@@ -302,7 +302,7 @@
         const date = d.date_creation ? new Date(d.date_creation).toLocaleDateString('fr-FR') : '';
         return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #e0e0e0">
           <div style="flex:1;font-size:13px">
-            <strong>${d.nom_etudiant || 'Étudiant'}</strong>
+            <strong>${((d.prenom_etudiant || '') + ' ' + (d.nom_etudiant || '')).trim() || 'Étudiant'}</strong>
             <span style="color:#888;margin-left:6px">· ${d.type_demande || d.objet || ''}</span>
           </div>
           <span style="font-size:11px;color:#888">${date}</span>
@@ -386,7 +386,7 @@
         const date = d.date_creation ? new Date(d.date_creation).toLocaleDateString('fr-FR') : 'N/A';
         return `<tr data-statut="${s}" data-id="${d.id_demande}">
           <td data-label="N°">${d.reference || d.id_demande}</td>
-          <td data-label="Étudiant">${d.nom_etudiant || 'N/A'}</td>
+          <td data-label="Étudiant">${((d.prenom_etudiant || '') + ' ' + (d.nom_etudiant || '')).trim() || 'N/A'}</td>
           <td data-label="Type">${d.type_demande || d.objet || 'N/A'}</td>
           <td data-label="Date">${date}</td>
           <td data-label="Statut"><span class="badge ${badgeClass}">${d.statut}</span></td>
@@ -406,7 +406,7 @@
         });
         const data = await response.json();
         demande = data.demande || data;
-        document.getElementById('d-etudiant').textContent = demande.nom_etudiant || 'N/A';
+        document.getElementById('d-etudiant').textContent = ((demande.prenom_etudiant || '') + ' ' + (demande.nom_etudiant || '')).trim() || 'N/A';
         document.getElementById('d-type').textContent = demande.type_demande || demande.objet || 'N/A';
         document.getElementById('d-date').textContent = demande.date_creation ? new Date(demande.date_creation).toLocaleDateString('fr-FR') : 'N/A';
         document.getElementById('d-statut').textContent = demande.statut || 'N/A';
@@ -415,7 +415,7 @@
       }
       // Passer les données dans l'URL (fonctionne même si l'API a échoué)
       const params = new URLSearchParams({ id: String(id) });
-      if (demande.nom_etudiant) params.set('etu', demande.nom_etudiant);
+      if (demande.nom_etudiant) params.set('etu', ((demande.prenom_etudiant || '') + ' ' + (demande.nom_etudiant || '')).trim());
       if (demande.type_demande || demande.objet) params.set('type', demande.type_demande || demande.objet);
       if (demande.date_creation) params.set('date', new Date(demande.date_creation).toLocaleDateString('fr-FR'));
       if (demande.statut) params.set('statut', demande.statut);

@@ -262,6 +262,12 @@
       return (ETAPE_ROLE_MAP[etape] || []).includes(role);
     }
 
+    function getEtapesForRole(role) {
+      return Object.entries(ETAPE_ROLE_MAP)
+        .filter(([, roles]) => roles.includes(role))
+        .map(([etape]) => etape);
+    }
+
     async function chargerDemandesStaff() {
       const token = getAuthToken();
       if (!token) return;
@@ -272,10 +278,19 @@
         const data = await response.json();
         const demandes = (data.demandes || []).filter(d => d.statut !== 'brouillon');
 
+        const roleUser = resolveCurrentRole();
+        const mesEtapes = getEtapesForRole(roleUser);
+
         document.querySelector('.stat-card:nth-child(1) .stat-number').textContent = demandes.length;
-        const enAttente = demandes.filter(d => d.statut === 'soumise' || d.statut === 'en cours de traitement').length;
-        const validees = demandes.filter(d => d.statut === 'acceptee' || d.statut === 'terminee').length;
-        const rejetees = demandes.filter(d => d.statut === 'rejetee').length;
+        const enAttente = demandes.filter(d => {
+          const s = d.statut || '';
+          return s !== 'acceptee' && s !== 'terminee' && s !== 'rejetee' && mesEtapes.includes(d.etape_courante);
+        }).length;
+        const validees = demandes.filter(d => {
+          const s = d.statut || '';
+          return (s === 'acceptee' || s === 'terminee') || (s !== 'rejetee' && !mesEtapes.includes(d.etape_courante));
+        }).length;
+        const rejetees = demandes.filter(d => (d.statut || '') === 'rejetee').length;
         document.querySelector('.stat-card.yellow .stat-number').textContent = enAttente;
         document.querySelector('.stat-card.green .stat-number').textContent = validees;
         document.querySelector('.stat-card.red .stat-number').textContent = rejetees;
@@ -284,7 +299,6 @@
         if (demandes.length === 0) {
           tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:#888; padding:20px;">Aucune demande pour le moment</td></tr>';
         } else {
-          const roleUser = resolveCurrentRole();
           tbody.innerHTML = demandes.map((d) => {
             const statut = d.statut || 'soumise';
             const s = statut.toLowerCase();
@@ -294,7 +308,7 @@
             const peutTraiter = statut !== 'rejetee' && statut !== 'terminee' && statut !== 'cloturee' && (!etape || etapeAutoriseRole(etape, roleUser));
             return `<tr data-statut="${statut}" data-id="${d.id_demande}">
               <td data-label="N°">${d.reference || d.id_demande}</td>
-              <td data-label="Étudiant">${d.nom_etudiant || 'Étudiant'}</td>
+              <td data-label="Étudiant">${((d.prenom_etudiant || '') + ' ' + (d.nom_etudiant || '')).trim() || 'Étudiant'}</td>
               <td data-label="Type">${d.objet || 'N/A'}</td>
               <td data-label="Date">${date}</td>
               <td data-label="Statut"><span class="badge ${badgeClass}">${statut}</span></td>
