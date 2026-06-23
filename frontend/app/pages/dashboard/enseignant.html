@@ -171,13 +171,8 @@
 
     function updateStats(demandes) {
       const total = demandes.length;
-      const attente = demandes.filter(d =>
-        d.etape_courante === 'professeur' || d.etape_courante === 'secretaire' || d.etape_courante === 'da'
-      ).length;
-      const traitees = demandes.filter(d =>
-        d.etape_courante === 'da_final' || d.etape_courante === 'scolarite' ||
-        (d.statut && ['acceptee', 'terminee', 'rejetee'].includes(d.statut.toLowerCase()))
-      ).length;
+      const attente = demandes.filter(d => d.etape_courante === 'professeur').length;
+      const traitees = total - attente;
 
       document.getElementById('stat-total').textContent = total;
       document.getElementById('stat-attente').textContent = attente;
@@ -217,7 +212,7 @@
         const statutClean = isFinalisee ? 'traitee' : isTransmise ? 'transmise' : 'en_attente';
 
         const actionBtn = isFinalisee || isTransmise
-          ? `<button class="btn-voir" onclick="afficherNotif('👁', 'Déjà traitée.', 'info')">👁 Voir</button>`
+          ? `<button class="btn-voir" onclick="window.location.href='../demandes/detail.html?id=${d.id_demande}'">👁 Voir</button>`
           : `<button class="btn-voir" onclick="ouvrirCorrection(${d.id_demande}, '${etudiant.replace(/'/g, "\\'")}', '${matiere.replace(/'/g, "\\'")}')">✏️ Traiter</button>`;
 
         return `<tr data-statut="${statutClean}">
@@ -240,9 +235,9 @@
         : demandesData.filter(d => {
             const s = d.statut ? d.statut.toLowerCase() : '';
             const etape = d.etape_courante || '';
-            if (groupe === 'en_attente') return etape === 'professeur' || etape === 'secretaire' || etape === 'da';
+            if (groupe === 'en_attente') return etape === 'professeur';
             if (groupe === 'transmise') return etape === 'da_final' || etape === 'scolarite';
-            if (groupe === 'traitee') return etape === 'da_final' || etape === 'scolarite' || s === 'acceptee' || s === 'terminee' || s === 'rejetee';
+            if (groupe === 'traitee') return etape !== 'professeur' || s === 'acceptee' || s === 'terminee' || s === 'rejetee';
             return true;
           });
 

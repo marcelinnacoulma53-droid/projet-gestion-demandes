@@ -268,6 +268,13 @@
         .map(([etape]) => etape);
     }
 
+    function getCategorie(d, mesEtapes) {
+      if (d.derniere_action_role === 'rejete') return 'rejetee';
+      const s = d.statut || '';
+      if (s !== 'acceptee' && s !== 'terminee' && s !== 'rejetee' && mesEtapes.includes(d.etape_courante)) return 'en_attente';
+      return 'validee';
+    }
+
     async function chargerDemandesStaff() {
       const token = getAuthToken();
       if (!token) return;
@@ -281,16 +288,10 @@
         const roleUser = resolveCurrentRole();
         const mesEtapes = getEtapesForRole(roleUser);
 
+        const enAttente = demandes.filter(d => getCategorie(d, mesEtapes) === 'en_attente').length;
+        const validees = demandes.filter(d => getCategorie(d, mesEtapes) === 'validee').length;
+        const rejetees = demandes.filter(d => getCategorie(d, mesEtapes) === 'rejetee').length;
         document.querySelector('.stat-card:nth-child(1) .stat-number').textContent = demandes.length;
-        const enAttente = demandes.filter(d => {
-          const s = d.statut || '';
-          return s !== 'acceptee' && s !== 'terminee' && s !== 'rejetee' && mesEtapes.includes(d.etape_courante);
-        }).length;
-        const validees = demandes.filter(d => {
-          const s = d.statut || '';
-          return (s === 'acceptee' || s === 'terminee') || (s !== 'rejetee' && !mesEtapes.includes(d.etape_courante));
-        }).length;
-        const rejetees = demandes.filter(d => (d.statut || '') === 'rejetee').length;
         document.querySelector('.stat-card.yellow .stat-number').textContent = enAttente;
         document.querySelector('.stat-card.green .stat-number').textContent = validees;
         document.querySelector('.stat-card.red .stat-number').textContent = rejetees;
@@ -300,13 +301,14 @@
           tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:#888; padding:20px;">Aucune demande pour le moment</td></tr>';
         } else {
           tbody.innerHTML = demandes.map((d) => {
+            const categorie = getCategorie(d, mesEtapes);
             const statut = d.statut || 'soumise';
             const s = statut.toLowerCase();
             const badgeClass = s === 'acceptee' || s === 'terminee' ? 'green' : s === 'rejetee' ? 'red' : 'yellow';
             const date = d.date_creation ? new Date(d.date_creation).toLocaleDateString('fr-FR') : 'N/A';
             const etape = d.etape_courante || '';
             const peutTraiter = statut !== 'rejetee' && statut !== 'terminee' && statut !== 'cloturee' && (!etape || etapeAutoriseRole(etape, roleUser));
-            return `<tr data-statut="${statut}" data-id="${d.id_demande}">
+            return `<tr data-statut="${categorie}" data-id="${d.id_demande}">
               <td data-label="N°">${d.reference || d.id_demande}</td>
               <td data-label="Étudiant">${((d.prenom_etudiant || '') + ' ' + (d.nom_etudiant || '')).trim() || 'Étudiant'}</td>
               <td data-label="Type">${d.objet || 'N/A'}</td>
@@ -415,14 +417,7 @@
     function filterDemandes(groupe) {
       const rows = document.querySelectorAll('#demandesTable tbody tr');
       rows.forEach(row => {
-        if (groupe === 'all') { row.style.display = ''; return; }
-        const s = (row.dataset.statut || '').toLowerCase();
-        let visible = false;
-        if (groupe === 'en_attente') visible = (s === 'soumise' || s === 'en cours de traitement');
-        else if (groupe === 'validee') visible = (s === 'acceptee' || s === 'terminee');
-        else if (groupe === 'rejetee') visible = (s === 'rejetee');
-        else visible = (s === groupe);
-        row.style.display = visible ? '' : 'none';
+        row.style.display = (groupe === 'all' || row.dataset.statut === groupe) ? '' : 'none';
       });
     }
 

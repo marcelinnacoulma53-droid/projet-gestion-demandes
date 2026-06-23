@@ -391,7 +391,15 @@ async function findByRoleAndEtape(role) {
             d.id_demande, d.reference, d.objet, d.description, d.date_creation, d.date_soumission,
             d.id_etudiant, LOWER(s.libelle) AS statut, LOWER(td.libelle) AS type_demande,
             LOWER(ew.libelle) AS etape_courante,
-            u.nom AS nom_etudiant, u.prenom AS prenom_etudiant
+            u.nom AS nom_etudiant, u.prenom AS prenom_etudiant,
+            (SELECT LOWER(dc.libelle) FROM traitements t3
+             JOIN decisions dc ON t3.id_decision = dc.id_decision
+             JOIN etapes_workflow te ON t3.ancienne_etape = te.id_etape
+             WHERE t3.id_demande = d.id_demande
+             AND LOWER(te.libelle) = ANY($1)
+             ORDER BY t3.date_traitement DESC
+             LIMIT 1
+            ) AS derniere_action_role
         FROM demandes d
         LEFT JOIN statuts s ON d.id_statut = s.id_statut
         LEFT JOIN types_demande td ON d.id_type_demande = td.id_type_demande
