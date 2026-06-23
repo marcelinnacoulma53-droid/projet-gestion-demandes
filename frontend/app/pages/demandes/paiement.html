@@ -245,6 +245,7 @@
         const semestre = urlP.get('semestre') || '';
         const sessionDuplicata = urlP.get('session') || '';
         const pieces_justificatives = urlP.get('pieces_justificatives') || '';
+        const correspondant = urlP.get('correspondant') || '';
 
         const token = getAuthToken();
         const response = await fetch(API_BASE + '/demandes', {
@@ -263,7 +264,8 @@
             annee_universitaire: anneeUniversitaire,
             id_semestre: semestre,
             session: sessionDuplicata,
-            pieces_justificatives
+            pieces_justificatives,
+            correspondant
           })
         });
 

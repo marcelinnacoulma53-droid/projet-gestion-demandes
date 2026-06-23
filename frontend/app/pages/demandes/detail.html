@@ -50,10 +50,10 @@
         <div class="fiche-section">
           <label class="section-label">📎 Pièces justificatives jointes</label>
           <div class="checkbox-group flex-wrap">
-            <label style="color:#aaa;"><input type="checkbox" disabled/> Relevés de notes</label>
-            <label style="color:#aaa;"><input type="checkbox" disabled/> Copies</label>
-            <label style="color:#aaa;"><input type="checkbox" disabled/> Attestation d'inscription</label>
-            <label style="color:#aaa;"><input type="checkbox" disabled/> Autres</label>
+            <label style="color:#aaa;"><input type="checkbox" value="Relevés de notes" disabled/> Relevés de notes</label>
+            <label style="color:#aaa;"><input type="checkbox" value="Copies" disabled/> Copies</label>
+            <label style="color:#aaa;"><input type="checkbox" value="Attestation d'inscription" disabled/> Attestation d'inscription</label>
+            <label style="color:#aaa;"><input type="checkbox" value="Autres" disabled/> Autres</label>
           </div>
         </div>
 
@@ -541,6 +541,21 @@
       }
     }
 
+    async function telechargerDocument(documentId) {
+      try {
+        const token = getAuthToken();
+        const response = await fetch(API_BASE + '/documents/' + documentId, {
+          headers: { 'Authorization': 'Bearer ' + token }
+        });
+        if (!response.ok) { alert('Téléchargement impossible'); return; }
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        window.open(url, '_blank');
+      } catch (e) {
+        console.error('Erreur téléchargement:', e);
+      }
+    }
+
     // ============================================
     // HISTORIQUE DES TRAITEMENTS
     // ============================================
@@ -781,7 +796,7 @@
                 <label class="section-label">📄 Copie jointe</label>
                 <div style="display:flex; flex-direction:column; gap:8px;">
                   ${docData.documents.map(d =>
-                    `<a href="${API_BASE}/documents/${d.id_document}" target="_blank" style="color:#1a237e; font-weight:500;">
+                    `<a href="#" onclick="event.preventDefault(); telechargerDocument(${d.id_document})" style="color:#1a237e; font-weight:500;">
                       📎 ${d.nom_original}
                     </a>`
                   ).join('')}

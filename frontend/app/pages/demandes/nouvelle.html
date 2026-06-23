@@ -463,6 +463,7 @@
       const semestreDuplicata = document.getElementById('dup-semestre')?.value || '';
       const sessionDuplicata = document.getElementById('dup-session')?.value || '';
       const pieces_justificatives = collectCheckedValues('dup-pieces-justificatives').join(', ');
+      const correspondant = collectCheckedValues('dup-correspondant').join(', ');
 
       const params = new URLSearchParams({
         montant: 10000,
@@ -474,6 +475,7 @@
         session: sessionDuplicata
       });
       if (pieces_justificatives) params.set('pieces_justificatives', pieces_justificatives);
+      if (correspondant) params.set('correspondant', correspondant);
 
       window.location.href = 'paiement.html?' + params.toString();
     }
@@ -703,8 +705,9 @@
         if (data.success) {
           const demandeId = data.demande?.id_demande;
 
-          // Uploader le fichier si présent
-          const fileInput = document.getElementById('copieFile') || document.getElementById('der-copieFile') || document.getElementById('attestation-file');
+          // Uploader le fichier si présent (depuis le formulaire actif uniquement)
+          const fileInputId = { 'form-reclamation': 'copieFile', 'form-derogation': 'der-copieFile', 'form-attestation': 'attestation-file' }[typeActif];
+          const fileInput = fileInputId ? document.getElementById(fileInputId) : null;
           if (fileInput && fileInput.files && fileInput.files[0] && demandeId) {
             const formData = new FormData();
             formData.append('fichier', fileInput.files[0]);
