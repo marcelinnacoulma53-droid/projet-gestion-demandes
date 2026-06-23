@@ -15,7 +15,8 @@ async function create(demandeData) {
         id_statut,
         id_etape_courante,
         annee_universitaire,
-        correspondant
+        correspondant,
+        pieces_justificatives
     } = demandeData;
 
 
@@ -31,9 +32,10 @@ async function create(demandeData) {
             id_statut,
             id_etape_courante,
             annee_universitaire,
-            correspondant
+            correspondant,
+            pieces_justificatives
         )
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
         RETURNING
             id_demande,
             reference,
@@ -41,7 +43,8 @@ async function create(demandeData) {
             description,
             date_creation,
             annee_universitaire,
-            correspondant
+            correspondant,
+            pieces_justificatives
         `,
         [
             reference,
@@ -52,7 +55,8 @@ async function create(demandeData) {
             id_statut,
             id_etape_courante,
             annee_universitaire || null,
-            correspondant || null
+            correspondant || null,
+            pieces_justificatives || ''
         ]
     );
 
@@ -110,6 +114,7 @@ async function findById(id_demande) {
             d.date_soumission,
             d.annee_universitaire,
             d.correspondant,
+            d.pieces_justificatives,
             LOWER(s.libelle) AS statut,
             LOWER(td.libelle) AS type_demande,
             LOWER(ew.libelle) AS etape_courante,

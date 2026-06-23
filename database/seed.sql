@@ -166,3 +166,6 @@ VALUES
 ('Rectification de la date de naissance'),
 ('Insertion du nom sur le PV')
 ON CONFLICT (libelle) DO NOTHING;
+
+-- Ajout colonne pieces_justificatives (idempotent)
+ALTER TABLE demandes ADD COLUMN IF NOT EXISTS pieces_justificatives TEXT DEFAULT '';

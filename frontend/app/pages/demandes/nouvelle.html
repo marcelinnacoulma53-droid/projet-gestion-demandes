@@ -130,11 +130,11 @@
               </div>
               <div style="flex:1;">
                 <label class="section-label">Pièces justificatives jointes</label>
-                <div class="checkbox-group flex-wrap">
-                  <label><input type="checkbox"/> Relevés de notes</label>
-                  <label><input type="checkbox"/> Attestation d'inscription</label>
-                  <label><input type="checkbox"/> Copies</label>
-                  <label><input type="checkbox"/> Autres</label>
+                <div class="checkbox-group flex-wrap" id="rec-pieces-justificatives">
+                  <label><input type="checkbox" value="Relevés de notes"/> Relevés de notes</label>
+                  <label><input type="checkbox" value="Attestation d'inscription"/> Attestation d'inscription</label>
+                  <label><input type="checkbox" value="Copies"/> Copies</label>
+                  <label><input type="checkbox" value="Autres"/> Autres</label>
                 </div>
               </div>
             </div>
@@ -342,10 +342,10 @@
 
           <div class="fiche-section">
             <label class="section-label">Pièces justificatives jointes</label>
-            <div class="checkbox-group flex-wrap">
-              <label><input type="checkbox"/> Relevés de notes</label>
-              <label><input type="checkbox"/> Attestation d'inscription</label>
-              <label><input type="checkbox"/> Autres</label>
+            <div class="checkbox-group flex-wrap" id="dup-pieces-justificatives">
+              <label><input type="checkbox" value="Relevés de notes"/> Relevés de notes</label>
+              <label><input type="checkbox" value="Attestation d'inscription"/> Attestation d'inscription</label>
+              <label><input type="checkbox" value="Autres"/> Autres</label>
             </div>
           </div>
 
@@ -417,6 +417,15 @@
               </label>
             </div>
           </div>
+          <div class="form-group">
+            <label>Pièce jointe <span style="color:#888; font-size:12px;">(optionnel, PDF)</span></label>
+            <div class="upload-box" onclick="document.getElementById('attestation-file').click()">
+              <span>📎 Cliquez pour joindre un fichier</span>
+              <span id="attestation-file-name" style="font-size:12px;color:#1a237e;"></span>
+            </div>
+            <input type="file" id="attestation-file" accept=".pdf" style="display:none"
+              onchange="document.getElementById('attestation-file-name').textContent = this.files[0]?.name || ''"/>
+          </div>
           <div class="form-actions">
             <button class="btn-retour" onclick="retour()">← Retour</button>
             <button class="btn-envoyer" onclick="envoyer()">Envoyer la demande</button>
@@ -453,6 +462,7 @@
       const anneeDuplicata = document.getElementById('dup-annee-univ')?.value || '';
       const semestreDuplicata = document.getElementById('dup-semestre')?.value || '';
       const sessionDuplicata = document.getElementById('dup-session')?.value || '';
+      const pieces_justificatives = collectCheckedValues('dup-pieces-justificatives').join(', ');
 
       const params = new URLSearchParams({
         montant: 10000,
@@ -463,6 +473,7 @@
         semestre: semestreDuplicata,
         session: sessionDuplicata
       });
+      if (pieces_justificatives) params.set('pieces_justificatives', pieces_justificatives);
 
       window.location.href = 'paiement.html?' + params.toString();
     }
@@ -625,6 +636,8 @@
 
       let body = { type_demande, statut: 'soumise' };
 
+      let pieces_justificatives = '';
+
       if (typeActif === 'form-reclamation') {
         const annee_universitaire = document.getElementById('rec-annee-univ')?.value || '';
         const semestre = document.getElementById('rec-semestre')?.value || '';
@@ -638,6 +651,7 @@
         const telephone = document.querySelector('#form-reclamation input[type="tel"]')?.value || '';
         const id_professeur = document.getElementById('rec-professeur')?.value || '';
         const objet = 'Réclamation de note - ' + ecue1Label;
+        pieces_justificatives = collectCheckedValues('rec-pieces-justificatives').join(', ');
 
         body = {
           ...body,
@@ -651,7 +665,8 @@
           session: session || undefined,
           motif_labels,
           motif_autres,
-          id_matiere: ecue1 ? parseInt(ecue1, 10) : undefined
+          id_matiere: ecue1 ? parseInt(ecue1, 10) : undefined,
+          pieces_justificatives
         };
       } else if (typeActif === 'form-derogation') {
         const objet = document.getElementById('der-objet')?.value || 'Dérogation';
@@ -689,7 +704,7 @@
           const demandeId = data.demande?.id_demande;
 
           // Uploader le fichier si présent
-          const fileInput = document.getElementById('copieFile') || document.getElementById('der-copieFile');
+          const fileInput = document.getElementById('copieFile') || document.getElementById('der-copieFile') || document.getElementById('attestation-file');
           if (fileInput && fileInput.files && fileInput.files[0] && demandeId) {
             const formData = new FormData();
             formData.append('fichier', fileInput.files[0]);

@@ -729,6 +729,17 @@
           });
         }
 
+        // Pièces justificatives — cocher les cases correspondantes
+        if (demande.pieces_justificatives) {
+          const pjList = demande.pieces_justificatives.toLowerCase().split(/\s*,\s*/);
+          document.querySelectorAll('.fiche-section .checkbox-group.flex-wrap input[type="checkbox"]').forEach(cb => {
+            if (pjList.includes(cb.value.toLowerCase())) {
+              cb.checked = true;
+            }
+            cb.disabled = true;
+          });
+        }
+
         // ECUE 1 = matière
         const ecueSection = Array.from(document.querySelectorAll('.fiche-section'))
           .find(s => s.querySelector('.section-label')?.textContent.includes('ECUES'));

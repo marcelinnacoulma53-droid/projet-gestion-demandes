@@ -22,6 +22,7 @@ const createDemande = async (req, res, next) => {
     const {
         type_demande, objet, description, statut,
         annee_universitaire, correspondant,
+        pieces_justificatives,
         // Réclamation
         id_matiere, id_semestre, id_professeur, session,
         description_reclamation, motif_ids, motif_labels, motif_autres,
@@ -82,7 +83,8 @@ const createDemande = async (req, res, next) => {
             id_statut: id_statut,
             id_etape_courante: id_etape_courante,
             annee_universitaire: annee_universitaire || null,
-            correspondant: correspondant || null
+            correspondant: correspondant || null,
+            pieces_justificatives: pieces_justificatives || ''
         });
 
         const demandeId = nouvelleDemande.id_demande;

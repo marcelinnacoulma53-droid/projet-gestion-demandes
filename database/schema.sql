@@ -144,6 +144,7 @@ CREATE TABLE demandes (
     date_soumission TIMESTAMP,
     annee_universitaire VARCHAR(20),  -- nouveau champ
     correspondant VARCHAR(100),        -- nouveau champ
+    pieces_justificatives TEXT DEFAULT '',  -- champs cochés dans le formulaire
 
     id_etudiant INT REFERENCES etudiants(id_etudiant),
     id_type_demande INT REFERENCES types_demande(id_type_demande),
