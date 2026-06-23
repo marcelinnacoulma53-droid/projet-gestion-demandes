@@ -251,6 +251,15 @@
               </select>
             </div>
           </div>
+          <div class="fiche-section">
+            <label class="section-label">📎 Pièces justificatives jointes</label>
+            <div class="checkbox-group flex-wrap" id="der-pieces-justificatives">
+              <label><input type="checkbox" value="Relevés de notes"/> Relevés de notes</label>
+              <label><input type="checkbox" value="Copies"/> Copies</label>
+              <label><input type="checkbox" value="Attestation d'inscription"/> Attestation d'inscription</label>
+              <label><input type="checkbox" value="Autres"/> Autres</label>
+            </div>
+          </div>
           <div class="form-group">
             <label>Pièce jointe</label>
             <div class="upload-box" onclick="document.getElementById('der-copieFile').click()">
@@ -260,15 +269,6 @@
             </div>
             <input type="file" id="der-copieFile" accept=".pdf,.jpg,.png" style="display:none"
               onchange="document.getElementById('der-fileName').textContent = this.files[0]?.name || ''"/>
-          </div>
-          <div class="fiche-section">
-            <label class="section-label">📎 Pièces justificatives jointes</label>
-            <div class="checkbox-group flex-wrap" id="der-pieces-justificatives">
-              <label><input type="checkbox" value="Relevés de notes"/> Relevés de notes</label>
-              <label><input type="checkbox" value="Copies"/> Copies</label>
-              <label><input type="checkbox" value="Attestation d'inscription"/> Attestation d'inscription</label>
-              <label><input type="checkbox" value="Autres"/> Autres</label>
-            </div>
           </div>
           <div class="fiche-section">
             <label class="section-label">Correspondant</label>
@@ -371,11 +371,11 @@
           <div class="fiche-section">
             <label class="section-label">Correspondant</label>
             <div class="checkbox-group flex-wrap" id="dup-correspondant">
-              <label><input type="checkbox" value="Directeur"/> Directeur</label>
-              <label><input type="checkbox" value="Directrice adjointe"/> Directrice adjointe</label>
-              <label><input type="checkbox" value="Coordonnateur"/> Coordonnateur</label>
-              <label><input type="checkbox" value="Responsable des stages"/> Responsable des stages</label>
-              <label><input type="checkbox" value="Chef Scolarité"/> Chef Scolarité</label>
+              <label><input type="checkbox" value="Directeur" disabled/> Directeur</label>
+              <label><input type="checkbox" value="Directrice adjointe" disabled/> Directrice adjointe</label>
+              <label><input type="checkbox" value="Coordonnateur" disabled/> Coordonnateur</label>
+              <label><input type="checkbox" value="Responsable des stages" disabled/> Responsable des stages</label>
+              <label><input type="checkbox" value="Chef Scolarité" disabled/> Chef Scolarité</label>
             </div>
           </div>
 
@@ -436,14 +436,33 @@
               </label>
             </div>
           </div>
-          <div class="form-group">
-            <label>Pièce jointe <span style="color:#888; font-size:12px;">(optionnel, PDF)</span></label>
-            <div class="upload-box" onclick="document.getElementById('attestation-file').click()">
-              <span>📎 Cliquez pour joindre un fichier</span>
-              <span id="attestation-file-name" style="font-size:12px;color:#1a237e;"></span>
+          <div class="form-row">
+            <div class="form-group flex-1">
+              <label>Année universitaire</label>
+              <select id="att-annee">
+                <option value="">-- Choisir --</option>
+                <option value="2023/2024">2023/2024</option>
+                <option value="2024/2025">2024/2025</option>
+                <option value="2025/2026">2025/2026</option>
+              </select>
             </div>
-            <input type="file" id="attestation-file" accept=".pdf" style="display:none"
-              onchange="document.getElementById('attestation-file-name').textContent = this.files[0]?.name || ''"/>
+            <div class="form-group flex-1">
+              <label>Semestre</label>
+              <select id="att-semestre">
+                <option value="">-- Choisir --</option>
+                <option value="S1">S1</option><option value="S2">S2</option>
+                <option value="S3">S3</option><option value="S4">S4</option>
+                <option value="S5">S5</option>
+              </select>
+            </div>
+            <div class="form-group flex-1">
+              <label>Session</label>
+              <select id="att-session">
+                <option value="">-- Choisir --</option>
+                <option value="Normale">Normale</option>
+                <option value="Rattrapage">Rattrapage</option>
+              </select>
+            </div>
           </div>
           <div class="fiche-section">
             <label class="section-label">📎 Pièces justificatives jointes</label>
@@ -454,15 +473,23 @@
               <label><input type="checkbox" value="Autres"/> Autres</label>
             </div>
           </div>
+          <div class="form-group">
+            <label>Pièce jointe <span style="color:#888; font-size:12px;">(optionnel, PDF)</span></label>
+            <div class="upload-box" onclick="document.getElementById('attestation-file').click()">
+              <span>📎 Cliquez pour joindre un fichier</span>
+              <span id="attestation-file-name" style="font-size:12px;color:#1a237e;"></span>
+            </div>
+            <input type="file" id="attestation-file" accept=".pdf" style="display:none"
+              onchange="document.getElementById('attestation-file-name').textContent = this.files[0]?.name || ''"/>
+          </div>
           <div class="fiche-section">
             <label class="section-label">Correspondant</label>
             <div class="checkbox-group flex-wrap" id="att-correspondant">
-              <label><input type="checkbox" value="Directeur" disabled/> Directeur</label>
-              <label><input type="checkbox" value="Directrice adjointe" disabled/> Directrice adjointe</label>
-              <label><input type="checkbox" value="Coordonnateur" disabled/> Coordonnateur</label>
-              <label><input type="checkbox" value="Chef de service Scolarité" disabled/> Chef de service Scolarité</label>
+              <label><input type="checkbox" value="Directeur"/> Directeur</label>
+              <label><input type="checkbox" value="Directrice adjointe"/> Directrice adjointe</label>
+              <label><input type="checkbox" value="Coordonnateur"/> Coordonnateur</label>
+              <label><input type="checkbox" value="Chef de service Scolarité"/> Chef de service Scolarité</label>
             </div>
-            <p style="font-size:11px; color:#888; margin-top:4px;">Sélectionné par l'administration lors du traitement</p>
           </div>
           <div class="form-actions">
             <button class="btn-retour" onclick="retour()">← Retour</button>
@@ -719,6 +746,10 @@
       } else if (typeActif === 'form-attestation') {
         const typeAttestation = document.getElementById('att-type')?.value || '';
         const nombre_exemplaires = parseInt(document.querySelector('input[name="exemplaires"]:checked')?.value || '1');
+        const correspondant = collectCheckedValues('att-correspondant').join(', ');
+        const annee_universitaire = document.getElementById('att-annee')?.value || '';
+        const semestre = document.getElementById('att-semestre')?.value || '';
+        const session = document.getElementById('att-session')?.value || '';
         pieces_justificatives = collectCheckedValues('att-pieces-justificatives').join(', ');
         body = {
           ...body,
@@ -726,6 +757,10 @@
           description: typeAttestation,
           id_type_attestation: typeAttestation,
           nombre_exemplaires,
+          correspondant: correspondant || undefined,
+          annee_universitaire: annee_universitaire || undefined,
+          id_semestre: semestre || undefined,
+          session: session || undefined,
           pieces_justificatives
         };
       }

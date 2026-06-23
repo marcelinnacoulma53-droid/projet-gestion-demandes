@@ -311,7 +311,7 @@
             return `<tr data-statut="${categorie}" data-id="${d.id_demande}">
               <td data-label="N°">${d.reference || d.id_demande}</td>
               <td data-label="Étudiant">${((d.prenom_etudiant || '') + ' ' + (d.nom_etudiant || '')).trim() || 'Étudiant'}</td>
-              <td data-label="Type">${d.objet || 'N/A'}</td>
+              <td data-label="Type">${d.type_demande || 'N/A'}</td>
               <td data-label="Date">${date}</td>
               <td data-label="Statut"><span class="badge ${badgeClass}">${statut}</span></td>
               <td data-label="Actions" class="actions-cell">
